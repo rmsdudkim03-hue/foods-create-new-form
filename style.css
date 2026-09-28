@@ -1,0 +1,351 @@
+/* =========================================================
+   디자인 토큰: 색과 폰트는 여기서 한 번에 바꿀 수 있어
+   ========================================================= */
+:root {
+  --bg: #ffffff;        /* 배경 */
+  --ink: #000000;       /* 메인 글자 (메인 화면 제목, 메뉴) */
+  --ink-strong: #212121;/* 화면 제목 */
+  --ink-sub: #454545;   /* 설명 글자 */
+  --ink-faint: #767676; /* 작은 안내 글자 */
+  --pill: #212121;      /* 검은 버튼·입력창 */
+  --on-pill: #ffffff;
+  --font: "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --u: 1px;             /* 피그마 1px이 화면에서 몇 px인지 (JS가 계산) */
+  --ease: cubic-bezier(.22, .8, .24, 1);
+}
+
+/* 좌표 변수는 부모에게서 물려받지 않게 설정 (요소마다 자기 좌표만 사용) */
+@property --x { syntax: '*'; inherits: false; }
+@property --y { syntax: '*'; inherits: false; }
+@property --w { syntax: '*'; inherits: false; }
+@property --h { syntax: '*'; inherits: false; }
+@property --cx { syntax: '*'; inherits: false; }
+@property --px { syntax: '*'; inherits: false; }
+@property --py { syntax: '*'; inherits: false; }
+@property --pw { syntax: '*'; inherits: false; }
+@property --ph { syntax: '*'; inherits: false; }
+@property --pcx { syntax: '*'; inherits: false; }
+@property --fs { syntax: '*'; inherits: false; }
+@property --pfs { syntax: '*'; inherits: false; }
+
+html, body { height: 100%; margin: 0; background: var(--bg); }
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 피그마 프레임(1440×1024)을 화면 크기에 맞춰 확대·축소하는 무대 */
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(1440 * var(--u));
+  height: calc(1024 * var(--u));
+  transform: translate(-50%, -50%);
+}
+.is-portrait .stage {
+  width: calc(600 * var(--u));
+  height: calc(1100 * var(--u));
+}
+
+/* ---------- 좌표 도우미 ---------- */
+.abs { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); }
+.box { width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); }
+.cx  { position: absolute; left: calc(var(--cx) * var(--u)); top: calc(var(--y) * var(--u)); transform: translateX(-50%); white-space: nowrap; }
+.fs  { font-size: calc(var(--fs) * var(--u)); }
+
+.is-portrait .abs { left: calc(var(--px, var(--x)) * var(--u)); top: calc(var(--py, var(--y)) * var(--u)); }
+.is-portrait .box { width: calc(var(--pw, var(--w)) * var(--u)); height: calc(var(--ph, var(--h)) * var(--u)); }
+.is-portrait .cx  { left: calc(var(--pcx, var(--cx)) * var(--u)); top: calc(var(--py, var(--y)) * var(--u)); }
+.is-portrait .fs  { font-size: calc(var(--pfs, var(--fs)) * var(--u)); }
+
+img { display: block; max-width: none; -webkit-user-drag: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 4px; }
+h1, h2, p { margin: 0; font-weight: inherit; }
+
+/* ---------- 화면 전환 ---------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .5s var(--ease), visibility 0s linear .5s;
+}
+.screen.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .6s var(--ease) .1s, visibility 0s;
+}
+.screen .title, .screen .sub { transition: opacity .7s var(--ease), translate .7s var(--ease); }
+.screen:not(.is-active) .title, .screen:not(.is-active) .sub { opacity: 0; translate: 0 calc(12 * var(--u)); }
+.screen.is-active .sub { transition-delay: .12s; }
+
+/* ---------- 공통 글자 ---------- */
+.title { font-weight: 800; color: var(--ink-strong); line-height: 1.44; }
+.sub   { font-weight: 600; color: var(--ink-sub); line-height: 1.4; }
+
+/* ---------- 로고 · 메뉴 ---------- */
+.logo { z-index: 20; }
+.logo img, .plate-logo { width: 100%; height: 100%; object-fit: contain; }
+.mid-logo { object-fit: contain; }
+.nav {
+  z-index: 20;
+  display: flex;
+  gap: calc(68 * var(--u));
+  transition: opacity .4s var(--ease), visibility 0s;
+}
+.is-portrait .nav { gap: calc(22 * var(--u)); }
+.nav button { font-weight: 500; line-height: 1.3; text-transform: capitalize; color: var(--ink); }
+.nav button[aria-current="page"] { text-decoration: underline; text-underline-offset: calc(6 * var(--u)); text-decoration-thickness: 1px; }
+.nav.is-hidden { opacity: 0; visibility: hidden; transition: opacity .3s, visibility 0s .3s; }
+@media (hover: hover) {
+  .nav button:hover { text-decoration: underline; text-underline-offset: calc(6 * var(--u)); text-decoration-thickness: 1px; }
+}
+
+/* ---------- 화면 1: 메인 ---------- */
+.hero-title { font-weight: 800; line-height: 1.17; letter-spacing: -0.005em; color: var(--ink); white-space: nowrap; }
+.hero-sub { font-weight: 500; color: var(--ink); white-space: nowrap; }
+.plate { animation: floaty 7s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.plate-start { transition: scale .5s var(--ease); }
+.plate-start > img:first-child { width: 100%; height: 100%; }
+.plate-logo {
+  position: absolute;
+  left: 27.9%; top: 31.2%;
+  width: 44.2% !important; height: 37.5% !important;
+  transition: rotate .8s var(--ease);
+}
+@media (hover: hover) {
+  .plate-start:hover { scale: 1.05; }
+  .plate-start:hover .plate-logo { rotate: 90deg; }
+}
+@keyframes floaty {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 calc(-10 * var(--u)); }
+}
+
+/* ---------- 그릇 ---------- */
+.bowl { object-fit: contain; pointer-events: none; }
+
+/* ---------- 화면 2: 음식 고르기 ---------- */
+.pill {
+  display: block;
+  background: var(--pill);
+  color: var(--on-pill);
+  border-radius: 999px;
+  cursor: text;
+  z-index: 4;
+}
+.pill-letter {
+  position: absolute;
+  left: calc(33 * var(--u));
+  top: 50%;
+  translate: 0 -50%;
+  font-weight: 800;
+  line-height: 1;
+}
+.pill-caret {
+  position: absolute;
+  left: calc(75 * var(--u));
+  top: 50%;
+  width: max(1.5px, calc(2 * var(--u)));
+  height: calc(25 * var(--u));
+  translate: 0 -50%;
+  background: var(--on-pill);
+}
+.pill.is-filled .pill-caret { opacity: 0; }
+.pill-input {
+  position: absolute;
+  left: calc(100 * var(--u));
+  right: calc(24 * var(--u));
+  top: 0; bottom: 0;
+  width: auto;
+  border: 0;
+  background: transparent;
+  color: var(--on-pill);
+  font-family: var(--font);
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  caret-color: transparent;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.pill.is-filled .pill-input { caret-color: var(--on-pill); }
+.pill-input::placeholder { color: rgba(255, 255, 255, .32); }
+.pill-input:focus-visible { outline: none; }
+.pill:focus-within { outline: 2px solid var(--ink-strong); outline-offset: 4px; }
+.pill:focus-within:not(.is-filled) .pill-caret { animation: blink 1s steps(1) infinite; }
+/* AI가 음식인지 확인하는 동안 글자가 깜빡임 */
+.pill.is-checking .pill-input { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.pill.shake { animation: shake .45s var(--ease); }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes shake {
+  20% { translate: calc(-10 * var(--u)) 0; }
+  40% { translate: calc(8 * var(--u)) 0; }
+  60% { translate: calc(-6 * var(--u)) 0; }
+  80% { translate: calc(3 * var(--u)) 0; }
+}
+
+.mid-logo { pointer-events: none; }
+
+.arrow {
+  font-weight: 500;
+  line-height: 1;
+  color: var(--ink);
+  padding: calc(6 * var(--u));
+  transition: opacity .4s var(--ease), translate .4s var(--ease);
+}
+.arrow[disabled] { opacity: 0; pointer-events: none; }
+@media (hover: hover) { .arrow:hover { translate: calc(6 * var(--u)) 0; } }
+
+/* ---------- 화면 3: 이미지 캐러셀 ---------- */
+.car-track { position: absolute; inset: 0; touch-action: pan-y; cursor: grab; }
+.car-track.is-dragging { cursor: grabbing; }
+.car-track.is-swapping .car-item { opacity: 0 !important; }
+.car-item {
+  position: absolute;
+  left: 0; top: 0;
+  transition: transform .6s var(--ease), opacity .45s var(--ease);
+  will-change: transform;
+}
+.car-track.is-dragging .car-item { transition: none; }
+.car-item img { position: absolute; pointer-events: none; }
+.car-img { inset: 0; width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; opacity: 0; transition: opacity .6s var(--ease); }
+.car-item.is-ready .car-img { opacity: 1; }
+/* 이미지가 도착하기 전: 빈 접시가 숨 쉬듯 깜빡임 */
+.car-ph { left: 20%; top: 20%; width: 60%; height: 60%; opacity: .55; animation: breathe 1.6s ease-in-out infinite; transition: opacity .4s var(--ease); }
+.car-item.is-ready .car-ph { opacity: 0; animation: none; }
+@keyframes breathe { 50% { opacity: .25; scale: .94; } }
+.btn-dark {
+  background: var(--pill);
+  color: var(--on-pill);
+  border-radius: 999px;
+  font-weight: 800;
+  white-space: nowrap;
+  z-index: 3;
+  transition: scale .3s var(--ease);
+}
+.btn-dark:disabled { opacity: .3; cursor: default; }
+@media (hover: hover) { .btn-dark:not(:disabled):hover { scale: 1.03; } }
+
+/* ---------- 화면 4: 분석 중 ---------- */
+.scan { overflow: visible; }
+.scan img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
+/* 사진이 흰 재료로 바뀌는 효과 (js/material.js) */
+.scan canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scan.has-fx img { visibility: hidden; }
+
+/* ---------- 화면 5: 요리하기 ---------- */
+.frag {
+  z-index: 3;
+  touch-action: none;
+  cursor: grab;
+  transition: transform .55s var(--ease);
+}
+.frag.is-dragging { cursor: grabbing; transition: none; z-index: 10; }
+.frag.is-dropping { transition: transform .5s cubic-bezier(.5, 0, .75, 0), opacity .5s ease-in; opacity: 0; pointer-events: none; }
+.frag-float { width: 100%; height: 100%; animation: floaty 5s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.frag.is-dragging .frag-float { animation-play-state: paused; }
+.frag-crop { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.frag-crop img { position: absolute; pointer-events: none; }
+.frag-crop { mix-blend-mode: multiply; }
+@media (hover: hover) { .frag:hover .frag-crop { filter: drop-shadow(0 calc(8 * var(--u)) calc(10 * var(--u)) rgba(0,0,0,.12)); } }
+.bowl.bump { animation: bump .45s var(--ease); }
+.bowl.cooking { animation: cook .9s ease-in-out 2; }
+@keyframes bump { 40% { translate: 0 calc(8 * var(--u)); scale: 1.01 .98; } }
+@keyframes cook {
+  25% { rotate: -1.2deg; }
+  75% { rotate: 1.2deg; }
+}
+
+/* ---------- 화면 6: 맛보기 조형 ---------- */
+.taste-cell { position: absolute; inset: 0; pointer-events: none; }
+.taste-cell button { pointer-events: auto; }
+.taste-hit { z-index: 2; border-radius: 40%; }
+.taste-form { object-fit: contain; mix-blend-mode: multiply; pointer-events: none; transition: translate .5s var(--ease), scale .5s var(--ease), opacity .5s var(--ease); z-index: 1; }
+.taste-cell .bowl { transition: opacity .5s var(--ease); }
+.taste-cell:not(.is-ready) .taste-form { opacity: 0; translate: 0 calc(10 * var(--u)); }
+.taste-cell:not(.is-ready) .bowl { animation: breathe 1.6s ease-in-out infinite; }
+.taste-hit:disabled { cursor: default; }
+@media (hover: hover) {
+  .taste-cell:has(.taste-hit:hover) .taste-form { translate: 0 calc(-16 * var(--u)); scale: 1.04; }
+}
+.taste-cell:has(.taste-hit:focus-visible) .taste-form { translate: 0 calc(-16 * var(--u)); }
+#tasteLayer.has-choice .taste-cell:not(.is-chosen) .taste-form,
+#tasteLayer.has-choice .taste-cell:not(.is-chosen) .bowl { opacity: .15; }
+#tasteLayer.has-choice .is-chosen .taste-form { translate: 0 calc(-28 * var(--u)); scale: 1.08; }
+
+/* ---------- 화면 7: 3D 결과 ---------- */
+.viewer { touch-action: none; cursor: grab; }
+.viewer:active { cursor: grabbing; }
+.viewer canvas { display: block; width: 100% !important; height: 100% !important; outline: none; }
+.viewer-fallback { position: absolute; inset: 8%; width: 84%; height: 84%; object-fit: contain; mix-blend-mode: multiply; animation: floaty 6s ease-in-out infinite; }
+.viewer canvas { transition: opacity .9s var(--ease); }
+.sub.is-waiting { animation: pulse 1.4s ease-in-out infinite; }
+/* 작은 안내 문구 (AI 생성 이미지, 추정한 면) */
+.note { font-weight: 500; color: var(--ink-faint); line-height: 1.4; }
+
+/* ---------- 화면 8: 갤러리 ---------- */
+.g-feature img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; transition: opacity .35s var(--ease); }
+.g-feature.is-swapping img { opacity: 0; }
+.g-no { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.g-name { font-weight: 800; color: var(--ink); }
+.g-date { font-weight: 400; color: var(--ink); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.g-plate {
+  position: absolute;
+  left: 0; top: 0;
+  transition: transform .7s var(--ease), opacity .5s var(--ease);
+}
+.g-plate > img:first-child { width: 100%; height: 100%; }
+.g-plate .g-thumb {
+  position: absolute;
+  mix-blend-mode: multiply;
+  left: 23%; top: 23%;
+  width: 54%; height: 54%;
+  object-fit: contain;
+}
+.g-plate[disabled] { cursor: default; }
+@media (hover: hover) { .g-plate:not([disabled]):not(.is-current):hover .g-thumb { scale: 1.08; transition: scale .3s var(--ease); } }
+
+/* ---------- 알림 ---------- */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  translate: -50% 20px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: var(--pill);
+  color: var(--on-pill);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s var(--ease), translate .3s var(--ease);
+  z-index: 50;
+}
+.toast.is-show { opacity: 1; translate: -50% 0; }
+
+/* 움직임 줄이기 설정을 켠 사람에게는 애니메이션을 최소화 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
