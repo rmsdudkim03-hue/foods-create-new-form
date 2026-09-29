@@ -2,7 +2,7 @@
 // POST { image }  → 변환 시작, { taskId } 반환
 // GET  ?id=...    → 진행 상황 { status, progress }
 // (선택) ③-1 이미지 정리 단계는 테스트 후 필요하면 추가. 프롬프트 원문: prompts/3-to-3d.md
-import { send, readJSON, allowed, meshy, timed } from './_lib.js';
+import { send, readJSON, allowed, meshy } from './_lib.js';
 import { isImage } from './analyze.js';
 
 export default async function model(req, res) {
@@ -12,7 +12,7 @@ export default async function model(req, res) {
     if (req.method === 'POST') {
       const { image } = await readJSON(req);
       if (!isImage(image)) return send(res, 400, { error: 'input' });
-      const data = await timed('3D 변환 시작 요청', () => meshy('/image-to-3d', {
+      const data = await meshy('/image-to-3d', {
         method: 'POST',
         body: JSON.stringify({
           image_url: image,
@@ -24,7 +24,7 @@ export default async function model(req, res) {
           target_formats: ['glb'],
           origin_at: 'center',
         }),
-      }));
+      });
       return send(res, 200, { taskId: data.result });
     }
     if (req.method === 'GET') {

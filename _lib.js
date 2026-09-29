@@ -16,25 +16,10 @@ const MESHY = process.env.MESHY_BASE || 'https://api.meshy.ai/openapi/v1';
 export const MODELS = {
   text: process.env.TEXT_MODEL || 'gpt-6-astra',
   imageFood: process.env.IMAGE_MODEL_FOOD || 'gpt-image-1-mini',
-  imageForm: process.env.IMAGE_MODEL_FORM || 'gpt-image-2.5-flare', // 빠른 이미지 모델
+  imageForm: process.env.IMAGE_MODEL_FORM || 'gpt-image-2',
   qualityFood: process.env.IMAGE_QUALITY_FOOD || 'medium',
-  qualityForm: process.env.IMAGE_QUALITY_FORM || 'medium',
-  // 글 AI 고속 모드 (비용 2배, 속도 향상). 끄려면 환경 변수 TEXT_FAST=0
-  textFast: process.env.TEXT_FAST !== '0',
+  qualityForm: process.env.IMAGE_QUALITY_FORM || 'high',
 };
-
-// 걸린 시간을 Vercel 로그에 남김 (로그 메뉴에서 확인)
-export async function timed(label, fn) {
-  const t = Date.now();
-  try {
-    const out = await fn();
-    console.log(`[시간] ${label}: ${((Date.now() - t) / 1000).toFixed(1)}초`);
-    return out;
-  } catch (err) {
-    console.log(`[시간] ${label}: ${((Date.now() - t) / 1000).toFixed(1)}초 (실패)`);
-    throw err;
-  }
-}
 
 /* ---------- 이미지 AI에 항상 붙이는 조건 ----------
    네 프롬프트의 [이미지 조건]에 화면 구현에 필요한 조건을 더한 것 (← 표시가 추가분) */
@@ -99,34 +84,25 @@ export function handler(fn, { method = 'POST' } = {}) {
 /* ---------- 프롬프트 파일 읽기 ---------- */
 export function prompt(file) {
   const text = fs.readFileSync(path.join(process.cwd(), 'prompts', file), 'utf8');
-  // 맨 위 제목 줄과 <!-- 주석 -->은 빼고 보냄
-  return text.replace(/<!--[\s\S]*?-->/g, '').replace(/^# .*\n+/, '').trim();
+  return text.replace(/^# .*\n+/, '').trim(); // 맨 위 제목 줄은 빼고
 }
 
 /* ---------- OpenAI: 글 AI (GPT-6 Astra) ---------- */
 export async function askJSON({ instructions, text, images = [], name, schema, effort = 'medium' }) {
   const content = [{ type: 'input_text', text }];
   for (const url of images) content.push({ type: 'input_image', image_url: url });
-  const request = (fast) => fetch(`${OPENAI}/responses`, {
+  const r = await fetch(`${OPENAI}/responses`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODELS.text,
       reasoning: { effort },
-      ...(fast ? { service_tier: 'priority' } : {}),
       instructions,
       input: [{ role: 'user', content }],
       text: { format: { type: 'json_schema', name, schema, strict: true } },
     }),
   });
-  let r = await timed(`글 AI ${name}${MODELS.textFast ? ' (고속)' : ''}`, () => request(MODELS.textFast));
-  let data = await r.json().catch(() => ({}));
-  // 고속 모드를 지원하지 않으면 일반 모드로 다시 요청
-  if (!r.ok && MODELS.textFast && /service_tier|priority/i.test(data.error?.message || '')) {
-    console.log('[알림] 고속 모드 미지원 → 일반 모드로 재요청');
-    r = await timed(`글 AI ${name}`, () => request(false));
-    data = await r.json().catch(() => ({}));
-  }
+  const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`OpenAI ${r.status}: ${data.error?.message || 'error'}`);
   const msg = (data.output || []).find((o) => o.type === 'message');
   const out = msg?.content?.find((c) => c.type === 'output_text')?.text ?? data.output_text;
@@ -137,7 +113,7 @@ export async function askJSON({ instructions, text, images = [], name, schema, e
 /* ---------- OpenAI: 이미지 AI ---------- */
 export async function drawImage({ prompt: p, kind }) {
   const isFood = kind === 'food';
-  const r = await timed(`이미지 ${kind} (${isFood ? MODELS.imageFood : MODELS.imageForm})`, () => fetch(`${OPENAI}/images/generations`, {
+  const r = await fetch(`${OPENAI}/images/generations`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -150,7 +126,7 @@ export async function drawImage({ prompt: p, kind }) {
       output_compression: 88,
       n: 1,
     }),
-  }));
+  });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`OpenAI image ${r.status}: ${data.error?.message || 'error'}`);
   const b64 = data.data?.[0]?.b64_json;
