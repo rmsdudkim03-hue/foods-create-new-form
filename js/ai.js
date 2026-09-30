@@ -184,7 +184,7 @@ export function foodImages(food) {
         console.error(err);
         job.fail(i);
       }
-    }), 4);
+    }), 5);
     return job;
   }
   // 데모
@@ -228,7 +228,7 @@ export function tasteForms(analysis, picks, foods) {
             console.error(err);
             job.fail(i);
           }
-        }), 3);
+        }), 6); // 6장을 한꺼번에
       } catch (err) {
         console.error(err);
         job.failAll();
