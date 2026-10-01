@@ -40,23 +40,33 @@ function loadMatter() {
 }
 export function preloadCook() { loadMatter(); }
 
-/* ---------- 그릇 모양 (그릇 이미지 1018×509 안의 좌표) ----------
-   캔버스가 그릇 이미지 뒤에 있어서, 바닥을 테두리 앞쪽 선보다 조금 아래에 두면
-   조각 아랫부분이 그릇 앞쪽 벽에 가려져 '그릇 안에 담긴' 것처럼 보임.
-   (너무 깊으면 그릇 뒤로 숨는 것처럼, 너무 얕으면 그릇 위에 얹힌 것처럼 보여서 중간으로) */
+/* ---------- 그릇 모양 (그릇 이미지 1018×509 안의 좌표, 이미지 픽셀을 재서 정함) ----------
+   그릇 입구는 납작한 타원: 뒤쪽 테두리 y≈201, 앞쪽 테두리(밝은 선) y≈233 (가운데 기준)
+   조각은 그릇 이미지 '위에' 그리고, 앞쪽 테두리 선 아래(그릇 앞쪽 벽)만 잘라냄
+   → 입구 안쪽 면 위에 조각이 보이고 아랫부분만 앞쪽 벽에 가려져서 '그릇 안에 담긴' 것처럼 보임 */
 const BOWL_IMG = { w: 1018, h: 509 };
-const BOWL_FLOOR = [[204, 214], [250, 232], [340, 246], [509, 251], [678, 246], [768, 232], [814, 214]];
-const RIM_Y = 214;
+const LIP = { cx: 510, cy: 217, rx: 330, ry: 16 };   // 앞쪽 테두리 선(타원 아래쪽 반)
+const RIM_TOP = 201;                                  // 뒤쪽 테두리 맨 위
+const lipY = (x) => LIP.cy + LIP.ry * Math.sqrt(Math.max(0, 1 - ((x - LIP.cx) / LIP.rx) ** 2));
 function bowlGeom(portrait) {
   const b = portrait ? { x: -10, y: 600, w: 620 } : { x: 211, y: 546, w: 1018 };
   const k = b.w / BOWL_IMG.w;
   const P = ([x, y]) => [b.x + x * k, b.y + y * k];
+  // 바닥: 앞쪽 테두리보다 조금 아래 (조각 아랫부분이 살짝 가려지도록)
+  const floor = [];
+  for (let x = 196; x <= 824; x += 52) floor.push(P([x, lipY(x) + 9 - (Math.abs(x - LIP.cx) > 280 ? 8 : 0)]));
+  // 가리는 부분(앞쪽 벽): 앞쪽 테두리 선 아래 ~ 그릇 바닥
+  const front = [];
+  for (let x = LIP.cx - LIP.rx; x <= LIP.cx + LIP.rx; x += 10) front.push(P([x, lipY(x)]));
+  front.push(P([LIP.cx + LIP.rx, BOWL_IMG.h]), P([LIP.cx - LIP.rx, BOWL_IMG.h]));
   return {
-    floor: BOWL_FLOOR.map(P),
-    rimY: b.y + RIM_Y * k,
-    left: b.x + 214 * k,
-    right: b.x + 804 * k,
-    cx: b.x + 509 * k,
+    floor,
+    front,
+    rimY: b.y + RIM_TOP * k,
+    lipY: b.y + (LIP.cy + LIP.ry) * k,
+    left: b.x + 222 * k,
+    right: b.x + 798 * k,
+    cx: b.x + LIP.cx * k,
     k,
   };
 }
@@ -267,7 +277,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
   }
 
   // 섞일 때 도는 길 (그릇 위 납작한 타원)
-  const mix = { cx: bowl.cx, cy: bowl.rimY + 16 * bowl.k, rx: (bowl.right - bowl.left) * 0.3, ry: 20 * bowl.k };
+  const mix = { cx: bowl.cx, cy: (bowl.rimY + bowl.lipY) / 2 + 4 * bowl.k, rx: (bowl.right - bowl.left) * 0.32, ry: 11 * bowl.k };
 
   /* ---------- 놓기: 그릇 위로 옮긴 뒤 떨어뜨림 ---------- */
   let dropped = 0;
@@ -278,7 +288,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
     const n = restN++;
     const row = Math.floor(n / 5), col = n % 5;
     const off = [0, -1, 1, -2, 2][col] * (bowl.right - bowl.left) * 0.16;
-    return [bowl.cx + off + (Math.random() - 0.5) * 10, bowl.rimY + 34 * bowl.k - r * 0.8 - row * 28 * bowl.k];
+    return [bowl.cx + off + (Math.random() - 0.5) * 10, bowl.lipY + 8 * bowl.k - r * 0.8 - row * 26 * bowl.k];
   };
   function drop(p, x, y) {
     if (p.state === 'fly' || p.state === 'fall') return;
@@ -453,6 +463,13 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
 
     // 4) 그리기 (섞일 때는 뒤쪽 조각부터 → 앞쪽 조각이 위에 보임)
     const order = phase === 'mix' || phase === 'done' ? [...pieces].sort((a, b) => a.depth - b.depth) : pieces;
+    // 그릇 앞쪽 벽 부분은 그리지 않음 (전체 화면 - 앞쪽 벽, evenodd)
+    ctx.save();
+    const clip = new Path2D();
+    clip.rect(0, 0, canvas.width, canvas.height);
+    bowl.front.forEach(([x, y], i) => (i ? clip.lineTo(x * k, y * k) : clip.moveTo(x * k, y * k)));
+    clip.closePath();
+    ctx.clip(clip, 'evenodd');
     for (const p of order) {
       if (p.alpha <= 0) continue;
       ctx.save();
@@ -463,6 +480,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
       ctx.drawImage(p.tex, (-p.tex.width / 2) * s, (-p.tex.height / 2) * s, p.tex.width * s, p.tex.height * s);
       ctx.restore();
     }
+    ctx.restore();
 
     // 5) 다 넣었고 조각이 멈췄으면(또는 충분히 기다렸으면) 섞기 시작
     if (phase === 'play' && dropped === pieces.length && pieces.every((p) => p.state === 'fall')) {

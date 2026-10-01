@@ -288,7 +288,7 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 @media (hover: hover) { .cook-all:hover { background: var(--pill); color: var(--on-pill); } }
 .bowl.bump { animation: bump .45s var(--ease); }
 .bowl.cooking { animation: cook .9s ease-in-out 2; }
-@keyframes bump { 40% { translate: 0 calc(8 * var(--u)); scale: 1.01 .98; } }
+@keyframes bump { 40% { translate: 0 calc(2 * var(--u)); } } /* 조각이 떨어질 때 그릇이 아주 살짝 눌림 (조각 위치와 어긋나지 않게 작게) */
 @keyframes cook {
   25% { rotate: -1.2deg; }
   75% { rotate: 1.2deg; }

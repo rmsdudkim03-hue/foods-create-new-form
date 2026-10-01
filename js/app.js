@@ -605,7 +605,7 @@ enter.cook = () => {
       sub.textContent = n < total ? `음식을 드래그하여 그릇안으로 넣어주세요 (${n}/${total})` : '조각들을 섞고 있어요';
       all.hidden = n >= total;
     },
-    onMix: () => { cookBowl.classList.remove('bump'); cookBowl.classList.add('cooking'); },
+    onMix: () => cookBowl.classList.remove('bump'),
     onDone: () => { if (current === 'cook') timers.cook2 = setTimeout(() => go('taste'), 200); },
   });
   if (!isTouch()) setTimeout(() => current === 'cook' && $('#cookFx').focus({ preventScroll: true }), 400);
