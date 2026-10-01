@@ -4,6 +4,8 @@
 //   없으면 (예전 방식): 글 AI가 이미지 10장을 계획 → 이미지 AI가 그림. 프롬프트 원문: prompts/0-food-images.md
 import { handler, send, askJSON, prompt, S, searchPhotos, photoSite } from './_lib.js';
 
+const MIN_IMAGES = 6; // 사진이 이보다 적으면 모자란 만큼 AI가 음식 이미지를 그림
+
 // 실제 사진 모드: 음식인지 확인 + 검색어만 정함 (빠르게)
 const PHOTO_SCHEMA = S.obj({
   is_food: S.bool('입력된 단어가 음식이면 true'),
@@ -43,25 +45,8 @@ const INSTRUCTIONS = `너는 웹 전시 작품의 한 단계를 맡는다. 관�
    배경, 조명, 금지 요소 같은 공통 이미지 조건은 다음 단계에서 자동으로 붙으니, 묘사는 음식과 구도에 집중한다.
    적용한 해석은 interpretation에 쓴다.`;
 
-export default handler(async (req, res, body) => {
-  const word = String(body.word || '').trim().slice(0, 30);
-  if (!word) return send(res, 400, { error: 'empty' });
-
-  if (photoSite()) {
-    const out = await askJSON({
-      instructions: PHOTO_INSTRUCTIONS,
-      text: `입력 단어: ${word}`,
-      name: 'food_check',
-      schema: PHOTO_SCHEMA,
-      effort: 'low',
-    });
-    if (!out.is_food) {
-      return send(res, 200, { ok: false, message: out.message || `${word}은(는) 음식이 아니에요. 다른 음식을 입력해 주세요` });
-    }
-    const photos = await searchPhotos(out.queries?.length ? out.queries : [word], out.name || word);
-    if (!photos.length) return send(res, 200, { ok: false, message: `${out.name || word} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
-    return send(res, 200, { ok: true, name: out.name || word, interpretation: '', photos });
-  }
+// AI 이미지 계획 (예전 방식, 프롬프트 원문 prompts/0-food-images.md). 음식인지 확인도 같이 함
+async function planShots(word) {
   const out = await askJSON({
     instructions: INSTRUCTIONS,
     text: `[프롬프트]\n${prompt('0-food-images.md').replaceAll('{음식명}', word)}\n\n입력 단어: ${word}`,
@@ -69,10 +54,52 @@ export default handler(async (req, res, body) => {
     schema: SCHEMA,
     effort: 'low',
   });
-  if (!out.is_food) {
-    return send(res, 200, { ok: false, message: out.message || `${word}은(는) 음식이 아니에요. 다른 음식을 입력해 주세요` });
+  return { ...out, shots: (out.shots || []).filter((s) => s.prompt).slice(0, 10) };
+}
+
+const notFood = (word, message) => ({ ok: false, message: message || `${word}은(는) 음식이 아니에요. 다른 음식을 입력해 주세요` });
+
+export default handler(async (req, res, body) => {
+  const word = String(body.word || '').trim().slice(0, 30);
+  if (!word) return send(res, 400, { error: 'empty' });
+
+  if (photoSite()) {
+    // '다른 사진 보기': 이미 확인된 음식이면 검색어를 그대로 받아서 다음 묶음만 찾음 (음식 확인 생략)
+    const given = Array.isArray(body.queries) ? body.queries.map((q) => String(q).slice(0, 40)).filter(Boolean).slice(0, 3) : [];
+    const page = Math.max(1, Math.min(10, parseInt(body.page, 10) || 1));
+    const exclude = Array.isArray(body.exclude) ? body.exclude.map(String).slice(0, 200) : [];
+    let name = word;
+    let queries = given;
+    if (!queries.length) {
+      const out = await askJSON({
+        instructions: PHOTO_INSTRUCTIONS,
+        text: `입력 단어: ${word}`,
+        name: 'food_check',
+        schema: PHOTO_SCHEMA,
+        effort: 'low',
+      });
+      if (!out.is_food) return send(res, 200, notFood(word, out.message));
+      name = out.name || word;
+      queries = out.queries?.length ? out.queries : [word];
+    }
+    const photos = await searchPhotos(queries, name, { page, exclude });
+    // 맞는 사진이 모자라면 (예: 메론빵처럼 사진 사이트에 거의 없는 음식) 모자란 만큼 AI가 그림
+    let shots = [];
+    if (photos.length < MIN_IMAGES) {
+      console.log(`[알림] ${name} 사진 ${photos.length}장뿐 → AI 이미지 ${MIN_IMAGES - photos.length}장으로 채움`);
+      try {
+        const plan = await planShots(name);
+        shots = plan.shots.slice(0, MIN_IMAGES - photos.length);
+      } catch (err) {
+        console.error('[알림] AI 이미지 계획 실패', err);
+      }
+    }
+    if (!photos.length && !shots.length) return send(res, 200, { ok: false, message: `${name} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
+    return send(res, 200, { ok: true, name, interpretation: '', queries, page, photos, shots });
   }
-  const shots = (out.shots || []).filter((s) => s.prompt).slice(0, 10);
-  if (!shots.length) throw new Error('사진 묘사가 비어 있음');
-  send(res, 200, { ok: true, name: out.name || word, interpretation: out.interpretation || '', shots });
+
+  const out = await planShots(word);
+  if (!out.is_food) return send(res, 200, notFood(word, out.message));
+  if (!out.shots.length) throw new Error('사진 묘사가 비어 있음');
+  send(res, 200, { ok: true, name: out.name || word, interpretation: out.interpretation || '', shots: out.shots });
 });

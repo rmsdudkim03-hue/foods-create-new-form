@@ -29,13 +29,13 @@
   <div class="stage" id="stage">
 
     <!-- ===== 공통: 로고 (누르면 처음 화면) ===== -->
-    <button class="logo abs box" id="logo" type="button" aria-label="처음 화면으로"
+    <button class="pin-l pin-t logo abs box" id="logo" type="button" aria-label="처음 화면으로"
       style="--x:40; --y:47; --w:59; --h:50; --px:24; --py:32; --pw:52; --ph:44">
       <img src="assets/img/logo.png" alt="">
     </button>
 
     <!-- ===== 공통: 메뉴 (메인·갤러리에서만 보임) ===== -->
-    <nav class="nav abs" id="nav" aria-label="메뉴" style="--x:147; --y:59; --px:100; --py:42">
+    <nav class="pin-l pin-t nav abs" id="nav" aria-label="메뉴" style="--x:147; --y:59; --px:100; --py:42">
       <button type="button" class="fs" data-nav="process" style="--fs:20; --pfs:22">Process</button>
       <button type="button" class="fs" data-nav="about" style="--fs:20; --pfs:22">About</button>
       <button type="button" class="fs" data-nav="gallery" style="--fs:20; --pfs:22">Gallery</button>
@@ -44,17 +44,17 @@
 
     <!-- ===== 화면 1: 메인 ===== -->
     <section class="screen" data-screen="home" aria-label="메인">
-      <h1 class="hero-title abs fs" style="--x:87; --y:274; --fs:128; --px:40; --py:170; --pfs:84">FOODS<br>CREATE<br>NEW FORM</h1>
-      <p class="hero-sub abs fs" style="--x:87; --y:741; --fs:32; --px:40; --py:482; --pfs:26">음식, 새로운 조형의 언어가 됩니다</p>
+      <h1 class="pin-l hero-title abs fs" style="--x:87; --y:274; --fs:128; --px:40; --py:170; --pfs:84">FOODS<br>CREATE<br>NEW FORM</h1>
+      <p class="pin-l hero-sub abs fs" style="--x:87; --y:741; --fs:32; --px:40; --py:482; --pfs:26">음식, 새로운 조형의 언어가 됩니다</p>
 
       <div class="plates" aria-hidden="true">
-        <img class="plate abs box" src="assets/img/plate-top.png" alt="" style="--x:938; --y:149; --w:269; --h:269; --px:15; --py:715; --pw:190; --ph:190; --d:0s">
-        <img class="plate abs box" src="assets/img/plate-top.png" alt="" style="--x:1148; --y:-17; --w:269; --h:269; --px:-135; --py:855; --pw:190; --ph:190; --d:-1.4s">
-        <img class="plate abs box" src="assets/img/plate-top.png" alt="" style="--x:938; --y:687; --w:269; --h:269; --px:395; --py:715; --pw:190; --ph:190; --d:-2.6s">
-        <img class="plate abs box" src="assets/img/plate-top.png" alt="" style="--x:1171; --y:836; --w:269; --h:269; --px:545; --py:855; --pw:190; --ph:190; --d:-3.3s">
+        <img class="pin-r plate abs box" src="assets/img/plate-top.png" alt="" style="--x:938; --y:149; --w:269; --h:269; --px:15; --py:715; --pw:190; --ph:190; --d:0s">
+        <img class="pin-r plate abs box" src="assets/img/plate-top.png" alt="" style="--x:1148; --y:-17; --w:269; --h:269; --px:-135; --py:855; --pw:190; --ph:190; --d:-1.4s">
+        <img class="pin-r plate abs box" src="assets/img/plate-top.png" alt="" style="--x:938; --y:687; --w:269; --h:269; --px:395; --py:715; --pw:190; --ph:190; --d:-2.6s">
+        <img class="pin-r plate abs box" src="assets/img/plate-top.png" alt="" style="--x:1171; --y:836; --w:269; --h:269; --px:545; --py:855; --pw:190; --ph:190; --d:-3.3s">
       </div>
       <!-- 가운데 접시: 누르면 체험 시작 -->
-      <button class="plate-start abs box" id="plateStart" type="button" aria-label="새로운 조형 만들기 시작"
+      <button class="pin-r plate-start abs box" id="plateStart" type="button" aria-label="새로운 조형 만들기 시작"
         style="--x:852; --y:418; --w:269; --h:269; --px:190; --py:610; --pw:220; --ph:220">
         <img src="assets/img/plate-top.png" alt="">
         <img class="plate-logo" src="assets/img/logo.png" alt="">
@@ -86,6 +86,8 @@
       <div class="car-track" id="carTrack" aria-roledescription="carousel"></div>
       <button class="btn-dark abs box fs" id="pickBtn" type="button"
         style="--x:574; --y:808; --w:293; --h:76; --fs:24; --px:140; --py:880; --pw:320; --ph:80; --pfs:24">이 사진으로 선택하기 →</button>
+      <!-- 사진이 마음에 안 들면 다음 검색 결과를 불러옴 (좌표는 임시) -->
+      <button class="more-btn cx fs" id="pickMore" type="button" style="--cx:1010; --y:830; --fs:16; --pcx:300; --py:1032; --pfs:17" hidden>↻ 다른 사진 보기</button>
       <p class="note cx fs" id="pickNote" style="--cx:720; --y:910; --fs:14; --pcx:300; --py:984; --pfs:15"></p>
     </section>
 
@@ -112,7 +114,7 @@
       <img class="bowl abs box" id="cookBowl" src="assets/img/bowl.png" alt="" style="--x:211; --y:546; --w:1018; --h:509; --px:-10; --py:600; --pw:620; --ph:310">
       <canvas class="cook-fx" id="cookFx" tabindex="0" aria-label="음식 조각을 그릇에 넣기. 누르거나 Enter 키로 넣을 수 있어요"></canvas>
       <!-- 남은 조각을 한 번에 그릇으로 (좌표는 임시) -->
-      <button class="cook-all abs fs" id="cookAll" type="button" style="--x:1262; --y:940; --fs:17; --px:430; --py:1010; --pfs:18">모두 넣기 ↓</button>
+      <button class="pin-r pin-b cook-all abs fs" id="cookAll" type="button" style="--x:1262; --y:940; --fs:17; --px:430; --py:1010; --pfs:18">모두 넣기 ↓</button>
     </section>
 
     <!-- ===== 화면 6: 맛보기 조형 선택 (task5) ===== -->
@@ -137,7 +139,7 @@
         <button class="rate-btn" type="button" data-rating="good">좋아요</button>
         <button class="rate-btn" type="button" data-rating="bad">별로예요</button>
       </div>
-      <button class="arrow abs fs" id="resultNext" type="button" aria-label="처음 화면으로" style="--x:1363; --y:937; --fs:36; --px:524; --py:1010; --pfs:40">→</button>
+      <button class="pin-r pin-b arrow abs fs" id="resultNext" type="button" aria-label="처음 화면으로" style="--x:1363; --y:937; --fs:36; --px:524; --py:1010; --pfs:40">→</button>
     </section>
 
     <!-- ===== 화면 8: 갤러리 ===== -->
@@ -159,7 +161,7 @@
         <p class="g-name cx fs" id="gName" style="--cx:720; --y:711; --fs:21; --pcx:300; --py:545; --pfs:22"></p>
         <p class="g-date cx fs" id="gDate" style="--cx:720; --y:753; --fs:21; --pcx:300; --py:585; --pfs:20"></p>
         <button class="g-btn cx fs" id="g3d" type="button" style="--cx:720; --y:808; --fs:16; --pcx:300; --py:630; --pfs:17" hidden>3D로 보기</button>
-        <button class="g-back abs fs" id="gBack" type="button" style="--x:40; --y:140; --fs:17; --px:24; --py:110; --pfs:18">← 모아보기</button>
+        <button class="pin-l g-back abs fs" id="gBack" type="button" style="--x:40; --y:140; --fs:17; --px:24; --py:110; --pfs:18">← 모아보기</button>
         <div id="gPlates"></div>
       </div>
     </section>

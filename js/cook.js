@@ -2,8 +2,9 @@
    화면 5: 새로운 조형 요리하기
    1) 고른 사진 두 장이 원·삼각형·사각형·육각형 조각으로 분해되어 떠 있음
    2) 조각을 끌어다 놓거나 누르면 그릇으로 툭 떨어져 부딪히고 쌓임 (물리: matter.js)
-   3) 다 넣으면 카메라가 위로 올라가듯 그릇이 탑뷰(위에서 내려다본 모습)로 바뀌고,
-      그릇 안에서 조각들이 소용돌이처럼 섞이다가 가운데로 빨려 들어가 사라짐
+   3) 다 넣으면 카메라가 위로 올라가듯 그릇이 탑뷰(위에서 내려다본 모습)로 바뀜
+   4) 관람객이 커서(휴대폰은 손가락)로 그릇을 저으면 근처 조각이 밀리고 휩쓸리며 섞임
+      충분히 저으면(또는 '다 섞었어요'를 누르면) 조각들이 가운데로 빨려 들어가 사라짐
    좌표는 모두 피그마 좌표(데스크톱 1440×1024, 휴대폰 600×1100)로 계산하고 그릴 때만 화면 크기로 바꿈
    조절값은 아래 SETTINGS에서 바꾸면 돼.
    ========================================================= */
@@ -16,7 +17,15 @@ const SETTINGS = {
   shatter: 1.1,        // 사진이 조각으로 벌어지는 시간(초)
   settle: [0.6, 2.5],  // 마지막 조각을 넣고 섞기 시작할 때까지: 최소, 최대(초). 그 사이엔 조각이 멈추면 시작
   tilt: 1.2,           // 옆모습 → 탑뷰로 바뀌는 시간(초)
-  mix: 3.4,            // 탑뷰에서 섞이는 시간(초)
+  stir: {
+    reach: 95,         // 커서가 조각을 미는 거리 (피그마 px)
+    push: 0.9,         // 커서 움직임이 조각에 전해지는 정도
+    friction: 2.2,     // 조각이 멈추는 빠르기 (클수록 금방 멈춤)
+    swirl: 0.7,        // 빙글빙글 저으면 그릇 전체가 같이 도는 정도
+    enough: 3200,      // 이만큼(피그마 px) 저으면 다 섞인 것으로 봄
+    maxTime: 25,       // 아무도 안 저어도 이 시간(초)이 지나면 자동으로 끝
+  },
+  finish: 1.4,         // 다 섞은 뒤 가운데로 모여 사라지는 시간(초)
   top: { d: { cx: 720, cy: 600, R: 290 }, p: { cx: 300, cy: 650, R: 238 } }, // 탑뷰 그릇 위치·반지름 (데스크톱 / 휴대폰)
   topScale: 1.0,       // 탑뷰에서 조각 크기 (1 = 떠 있을 때 크기)
   inBowl: 0.6,         // 그릇에 들어가면 조각 크기 (1 = 떠 있을 때 크기). 작게 해야 그릇 입구 안에 쏙 들어감
@@ -232,10 +241,11 @@ export function startCook(canvas, opts) {
   return {
     stop() { ctl.stopped = true; ctl.cleanup?.(); },
     dropAll() { ctl.dropAll?.(); }, // '모두 넣기' 버튼
+    finishMix() { ctl.finishMix?.(); }, // '다 섞었어요' 버튼
   };
 }
 
-async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCount = () => {}, onMix = () => {}, onDone = () => {} }, ctl) {
+async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCount = () => {}, onMix = () => {}, onStir = () => {}, onDone = () => {} }, ctl) {
   const ctx = canvas.getContext('2d');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let raf = 0;
@@ -386,6 +396,13 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     return null;
   };
   const onDown = (e) => {
+    if (phase === 'stir') {
+      canvas.setPointerCapture(e.pointerId);
+      const [x, y] = toWorld(e.clientX, e.clientY);
+      cur = { x, y, seen: performance.now() };
+      prevCur = null;
+      return;
+    }
     if (phase !== 'play') return;
     const [x, y] = toWorld(e.clientX, e.clientY);
     const p = hit(x, y);
@@ -395,8 +412,14 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     p.state = 'drag';
     canvas.style.cursor = 'grabbing';
   };
+  // 섞기: 커서(손가락) 위치. 마우스는 올려만 놔도, 터치는 누른 채 움직일 때
+  let cur = null;
   const onMove = (e) => {
     const [x, y] = toWorld(e.clientX, e.clientY);
+    if (phase === 'stir') {
+      if (e.pointerType === 'mouse' || e.buttons || e.pressure > 0) cur = { x, y, seen: performance.now() };
+      return;
+    }
     if (!drag) {
       canvas.style.cursor = phase === 'play' && hit(x, y) ? 'grab' : '';
       return;
@@ -407,6 +430,7 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     drag.p.y = y + drag.oy;
   };
   const onUp = (e) => {
+    if (phase === 'stir' && e.pointerType !== 'mouse') { cur = null; prevCur = null; }
     if (!drag || e.pointerId !== drag.id) return;
     const { p } = drag;
     drag = null;
@@ -416,9 +440,12 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
   const onKey = (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
+    if (phase === 'stir') return finishMix();
     const p = pieces.find((q) => q.state === 'float');
     if (p && phase === 'play') drop(p, bowl.cx + (Math.random() - 0.5) * 200, p.y);
   };
+  const onLeave = (e) => { if (e.pointerType === 'mouse') { cur = null; prevCur = null; } };
+  canvas.addEventListener('pointerleave', onLeave);
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
@@ -426,10 +453,26 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
   canvas.addEventListener('keydown', onKey);
 
   /* ---------- 매 프레임 ---------- */
-  let phase = 'shatter'; // shatter → play → tilt(탑뷰로) → stir(섞기) → done
+  let phase = 'shatter'; // shatter → play → tilt(탑뷰로) → stir(섞기) → finish(가운데로 모임) → done
   let t0 = performance.now();
   let last = t0;
   let mixT0 = 0;
+  let stirT0 = 0, finT0 = 0;
+  let stirred = 0;      // 지금까지 저은 거리
+  let omega = 0;        // 그릇 전체가 도는 빠르기 (빙글빙글 저으면 생김)
+  let prevCur = null;   // 지난 프레임 커서 위치
+  let curV = [0, 0];    // 커서 속도 (부드럽게)
+  let lastPct = -1;
+  function finishMix() {
+    if (phase !== 'stir') return;
+    phase = 'finish';
+    finT0 = performance.now();
+    cur = null;
+    canvas.style.cursor = '';
+    for (const p of pieces) { p.fa = Math.atan2(p.sy, p.sx); p.fr = Math.hypot(p.sx, p.sy); p.frot = p.rot; }
+    onStir(1, true);
+  }
+  ctl.finishMix = finishMix;
 
   function fit() {
     const r = canvas.getBoundingClientRect();
@@ -439,6 +482,95 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     const k = view().u * dpr; // 피그마 1 → 캔버스 픽셀
     return k;
   }
+
+  function stirStep(dt, top, now) {
+    const S = SETTINGS.stir;
+    const Rin = top.R * BOWL_INNER;
+    // 커서 속도 (튀지 않게 부드럽게)
+    let cx = null, cy = null;
+    if (cur && now - cur.seen < 1500) {
+      cx = cur.x - top.cx; cy = cur.y - top.cy;
+      if (prevCur && dt > 0) {
+        const vx = (cx - prevCur[0]) / dt, vy = (cy - prevCur[1]) / dt;
+        const m = Math.min(1, dt * 20);
+        curV = [curV[0] + (vx - curV[0]) * m, curV[1] + (vy - curV[1]) * m];
+        const inside = Math.hypot(cx, cy) < Rin + 20;
+        if (inside) {
+          stirred += Math.min(Math.hypot(cx - prevCur[0], cy - prevCur[1]), 80);
+          // 그릇 가운데를 빙글 돌면 그릇 전체가 같이 돔
+          const r2 = Math.max(cx * cx + cy * cy, 60 * 60);
+          const ang = (cx * curV[1] - cy * curV[0]) / r2;
+          omega += (clamp(ang, -6, 6) - omega) * S.swirl * dt;
+        }
+      }
+      prevCur = [cx, cy];
+      canvas.style.cursor = Math.hypot(cx, cy) < Rin + 20 ? 'none' : '';
+    } else {
+      curV = [0, 0];
+    }
+    omega *= Math.exp(-0.5 * dt);
+    const fr = Math.exp(-S.friction * dt);
+    for (const p of pieces) {
+      const pr = p.r * SETTINGS.topScale * 0.85;
+      // 그릇 전체가 도는 흐름
+      const tvx = -p.sy * omega, tvy = p.sx * omega;
+      const m = Math.min(1, dt * 1.5);
+      p.vx += (tvx - p.vx) * m * 0.5;
+      p.vy += (tvy - p.vy) * m * 0.5;
+      if (cx !== null) {
+        const dx = p.sx - cx, dy = p.sy - cy, d = Math.hypot(dx, dy) || 0.01;
+        const reach = S.reach + pr;
+        if (d < reach) {
+          const f = (1 - d / reach) ** 2;
+          // 커서가 움직이는 방향으로 휩쓸림 + 커서에서 밀려남
+          const mm = Math.min(1, dt * 12) * f * S.push;
+          p.vx += (curV[0] - p.vx) * mm;
+          p.vy += (curV[1] - p.vy) * mm;
+          const sp = Math.hypot(curV[0], curV[1]);
+          const push = f * (120 + sp * 0.6) * dt * 6;
+          p.vx += (dx / d) * push;
+          p.vy += (dy / d) * push;
+        }
+      }
+      p.vx *= fr; p.vy *= fr;
+      const v = Math.hypot(p.vx, p.vy);
+      if (v > 1400) { p.vx *= 1400 / v; p.vy *= 1400 / v; }
+      p.sx += p.vx * dt;
+      p.sy += p.vy * dt;
+      // 그릇 벽에서 튕김
+      const d = Math.hypot(p.sx, p.sy), lim = Rin - p.r * SETTINGS.topScale * 1.02; // 모서리까지 그릇 안에
+      if (d > lim) {
+        const ux = p.sx / d, uy = p.sy / d;
+        p.sx = ux * lim; p.sy = uy * lim;
+        const vn = p.vx * ux + p.vy * uy;
+        if (vn > 0) { p.vx -= 1.6 * vn * ux; p.vy -= 1.6 * vn * uy; }
+      }
+      // 움직이는 만큼 빙글 돎
+      p.va += ((p.vx * -uyOf(p) + p.vy * uxOf(p)) * 0.006 - p.va) * Math.min(1, dt * 4);
+      p.rot = (p.rot || 0) + p.va * dt;
+    }
+    // 조각끼리 부딪힘 (겹치면 서로 밀어냄)
+    for (let i = 0; i < pieces.length; i++) {
+      for (let j = i + 1; j < pieces.length; j++) {
+        const a = pieces[i], b = pieces[j];
+        const need = (a.r + b.r) * SETTINGS.topScale * 0.8;
+        const dx = b.sx - a.sx, dy = b.sy - a.sy, d = Math.hypot(dx, dy) || 0.01;
+        if (d >= need) continue;
+        const ux = dx / d, uy = dy / d, push = (need - d) / 2;
+        a.sx -= ux * push; a.sy -= uy * push; b.sx += ux * push; b.sy += uy * push;
+        const rv = (b.vx - a.vx) * ux + (b.vy - a.vy) * uy;
+        if (rv < 0) {
+          const imp = -rv * 0.8;
+          a.vx -= ux * imp; a.vy -= uy * imp; b.vx += ux * imp; b.vy += uy * imp;
+        }
+      }
+    }
+    const pct = Math.min(99, Math.floor((stirred / S.enough) * 100 / 5) * 5);
+    if (pct !== lastPct) { lastPct = pct; onStir(pct / 100); }
+  }
+  // 조각이 가운데 기준 어느 방향에 있는지 (회전 방향 정하기용)
+  const uxOf = (p) => p.sx / (Math.hypot(p.sx, p.sy) || 1);
+  const uyOf = (p) => p.sy / (Math.hypot(p.sx, p.sy) || 1);
 
   function frame(now) {
     if (ctl.stopped) return;
@@ -468,9 +600,9 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     if (engine) Matter.Engine.update(engine, dt * 1000);
 
     // 3) 탑뷰 전환·섞기 진행도
-    const mt = phase === 'tilt' || phase === 'stir' || phase === 'done' ? (now - mixT0) / 1000 : 0;
+    const topMode = phase === 'tilt' || phase === 'stir' || phase === 'finish' || phase === 'done';
+    const mt = topMode ? (now - mixT0) / 1000 : 0;
     const tilt = easeInOut(mt / SETTINGS.tilt);                 // 0 옆모습 → 1 탑뷰
-    const st = Math.max(0, mt - SETTINGS.tilt);                 // 섞기 경과 시간
     const top = {
       cx: topStart.cx + (topEnd.cx - topStart.cx) * tilt,
       cy: topStart.cy + (topEnd.cy - topStart.cy) * tilt,
@@ -480,25 +612,35 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     // 옆모습 그릇 이미지는 캔버스가 이어서 그림 (같은 이미지라 이질감 없음)
     if (bowlEl && mt > 0) bowlEl.style.opacity = '0';
 
+    // 섞기: 커서로 조각을 밀고 휩쓸기 (조각 위치 sx, sy는 탑뷰 그릇 가운데 기준)
+    if (phase === 'stir') stirStep(dt, top, now);
+
     // 4) 조각 위치 정하기
     for (const p of pieces) {
       p.alpha = 1;
       p.scale = p.state === 'float' || p.state === 'drag' || phase === 'shatter' ? 1 : SETTINGS.inBowl;
-      if (phase === 'tilt' || phase === 'stir' || phase === 'done') {
-        // 소용돌이: 가운데일수록 빨리 돌고, 점점 빨라짐. 끝 무렵 가운데로 빨려 들어가며 사라짐
-        const T = SETTINGS.mix;
-        const conv = easeInOut((st - T * 0.55) / (T * 0.45));
-        const w = (1.0 + 1.6 * st) * (1.25 - 0.6 * p.rr) * p.spd;
-        p.ang += w * dt * (phase === 'tilt' ? 0.25 : 1);
-        const rr = p.rr * (1 - 0.95 * conv) * (1 + 0.04 * Math.sin(st * 3 + p.ph));
-        const tx = top.cx + Math.cos(p.ang) * top.R * 0.8 * rr;
-        const ty = top.cy + Math.sin(p.ang) * top.R * 0.8 * rr * top.e;
-        // 쌓여 있던 자리 → 소용돌이 자리 (카메라가 올라가는 동안)
+      if (phase === 'tilt') {
+        // 쌓여 있던 자리 → 탑뷰 그릇 안 흩어진 자리 (카메라가 올라가는 동안)
+        const tx = top.cx + p.sx, ty = top.cy + p.sy * top.e;
         p.x = p.mx + (tx - p.mx) * tilt;
         p.y = p.my + (ty - p.my) * tilt;
-        p.rot = p.mrot + (p.ang - p.a0) * 1.3;
-        p.scale = (SETTINGS.inBowl + (SETTINGS.topScale - SETTINGS.inBowl) * tilt) * (1 - 0.7 * conv);
-        p.alpha = 1 - ease((st - (T - 0.5)) / 0.5);
+        p.rot = p.mrot;
+        p.scale = SETTINGS.inBowl + (SETTINGS.topScale - SETTINGS.inBowl) * tilt;
+      } else if (phase === 'stir') {
+        p.x = top.cx + p.sx;
+        p.y = top.cy + p.sy;
+        p.scale = SETTINGS.topScale;
+      } else if (phase === 'finish' || phase === 'done') {
+        // 다 섞음: 빙글 돌며 가운데로 빨려 들어가 사라짐
+        const f = clamp((now - finT0) / 1000 / SETTINGS.finish, 0, 1);
+        const e = easeInOut(f);
+        const a = p.fa + e * 2.4;
+        const r = p.fr * (1 - e);
+        p.x = top.cx + Math.cos(a) * r;
+        p.y = top.cy + Math.sin(a) * r;
+        p.rot = p.frot + e * 3;
+        p.scale = SETTINGS.topScale * (1 - 0.7 * e);
+        p.alpha = 1 - ease((f - 0.55) / 0.45);
       } else if (p.state === 'float' || (phase === 'shatter')) {
         const bob = Math.sin(t * 1.4 + p.phase) * 6;
         p.x = p.home[0] + (p.float[0] - p.home[0]) * open;
@@ -524,7 +666,6 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     }
 
     // 5) 그리기
-    const topMode = phase === 'tilt' || phase === 'stir' || phase === 'done';
     if (topMode && bowlEl?.complete && tilt < 1) {
       // 카메라가 올라가는 느낌: 원래 그릇 이미지의 옆면이 점점 납작해지며 사라지고, 입구는 탑뷰 그릇으로 열림
       const sx = top.R / topStart.R;
@@ -568,6 +709,14 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
       ctx.restore();
     }
     ctx.restore();
+    // 커서 자리에 옅은 동그라미 (젓는 숟가락 느낌)
+    if (phase === 'stir' && cur) {
+      ctx.beginPath();
+      ctx.arc(cur.x * k, cur.y * k, SETTINGS.stir.reach * 0.45 * k, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(40, 40, 40, .28)';
+      ctx.lineWidth = 1.2 * k;
+      ctx.stroke();
+    }
 
     // 6) 다 넣었고 조각이 멈췄으면(또는 충분히 기다렸으면) 탑뷰로 바꾸고 섞기 시작
     if (phase === 'play' && dropped === pieces.length && pieces.every((p) => p.state === 'fall')) {
@@ -579,16 +728,23 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
         if (engine) Matter.Composite.clear(engine.world, false); // 물리 멈춤
         pieces.forEach((p, i) => {
           p.mx = p.x; p.my = p.y; p.mrot = p.rot || 0;
-          p.a0 = p.ang = (i / pieces.length) * Math.PI * 2 + Math.random() * 0.6;
-          p.rr = 0.28 + Math.random() * 0.5; // 그릇 안쪽 면을 벗어나지 않게
-          p.spd = 0.85 + Math.random() * 0.4;
-          p.ph = Math.random() * 6;
+          // 탑뷰 그릇 안에 고르게 흩어진 자리 (가운데 기준, 반지름 비율)
+          const a = (i / pieces.length) * Math.PI * 2 + Math.random() * 0.6;
+          const rr = (0.2 + Math.random() * 0.4) * topEnd.R;
+          p.sx = Math.cos(a) * rr; p.sy = Math.sin(a) * rr;
+          p.vx = 0; p.vy = 0; p.va = 0;
         });
         onMix();
       }
     }
-    if (phase === 'tilt' && mt > SETTINGS.tilt) phase = 'stir';
-    if (phase === 'stir' && st > SETTINGS.mix + 0.1) {
+    if (phase === 'tilt' && mt > SETTINGS.tilt) {
+      phase = 'stir';
+      stirT0 = now;
+      onStir(0);
+      if (reduce) finishMix();
+    }
+    if (phase === 'stir' && (stirred >= SETTINGS.stir.enough || (now - stirT0) / 1000 > SETTINGS.stir.maxTime)) finishMix();
+    if (phase === 'finish' && (now - finT0) / 1000 > SETTINGS.finish + 0.1) {
       phase = 'done';
       onDone();
     }
@@ -598,7 +754,9 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
 
   ctl.cleanup = () => {
       if (bowlEl) bowlEl.style.opacity = '';
+      canvas.style.cursor = '';
       cancelAnimationFrame(raf);
+      canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);

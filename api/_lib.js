@@ -288,11 +288,11 @@ async function getJSON(label, url, headers = {}) {
 }
 
 // 검색어 하나로 사진 사이트 검색 → 사진 목록
-async function searchOne(site, query) {
+async function searchOne(site, query, page = 1) {
   let list = [];
   if (site === 'Unsplash') {
     const data = await getJSON(`사진 검색 Unsplash (${query})`,
-      `${UNSPLASH}/search/photos?${new URLSearchParams({ query, per_page: '30', content_filter: 'high' })}`,
+      `${UNSPLASH}/search/photos?${new URLSearchParams({ query, per_page: '30', page: String(page), content_filter: 'high' })}`,
       { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`, 'Accept-Version': 'v1' });
     list = (data.results || []).filter((p) => p.urls?.regular).map((p) => ({
       src: p.urls.regular, w: p.width, h: p.height, alt: p.alt_description || '',
@@ -303,7 +303,7 @@ async function searchOne(site, query) {
   } else if (site === 'Pixabay') {
     // 먼저 '음식' 카테고리 안에서 찾고, 너무 적으면 전체에서 다시 찾음
     const search = (extra) => getJSON(`사진 검색 Pixabay (${query})`,
-      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '20', safesearch: 'true', ...extra })}`);
+      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '20', page: String(page), safesearch: 'true', ...extra })}`);
     let data = await search({ category: 'food' });
     if ((data.hits || []).length < 8) data = await search({});
     list = (data.hits || []).filter((p) => p.largeImageURL).map((p) => ({
@@ -313,7 +313,7 @@ async function searchOne(site, query) {
     }));
   } else if (site === 'Pexels') {
     const data = await getJSON(`사진 검색 Pexels (${query})`,
-      `${PEXELS}/search?${new URLSearchParams({ query, per_page: '30' })}`,
+      `${PEXELS}/search?${new URLSearchParams({ query, per_page: '30', page: String(page) })}`,
       { Authorization: process.env.PEXELS_API_KEY });
     list = (data.photos || []).filter((p) => p.src?.large).map((p) => ({
       src: p.src.large, w: p.width, h: p.height, alt: p.alt || '',
@@ -322,7 +322,7 @@ async function searchOne(site, query) {
     }));
   } else if (site === 'Wikimedia Commons') {
     const data = await getJSON(`사진 검색 Wikimedia (${query})`, `${COMMONS}?${new URLSearchParams({
-      action: 'query', format: 'json', generator: 'search', gsrnamespace: '6', gsrlimit: '40',
+      action: 'query', format: 'json', generator: 'search', gsrnamespace: '6', gsrlimit: '40', gsroffset: String((page - 1) * 40),
       gsrsearch: `${query} filetype:bitmap`, prop: 'imageinfo', iiprop: 'url|size|mime|extmetadata', iiurlwidth: '1000',
     })}`);
     const strip = (h) => String(h || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -341,29 +341,38 @@ async function searchOne(site, query) {
 }
 
 // 검색어 여러 개(같은 음식의 다른 모습)로 찾아서 섞음 → 글 AI가 보고 고름
-export async function searchPhotos(queries, name) {
-  const site = photoSite();
+// 맞는 사진이 적으면(PHOTO_ENOUGH장 미만) Wikimedia Commons에서 한 번 더 찾아 보충
+// page: 몇 번째 검색 결과 묶음인지 ('다른 사진 보기'를 누를 때마다 다음 묶음), exclude: 이미 보여준 사진 주소
+export const PHOTO_ENOUGH = 5;
+export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {}) {
   const qs = [...new Set((Array.isArray(queries) ? queries : [queries]).map((q) => String(q || '').trim()).filter(Boolean))].slice(0, 3);
-  const lists = await Promise.all(qs.map((q) => searchOne(site, q).catch((err) => { console.error(err); return []; })));
-  // 검색어마다 앞쪽부터 번갈아 섞기 (한 검색어 결과만 몰리지 않게), 같은 사진은 한 번만
-  const seen = new Set();
-  const list = [];
-  for (let i = 0; list.length < CANDIDATES && lists.some((l) => i < l.length); i++) {
-    for (const l of lists) {
-      const p = l[i];
-      if (p && !seen.has(p.src) && list.length < CANDIDATES) { seen.add(p.src); list.push(p); }
+  const seen = new Set(exclude);
+  const gather = async (site) => {
+    const lists = await Promise.all(qs.map((q) => searchOne(site, q, page).catch((err) => { console.error(err); return []; })));
+    // 검색어마다 앞쪽부터 번갈아 섞기 (한 검색어 결과만 몰리지 않게), 같은 사진·이미 보여준 사진은 빼기
+    const list = [];
+    for (let i = 0; list.length < CANDIDATES && lists.some((l) => i < l.length); i++) {
+      for (const l of lists) {
+        const p = l[i];
+        if (p && !seen.has(p.src) && list.length < CANDIDATES) { seen.add(p.src); list.push(p); }
+      }
     }
+    let picked;
+    try {
+      picked = await pickPhotos(list, name, qs.join(', '));
+    } catch (err) {
+      console.error('[알림] 사진 고르기 실패 → 검색 순서대로 씀', err);
+      picked = list.slice(0, PHOTO_COUNT);
+    }
+    return picked.map(({ thumb, ...p }) => ({ ...p, site }));
+  };
+  const site = photoSite();
+  let photos = site ? await gather(site) : [];
+  if (photos.length < PHOTO_ENOUGH && site && site !== 'Wikimedia Commons') {
+    console.log(`[알림] ${site}에서 맞는 사진 ${photos.length}장 → Wikimedia Commons에서 보충`);
+    photos = [...photos, ...(await gather('Wikimedia Commons'))].slice(0, PHOTO_COUNT);
   }
-  const query = qs.join(', ');
-  const candidates = list;
-  let picked;
-  try {
-    picked = await pickPhotos(candidates, name, query);
-  } catch (err) {
-    console.error('[알림] 사진 고르기 실패 → 검색 순서대로 씀', err);
-    picked = candidates.slice(0, PHOTO_COUNT);
-  }
-  return picked.map(({ thumb, ...p }) => ({ ...p, site }));
+  return photos;
 }
 
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------
@@ -399,11 +408,11 @@ const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보
 좋은 순서대로 번호를 쓴다. 기준에 맞는 사진이 적으면 맞는 것만 쓴다.`;
 
 async function pickPhotos(candidates, name, query) {
-  if (candidates.length <= 3) return candidates;
+  if (!candidates.length) return [];
   // 미리보기를 서버에서 받아서 전달 (사진 사이트가 AI의 직접 접근을 막는 경우 대비). 못 받은 사진은 후보에서 뺌
   const thumbs = await timed('후보 사진 받기', () => Promise.all(candidates.map((c) => thumbData(c.thumb || c.src).catch(() => null))));
   const usable = candidates.map((c, i) => ({ c, img: thumbs[i] })).filter((x) => x.img);
-  if (usable.length <= 3) return candidates.slice(0, PHOTO_COUNT);
+  if (!usable.length) return [];
   const out = await askJSON({
     instructions: PICK_INSTRUCTIONS,
     text: `음식: ${name} (검색어: ${query})\n후보 사진 ${usable.length}장이 0번부터 순서대로 첨부되어 있다. 최대 ${PHOTO_COUNT}장을 고른다.`,
@@ -418,10 +427,7 @@ async function pickPhotos(candidates, name, query) {
     .slice(0, PHOTO_COUNT)
     .map((i) => usable[i].c);
   console.log(`[알림] 사진 ${usable.length}장 중 ${picked.length}장 고름 (${name})`);
-  // 너무 적게 골랐으면 (4장 미만) 검색 순서대로 채움
-  if (picked.length < 4) {
-    for (const x of usable) if (picked.length < 4 && !picked.includes(x.c)) picked.push(x.c);
-  }
+  // 맞는 사진이 적어도 엉뚱한 사진으로 채우지 않음 (부족하면 다른 곳에서 보충하거나 AI가 그림)
   return picked;
 }
 

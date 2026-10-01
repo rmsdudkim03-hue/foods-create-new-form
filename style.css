@@ -71,6 +71,13 @@ html, body { height: 100%; margin: 0; background: var(--bg); }
 .is-portrait .cx  { left: calc(var(--pcx, var(--cx)) * var(--u)); top: calc(var(--py, var(--y)) * var(--u)); }
 .is-portrait .fs  { font-size: calc(var(--pfs, var(--fs)) * var(--u)); }
 
+/* 넓은 화면(16:9 모니터 등): 피그마 프레임은 가운데 두고, 구석 요소만 화면 끝으로 붙임
+   pin-l 왼쪽 끝 / pin-r 오른쪽 끝 / pin-t 위 끝 / pin-b 아래 끝 (--ox, --oy = 남는 여백, JS가 계산) */
+.app:not(.is-portrait) .abs.pin-l { left: calc((var(--x) - var(--ox, 0)) * var(--u)); }
+.app:not(.is-portrait) .abs.pin-r { left: calc((var(--x) + var(--ox, 0)) * var(--u)); white-space: nowrap; }
+.app:not(.is-portrait) .abs.pin-t { top: calc((var(--y) - var(--oy, 0)) * var(--u)); }
+.app:not(.is-portrait) .abs.pin-b { top: calc((var(--y) + var(--oy, 0)) * var(--u)); }
+
 img { display: block; max-width: none; -webkit-user-drag: none; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 4px; }
@@ -276,6 +283,9 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 
 /* ---------- 화면 5: 요리하기 (js/cook.js) ---------- */
 .cook-fx { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; outline: none; }
+.more-btn { font-weight: 700; color: var(--ink-sub); z-index: 3; padding: calc(6 * var(--u)) calc(10 * var(--u)); }
+.more-btn:disabled { opacity: .35; cursor: default; }
+@media (hover: hover) { .more-btn:not(:disabled):hover { color: var(--ink); text-decoration: underline; } }
 .cook-all {
   padding: calc(8 * var(--u)) calc(20 * var(--u));
   border: 1px solid var(--pill);
@@ -363,6 +373,7 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .g-back, .g-btn { font-weight: 700; color: var(--ink); z-index: 3; }
 .g-btn { padding: calc(8 * var(--u)) calc(22 * var(--u)); border: 1px solid var(--pill); border-radius: 999px; transition: background .25s var(--ease), color .25s var(--ease); }
 .g-btn.is-on { background: var(--pill); color: var(--on-pill); }
+.g-btn:disabled { border-color: transparent; color: var(--ink-faint); cursor: default; background: none !important; }
 @media (hover: hover) { .g-btn:hover { background: var(--pill); color: var(--on-pill); } .g-back:hover { text-decoration: underline; } }
 /* 크게 보기: 3D 뷰어는 이미지 자리에 겹쳐서 */
 .g-viewer { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .6s var(--ease); touch-action: none; cursor: grab; }

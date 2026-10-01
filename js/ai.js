@@ -191,11 +191,14 @@ export async function checkFood(word) {
 /* ---------- ⓪ 음식 이미지 10장 ---------- */
 export function foodImages(food) {
   const plan = foodPlans.get(food);
-  // 실제 사진: 원본을 먼저 보여주고, 배경을 지우는 대로 바꿔 끼움 (cut: true가 되면 고를 수 있음)
-  if (live && plan?.photos) {
-    const job = createJob(plan.photos.length);
-    job.meta = { photos: true };
-    plan.photos.forEach((p, i) => {
+  if (live && plan) {
+    // 실제 사진 + (사진이 모자라면) AI가 그린 이미지를 한 줄에 같이 보여줌
+    const photos = plan.photos || [];
+    const shots = plan.shots || [];
+    const job = createJob(photos.length + shots.length);
+    job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, shots };
+    // 실제 사진: 원본을 먼저 보여주고, 배경을 지우는 대로 바꿔 끼움 (cut: true가 되면 고를 수 있음)
+    photos.forEach((p, i) => {
       const src = `api/photo?u=${encodeURIComponent(p.src)}`;
       const base = { w: p.w, h: p.h, alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
       job.put(i, { ...base, src, cut: false });
@@ -203,22 +206,19 @@ export function foodImages(food) {
         .then((c) => { if (!job.cancelled) job.update(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true }); })
         .catch((err) => { console.error(err); job.drop(i); });
     });
-    return job;
-  }
-  if (live && plan) {
-    const job = createJob(plan.shots.length);
-    job.meta = { interpretation: plan.interpretation, shots: plan.shots };
-    pool(plan.shots.map((s, i) => async () => {
+    // AI 이미지: 흰 배경으로 그려서 배경 지우기는 필요 없음
+    pool(shots.map((sh, j) => async () => {
+      const i = photos.length + j;
       if (job.cancelled) return;
       try {
-        const { image } = await call('api/image', { body: { prompt: s.prompt, kind: 'food' } });
+        const { image } = await call('api/image', { body: { prompt: sh.prompt, kind: 'food' } });
         const t = await trimSafe(image);
-        job.put(i, { src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${i + 1}, ${s.view}` });
+        job.put(i, { src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${j + 1}, ${sh.view}`, ai: true });
       } catch (err) {
         console.error(err);
         job.fail(i);
       }
-    }), 5);
+    }), 3);
     return job;
   }
   // 데모
@@ -226,6 +226,21 @@ export function foodImages(food) {
   const job = createJob(demo.length);
   demo.forEach((img, i) => wait(rand(500, 2600)).then(() => job.put(i, img)));
   return job;
+}
+
+// '다른 사진 보기': 같은 검색어로 다음 묶음을 찾음 (이미 보여준 사진은 빼고, 모자라면 AI가 그림)
+export async function moreImages(food) {
+  const plan = foodPlans.get(food);
+  if (!live || !plan) return foodImages(food);
+  const seen = new Set(plan.seen || []);
+  (plan.photos || []).forEach((p) => seen.add(p.src));
+  const r = await call('api/food', {
+    body: plan.queries ? { word: food, queries: plan.queries, page: (plan.page || 1) + 1, exclude: [...seen] } : { word: food },
+    timeout: 120000,
+  });
+  if (!r.ok) throw new Error(r.message || '사진을 더 찾지 못했어요');
+  foodPlans.set(food, { ...r, name: food, seen: [...seen] });
+  return foodImages(food);
 }
 
 // 관람객이 고른 사진을 사진 사이트에 알려줌 (Unsplash 이용 규칙. 실패해도 상관없음)
@@ -248,6 +263,25 @@ export async function analyze(picks, foods) {
   return { demo: true };
 }
 
+/* ---------- 조형 이미지 한 장: 실패하면 잠깐 쉬었다가 다시 (최대 3번) ----------
+   마지막 시도는 묘사를 조금 단순하게 바꿔서 (이미지 AI가 묘사를 거절하는 경우 대비) */
+async function drawForm(prompt, cancelled) {
+  const tries = [prompt, prompt, `${prompt}\n\nA single simple abstract sculpture, white matte material.`];
+  let lastErr;
+  for (let i = 0; i < tries.length; i++) {
+    if (cancelled()) throw new Error('cancelled');
+    try {
+      const { image } = await call('api/image', { body: { prompt: tries[i], kind: 'form' }, timeout: 150000, retries: 0 });
+      return image;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[조형 이미지] ${i + 1}번째 실패 → ${i < tries.length - 1 ? '다시 시도' : '포기'}`, err.message);
+      await wait(2500 * (i + 1));
+    }
+  }
+  throw lastErr;
+}
+
 /* ---------- ② 맛보기 조형 6개 ---------- */
 export function tasteForms(analysis, picks, foods) {
   const job = createJob(FORMS.length);
@@ -264,13 +298,12 @@ export function tasteForms(analysis, picks, foods) {
         await pool(plan.forms.map((f, i) => async () => {
           if (job.cancelled) return;
           try {
-            const { image } = await call('api/image', { body: { prompt: f.prompt, kind: 'form' } });
-            job.put(i, (await trimSafe(image)).src);
+            job.put(i, (await trimSafe(await drawForm(f.prompt, () => job.cancelled))).src);
           } catch (err) {
             console.error(err);
             job.fail(i);
           }
-        }), 6); // 6장을 한꺼번에
+        }), 3); // 3장씩 (한꺼번에 6장을 부르면 이미지 AI가 거절하는 경우가 있어서)
       } catch (err) {
         console.error(err);
         job.failAll();

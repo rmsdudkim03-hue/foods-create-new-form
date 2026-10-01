@@ -324,6 +324,7 @@ const picker = (() => {
         : 'B에 섞고 싶은 음식을 입력하세요';
     pickBtn.disabled = true;
     pickNote.textContent = '';
+    moreBtn.hidden = true;
   }
 
   function setActive(side, { focus = false } = {}) {
@@ -394,10 +395,36 @@ const picker = (() => {
       pickSub.textContent = pending[side] ? `${word} 사진을 찾고 있어요` : `${side}에 섞고 싶은 음식을 입력하세요`;
       pickBtn.disabled = true;
       pickNote.textContent = '';
+      moreBtn.hidden = true;
       return;
     }
+    moreBtn.hidden = false;
     loadJob(side, job);
   }
+
+  // '다른 사진 보기': 지금 고르는 쪽 사진을 새로 찾아옴
+  const moreBtn = $('#pickMore');
+  moreBtn.addEventListener('click', async () => {
+    const side = active;
+    if (!side || !okWord[side] || moreBtn.disabled) return;
+    moreBtn.disabled = true;
+    pickBtn.disabled = true;
+    pickSub.textContent = `다른 ${state.foods[side]} 사진을 찾고 있어요`;
+    const run = state.run;
+    try {
+      const job = await ai.moreImages(state.foods[side]);
+      if (run !== state.run || !okWord[side]) { job.cancel(); return; }
+      state.jobs[side]?.cancel();
+      state.jobs[side] = job;
+      if (active === side) swapCarousel(() => show(side));
+    } catch (err) {
+      console.error(err);
+      toast(err.message || '사진을 더 찾지 못했어요');
+      if (active === side) show(side);
+    } finally {
+      moreBtn.disabled = false;
+    }
+  });
 
   function loadJob(side, job) {
     const food = state.foods[side];
@@ -409,10 +436,12 @@ const picker = (() => {
       const cut = job.items.filter((it) => it && it.cut !== false).length;
       if (photos) {
         pickSub.textContent = cut < total
-          ? `${food} 사진의 배경을 지우고 있어요 (${cut}/${total})`
+          ? `${food} 사진을 준비하고 있어요 (${cut}/${total})`
           : `좌우로 넘기며 ${food} 사진을 고르세요`;
         const site = sel?.site || '사진 사이트';
-        pickNote.textContent = sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
+        // 사진이 모자라서 AI가 그린 이미지가 섞여 있으면 그 이미지에는 AI 안내 문구
+        pickNote.textContent = sel?.ai ? 'AI가 생성한 참고 이미지예요'
+          : sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
         if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}]`;
       } else {
         pickSub.textContent = job.ready < total
@@ -583,6 +612,7 @@ leave.analyze = () => {
    ========================================================= */
 const cookBowl = $('#cookBowl');
 let cookFx = null;
+let cookMixing = false; // 섞는 중이면 버튼이 '다 섞었어요'
 
 function bumpBowl() {
   cookBowl.classList.remove('bump');
@@ -597,6 +627,8 @@ enter.cook = () => {
   const all = $('#cookAll');
   sub.textContent = '음식을 드래그하여 그릇안으로 넣어주세요';
   all.hidden = false;
+  all.textContent = '모두 넣기 ↓';
+  cookMixing = false;
   cookFx = startCook($('#cookFx'), {
     picks: state.picks,
     view: () => view,
@@ -608,11 +640,25 @@ enter.cook = () => {
       all.hidden = n >= total;
     },
     onMix: () => cookBowl.classList.remove('bump'),
+    // 섞기: 커서(손가락)로 저은 만큼 진행도 표시. '다 섞었어요'로 바로 끝낼 수도 있음
+    onStir: (p, finished) => {
+      if (finished) {
+        cookMixing = false;
+        sub.textContent = '잘 섞였어요';
+        all.hidden = true;
+        return;
+      }
+      cookMixing = true;
+      const how = isTouch() ? '손가락으로' : '커서로';
+      sub.textContent = `${how} 그릇을 휘저어 섞어주세요${p > 0 ? ` (${Math.round(p * 100)}%)` : ''}`;
+      all.textContent = '다 섞었어요 →';
+      all.hidden = false;
+    },
     onDone: () => { if (current === 'cook') timers.cook2 = setTimeout(() => go('taste'), 200); },
   });
   if (!isTouch()) setTimeout(() => current === 'cook' && $('#cookFx').focus({ preventScroll: true }), 400);
 };
-$('#cookAll').addEventListener('click', () => cookFx?.dropAll());
+$('#cookAll').addEventListener('click', () => (cookMixing ? cookFx?.finishMix() : cookFx?.dropAll()));
 leave.cook = () => {
   clearTimeout(timers.cook2);
   const fx = cookFx;
@@ -755,8 +801,14 @@ enter.result = async () => {
     if (urls.taskId) {
       Promise.resolve(state.saving)
         .then((id) => ai.saveModel(id, urls.taskId))
-        .then((r) => r?.model && gallery.setModel(r.model))
-        .catch((err) => console.error('3D 파일 보관 실패', err));
+        .then((r) => {
+          if (r?.model) gallery.setModel(r.model);
+          if (DEBUG) toast(r?.model ? '3D 파일 보관 완료' : '3D 파일 보관 안 됨 (실제 AI 모드·저장소 확인)');
+        })
+        .catch((err) => {
+          console.error('3D 파일 보관 실패', err);
+          if (DEBUG) toast(`3D 파일 보관 실패: ${err.message}`);
+        });
     }
     if (run !== state.run || current !== 'result') return;
     img.hidden = true;
@@ -898,17 +950,20 @@ const gallery = (() => {
     const n = items.length;
     $('#gCount').textContent = `지금까지 모인 조형 ${n}개`;
     // 화면 영역 안에 가장 크게 들어가는 칸 수 계산
-    const A = view.portrait ? { x: 24, y: 180, w: 552, h: 890, max: 170 } : { x: 100, y: 180, w: 1240, h: 800, max: 230 };
+    // 넓은 화면이면 양옆 여백까지 씀
+    const ox = view.ox || 0;
+    const A = view.portrait ? { x: 24 - ox, y: 180, w: 552 + 2 * ox, h: 890, max: 170 } : { x: 100 - ox, y: 180, w: 1240 + 2 * ox, h: 800, max: 230 };
     let best = { size: 0, cols: 1 };
     for (let c = 1; c <= n; c++) {
       const rows = Math.ceil(n / c);
       const size = Math.min(A.w / c, A.h / (rows * 1.12), A.max);
-      if (size > best.size) best = { size, cols: c };
+      // 크기가 같으면 칸을 옆으로 더 늘어놓음 (몇 개 안 될 때 세로 한 줄로 서지 않게)
+      if (size >= best.size - 0.5) best = { size, cols: c };
     }
     const { size, cols } = best;
     const rows = Math.ceil(n / cols);
-    const ox = A.x + (A.w - cols * size) / 2;
-    const oy = A.y + (A.h - rows * size * 1.12) / 2;
+    const gx = A.x + (A.w - cols * size) / 2;
+    const gy = A.y + (A.h - rows * size * 1.12) / 2;
     const order = items.map((it, i) => i).reverse();
     order.forEach((i, k) => {
       const it = items[i];
@@ -916,7 +971,7 @@ const gallery = (() => {
       cell.type = 'button';
       cell.className = 'g-cell abs';
       const col = k % cols, row = Math.floor(k / cols);
-      cell.style.cssText = `--x:${ox + col * size + size * 0.06};--y:${oy + row * size * 1.12};width:calc(${size * 0.88} * var(--u));font-size:calc(${Math.max(11, size * 0.075)} * var(--u));--d:${Math.min(k * 0.04, 1.2)}s;--f:${-(k % 7) * 0.9}s`;
+      cell.style.cssText = `--x:${gx + col * size + size * 0.06};--y:${gy + row * size * 1.12};width:calc(${size * 0.88} * var(--u));font-size:calc(${Math.max(11, size * 0.075)} * var(--u));--d:${Math.min(k * 0.04, 1.2)}s;--f:${-(k % 7) * 0.9}s`;
       cell.innerHTML = `<span class="g-cell-plate"><img src="assets/img/plate-top.png" alt=""><img class="g-thumb" src="${it.thumb}" alt="">${it.model ? '<span class="g-cell-3d">3D</span>' : ''}</span><span class="g-cell-no">${it.no}</span>`;
       cell.setAttribute('aria-label', `${it.no} ${it.name}${it.model ? ', 3D로 볼 수 있음' : ''}`);
       cell.addEventListener('click', () => openDetail(i));
@@ -934,6 +989,7 @@ const gallery = (() => {
     shown = null;
     render(true);
     section.classList.remove('is-grid');
+    if (items[i]?.model) show3d(true); // 3D 파일이 있으면 바로 3D로
   }
   const isGrid = () => section.classList.contains('is-grid');
   $('#gBack').addEventListener('click', openGrid);
@@ -944,10 +1000,11 @@ const gallery = (() => {
   let on3d = false;
   async function show3d(on) {
     const it = items[cur];
-    g3d.hidden = !it?.model;
+    g3d.hidden = !it;
+    g3d.disabled = !it?.model;
     on3d = Boolean(on && it?.model);
     g3d.classList.toggle('is-on', on3d);
-    g3d.textContent = on3d ? '이미지로 보기' : '3D로 보기';
+    g3d.textContent = !it?.model ? '3D 파일이 없는 작품이에요' : on3d ? '이미지로 보기' : '3D로 보기';
     feature.classList.toggle('is-3d', on3d);
     if (!on3d) { gViewer?.stop(); return; }
     try {
@@ -1110,8 +1167,13 @@ function layout() {
   const u = portrait ? Math.min(W / 600, H / 1100) : Math.min(W / 1440, H / 1024);
   view.u = u;
   view.portrait = portrait;
+  // 화면이 피그마 프레임보다 넓거나 길면 남는 여백 (피그마 px, 한쪽). 구석에 붙는 요소(로고·메뉴·버튼)가 이만큼 바깥으로 나감
+  view.ox = Math.max(0, (W / u - (portrait ? 600 : 1440)) / 2);
+  view.oy = Math.max(0, (H / u - (portrait ? 1100 : 1024)) / 2);
   app.classList.toggle('is-portrait', portrait);
   app.style.setProperty('--u', `${u}px`);
+  app.style.setProperty('--ox', view.ox);
+  app.style.setProperty('--oy', view.oy);
   carousel.render();
   gallery.layout();
 }
