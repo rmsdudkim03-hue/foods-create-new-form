@@ -107,8 +107,10 @@
     <section class="screen" data-screen="cook" aria-label="새로운 조형 요리하기">
       <h2 class="title cx fs" style="--cx:720; --y:115; --fs:48; --pcx:300; --py:110; --pfs:38">새로운 조형 요리하기</h2>
       <p class="sub cx fs" style="--cx:720; --y:184; --fs:20; --pcx:300; --py:164; --pfs:18">음식을 드래그하여 그릇안으로 넣어주세요</p>
+      <!-- 사진이 도형 조각으로 분해 → 끌거나 눌러서 그릇에 떨어뜨림 → 다 넣으면 녹아서 합쳐짐 (js/cook.js)
+           캔버스가 그릇 이미지보다 뒤에 있어서, 그릇에 들어간 조각은 앞쪽 벽에 살짝 가려짐 -->
+      <canvas class="cook-fx" id="cookFx" tabindex="0" aria-label="음식 조각을 그릇에 넣기. 누르거나 Enter 키로 넣을 수 있어요"></canvas>
       <img class="bowl abs box" id="cookBowl" src="assets/img/bowl.png" alt="" style="--x:211; --y:546; --w:1018; --h:509; --px:-10; --py:600; --pw:620; --ph:310">
-      <div id="fragLayer"></div>
     </section>
 
     <!-- ===== 화면 6: 맛보기 조형 선택 (task5) ===== -->

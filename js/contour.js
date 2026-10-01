@@ -48,7 +48,7 @@ function blur(src, w, h, r, passes) {
 }
 
 // 형태 안쪽 각 점이 가장자리에서 얼마나 떨어져 있는지 (윤곽선을 따라 안쪽으로 고르게 퍼지는 높이)
-function distanceIn(inside, w, h) {
+export function distanceIn(inside, w, h) {
   const INF = 1e9;
   const d = new Float32Array(w * h);
   for (let i = 0; i < d.length; i++) d[i] = inside[i] ? INF : 0;

@@ -2,10 +2,11 @@
    화면 흐름과 인터랙션
    메인 → 음식 고르기(입력 + 사진 선택, A·B) → 분석 → 요리하기 → 맛보기 선택 → 3D 결과 → 갤러리
    ========================================================= */
-import { FOODS, FRAGMENTS, FORMS, GALLERY_SEED, IDLE_RESET_MS } from './data.js';
+import { FOODS, FORMS, GALLERY_SEED, IDLE_RESET_MS } from './data.js';
 import * as ai from './ai.js';
 import { contour } from './contour.js';
 import { formParticles } from './particles.js';
+import { startCook, preloadCook } from './cook.js';
 import { cutoutInfo } from './cutout.js';
 
 // 주소 끝에 ?debug를 붙이면 확인용 정보가 화면에 보임
@@ -20,11 +21,6 @@ const mod = (a, n) => ((a % n) + n) % n;
 
 /* ---------- 화면 크기: 피그마 1px = 화면 몇 px인지 계산 ---------- */
 const view = { u: 1, portrait: false };
-
-function toStage(clientX, clientY) {
-  const r = stage.getBoundingClientRect();
-  return { x: (clientX - r.left) / view.u, y: (clientY - r.top) / view.u };
-}
 
 /* ---------- 상태 ---------- */
 const state = {
@@ -498,6 +494,7 @@ leave.pick = () => {
    ========================================================= */
 let materialFx = [];
 enter.analyze = async () => {
+  preloadCook(); // 다음 화면(요리)에 쓸 물리 엔진을 미리 받아 둠
   const a = $('#analyzeA');
   const b = $('#analyzeB');
   a.src = state.picks.A.src; a.alt = state.picks.A.alt;
@@ -544,122 +541,30 @@ leave.analyze = () => {
    화면 5: 새로운 조형 요리하기 (조각을 그릇에 드래그)
    ========================================================= */
 const cookBowl = $('#cookBowl');
-const cook = { dropped: 0, total: 0 };
+let cookFx = null;
 
-// 그릇 안으로 인정되는 영역 (피그마 좌표)
-const bowlZone = () =>
-  view.portrait
-    ? { x1: 80, x2: 520, y1: 620, y2: 860, tx: 300, ty: 752 }
-    : { x1: 370, x2: 1070, y1: 640, y2: 940, tx: 720, ty: 800 };
-
-function buildFragments() {
-  const layer = $('#fragLayer');
-  layer.innerHTML = '';
-  cook.dropped = 0;
-  cook.total = 0;
+function bumpBowl() {
+  cookBowl.classList.remove('bump');
+  void cookBowl.offsetWidth;
+  cookBowl.classList.add('bump');
+}
+enter.cook = () => {
   cookBowl.classList.remove('cooking', 'bump');
-  ['A', 'B'].forEach((side) => {
-    const pic = state.picks[side];
-    FRAGMENTS[side].forEach((f, i) => {
-      const [l, t, r, b] = f.crop;
-      const cw = r - l;
-      const ch = b - t;
-      const ratio = (ch * pic.h) / (cw * pic.w); // 높이 / 너비
-      const [dx, dy, dw] = f.d;
-      const [px, py, pw] = f.p;
-      const dh = dw * ratio;
-      const ph = pw * ratio;
-      const el = document.createElement('div');
-      el.className = 'frag abs box';
-      el.style.cssText = `--x:${dx - dw / 2};--y:${dy - dh / 2};--w:${dw};--h:${dh};--px:${px - pw / 2};--py:${py - ph / 2};--pw:${pw};--ph:${ph}`;
-      el.innerHTML = `<div class="frag-float" style="--d:${-(i * 1.3 + (side === 'B' ? 0.7 : 0))}s"><div class="frag-crop"><img src="${pic.src}" alt="" draggable="false" style="width:${100 / cw}%;height:${100 / ch}%;left:${(-l / cw) * 100}%;top:${(-t / ch) * 100}%"></div></div>`;
-      el.setAttribute('role', 'button');
-      el.tabIndex = 0;
-      el.setAttribute('aria-label', `${state.foods[side]} 조각을 그릇에 넣기`);
-      attachDrag(el);
-      layer.append(el);
-      cook.total++;
-    });
+  cookFx?.stop();
+  cookFx = startCook($('#cookFx'), {
+    picks: state.picks,
+    view: () => view,
+    onBump: bumpBowl,
+    onMelt: () => { cookBowl.classList.remove('bump'); cookBowl.classList.add('cooking'); },
+    onDone: () => { if (current === 'cook') timers.cook2 = setTimeout(() => go('taste'), 300); },
   });
-}
-
-function attachDrag(el) {
-  let sx = 0;
-  let sy = 0;
-  let id = null;
-  let dragging = false;
-  el.addEventListener('pointerdown', (e) => {
-    if (el.classList.contains('is-dropping')) return;
-    id = e.pointerId;
-    el.setPointerCapture(id);
-    sx = e.clientX;
-    sy = e.clientY;
-    dragging = false;
-  });
-  el.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== id) return;
-    const dx = e.clientX - sx;
-    const dy = e.clientY - sy;
-    if (!dragging && Math.hypot(dx, dy) > 5) {
-      dragging = true;
-      el.classList.add('is-dragging');
-    }
-    if (dragging) el.style.transform = `translate(${dx}px, ${dy}px)`;
-  });
-  el.addEventListener('pointerup', (e) => {
-    if (e.pointerId !== id) return;
-    id = null;
-    el.classList.remove('is-dragging');
-    if (!dragging) return dropFragment(el); // 그냥 누르면 알아서 그릇으로 날아감
-    const r = el.getBoundingClientRect();
-    const p = toStage(r.left + r.width / 2, r.top + r.height / 2);
-    const z = bowlZone();
-    if (p.x > z.x1 && p.x < z.x2 && p.y > z.y1 && p.y < z.y2) dropFragment(el);
-    else el.style.transform = ''; // 그릇 밖이면 제자리로
-  });
-  el.addEventListener('pointercancel', () => {
-    id = null;
-    el.classList.remove('is-dragging');
-    el.style.transform = '';
-  });
-  el.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dropFragment(el); }
-  });
-}
-
-function dropFragment(el) {
-  if (el.classList.contains('is-dropping')) return;
-  const z = bowlZone();
-  const u = view.u;
-  const sr = stage.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
-  const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(el.style.transform || '');
-  const curX = m ? +m[1] : 0;
-  const curY = m ? +m[2] : 0;
-  const targetX = sr.left + (z.tx + (Math.random() - 0.5) * 160) * u;
-  const targetY = sr.top + z.ty * u;
-  const tx = curX + targetX - (r.left + r.width / 2);
-  const ty = curY + targetY - (r.top + r.height / 2);
-  el.classList.add('is-dropping');
-  el.style.transform = `translate(${tx}px, ${ty}px) scale(.3)`;
-  setTimeout(() => {
-    cookBowl.classList.remove('bump');
-    void cookBowl.offsetWidth;
-    cookBowl.classList.add('bump');
-    cook.dropped++;
-    if (cook.dropped === cook.total) {
-      timers.cook1 = setTimeout(() => {
-        cookBowl.classList.remove('bump');
-        cookBowl.classList.add('cooking');
-      }, 250);
-      timers.cook2 = setTimeout(() => go('taste'), 2200);
-    }
-  }, 480);
-}
-enter.cook = buildFragments;
+  if (!isTouch()) setTimeout(() => current === 'cook' && $('#cookFx').focus({ preventScroll: true }), 400);
+};
 leave.cook = () => {
-  clearTimeout(timers.cook1);
   clearTimeout(timers.cook2);
+  const fx = cookFx;
+  cookFx = null;
+  setTimeout(() => fx?.stop(), 600); // 화면이 사라진 뒤 정지
 };
 
 /* =========================================================

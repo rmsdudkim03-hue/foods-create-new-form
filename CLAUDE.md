@@ -18,6 +18,7 @@
 - `index.html` 화면 7개 (메인 → 음식 고르기(입력+사진 선택 한 화면) → 분석 → 요리 → 맛보기 → 3D 결과 → 갤러리) / `style.css` 토큰과 스타일 / `js/app.js` 흐름과 인터랙션
 - `js/ai.js` 화면에서 서버(AI)를 부르는 부분. 서버를 못 쓰면 데모 모드(젤리·브로콜리만)
 - `js/cutout.js` 사진 배경 지우기 (브라우저에서 RMBG-1.4 모델, 못 쓰면 간단한 방식) / `js/contour.js` 분석 화면에서 사진이 윤곽선(등고선)으로 분해되는 효과
+- `js/cook.js` 요리 화면: 사진이 원·삼각형·사각형·육각형 조각으로 분해 → 끌거나 눌러서 그릇에 떨어뜨림(matter.js 물리, 못 불러오면 물리 없이 쌓임) → 다 넣으면 흰 무광 덩어리로 녹아 합쳐짐(metaball)
 - `js/particles.js` 맛보기 조형 등장 효과 (점이 맴돌다 조형 모양으로 모임) / `js/viewer3d.js` three.js 3D 뷰어
 - `api/` Vercel 서버 함수. AI 키는 여기서만 사용 (`_lib.js` 공통, `food` `photo` `image` `analyze` `forms` `model` `model-file` `status` `works`)
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)

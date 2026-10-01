@@ -273,21 +273,8 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .scan canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .scan.has-fx img { visibility: hidden; }
 
-/* ---------- 화면 5: 요리하기 ---------- */
-.frag {
-  z-index: 3;
-  touch-action: none;
-  cursor: grab;
-  transition: transform .55s var(--ease);
-}
-.frag.is-dragging { cursor: grabbing; transition: none; z-index: 10; }
-.frag.is-dropping { transition: transform .5s cubic-bezier(.5, 0, .75, 0), opacity .5s ease-in; opacity: 0; pointer-events: none; }
-.frag-float { width: 100%; height: 100%; animation: floaty 5s ease-in-out infinite; animation-delay: var(--d, 0s); }
-.frag.is-dragging .frag-float { animation-play-state: paused; }
-.frag-crop { position: relative; width: 100%; height: 100%; overflow: hidden; }
-.frag-crop img { position: absolute; pointer-events: none; }
-.frag-crop { mix-blend-mode: multiply; }
-@media (hover: hover) { .frag:hover .frag-crop { filter: drop-shadow(0 calc(8 * var(--u)) calc(10 * var(--u)) rgba(0,0,0,.12)); } }
+/* ---------- 화면 5: 요리하기 (js/cook.js) ---------- */
+.cook-fx { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; outline: none; }
 .bowl.bump { animation: bump .45s var(--ease); }
 .bowl.cooking { animation: cook .9s ease-in-out 2; }
 @keyframes bump { 40% { translate: 0 calc(8 * var(--u)); scale: 1.01 .98; } }
