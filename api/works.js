@@ -4,6 +4,10 @@
 //   plan은 /api/forms가 도장(sig)을 찍어 준 조형 계획. 도장이 맞을 때만 "학습" 기록으로 남김
 // POST { id, model: Meshy 작업 id } → 완성된 3D 파일(.glb)을 저장소에 보관 (Meshy 주소는 며칠 뒤 만료돼서)
 //   갤러리에서 다른 관람객 작품도 3D로 볼 수 있게 함. models/작품id.glb
+// POST { id, task: Meshy 작업 id } → 3D 변환을 시작했다고 기록 (tasks/작품id.작업id). 관람객이 3D가 끝나기 전에 떠나도
+//   나중에 갤러리에서 열 때 이 기록으로 3D 파일을 가져와 보관함
+// POST { id, fetch: true } → 기록된 변환으로 3D 파일 보관 (접근 코드 필요 없음)
+// POST { backfill: true } → 3D 기록이 없는 예전 작품을 Meshy 작업 목록에서 시간으로 짝지어 기록 (예전 작품 복구용)
 // POST { id, rating: 'good' | 'bad' } → 관람객 평가 저장 (작품 하나에 한 번만)
 //   평가는 ratings/작품id.good 처럼 파일 이름에 담아서, 내용을 읽지 않고 목록만으로 알 수 있게 함
 import { send, readJSON, allowed, store, newKey, checkPlan, meshy, timed } from './_lib.js';
@@ -47,6 +51,59 @@ async function models() {
   return Object.fromEntries(blobs.map((b) => [b.pathname.slice(7, -4), b.url]));
 }
 
+// 3D 변환을 시작한 작품 { 작품id: Meshy 작업 id }
+const TASK = /^[\w-]{6,80}$/;
+async function tasks() {
+  const blobs = await store.list('tasks/', 1000);
+  const out = {};
+  for (const b of blobs) {
+    const name = b.pathname.slice(6);
+    const dot = name.indexOf('.');
+    if (dot > 0) out[name.slice(0, dot)] = name.slice(dot + 1);
+  }
+  return out;
+}
+
+async function noteTask(res, { id, task }) {
+  if (!ID.test(String(id)) || !TASK.test(String(task))) return send(res, 400, { error: 'input' });
+  if (!(await store.list(`works/${id}.`, 1)).length) return send(res, 404, { error: 'not_found' });
+  if (!(await store.list(`tasks/${id}.`, 1)).length) await store.put(`tasks/${id}.${task}`, task, 'text/plain');
+  send(res, 200, { ok: true });
+}
+
+// 예전 작품 복구: 작품이 저장된 시각 바로 뒤에 시작된 Meshy 변환을 그 작품의 3D로 봄
+async function backfill(res) {
+  const [list, glb, known] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);
+  const todo = list.filter((w) => !glb[w.id] && !known[w.id] && w.createdAt);
+  if (!todo.length) return send(res, 200, { matched: 0 });
+  const found = [];
+  for (let page = 1; page <= 4; page++) {
+    const r = await meshy(`/image-to-3d?page_num=${page}&page_size=50&sort_by=-created_at`);
+    const arr = Array.isArray(r) ? r : r.result || r.data || [];
+    found.push(...arr);
+    if (arr.length < 50) break;
+  }
+  const used = new Set(Object.values(known));
+  let matched = 0;
+  // 오래된 작품부터 짝짓기 (같은 변환을 두 작품에 붙이지 않게)
+  for (const w of todo.reverse()) {
+    const t0 = Date.parse(w.createdAt);
+    let best = null;
+    for (const t of found) {
+      if (t.status !== 'SUCCEEDED' || used.has(t.id)) continue;
+      const dt = Number(t.created_at) - t0;
+      if (dt < -30_000 || dt > 180_000) continue; // 작품 저장 30초 전 ~ 3분 뒤에 시작된 변환
+      if (!best || Math.abs(dt) < Math.abs(best.dt)) best = { id: t.id, dt };
+    }
+    if (!best) continue;
+    used.add(best.id);
+    await store.put(`tasks/${w.id}.${best.id}`, best.id, 'text/plain');
+    matched++;
+  }
+  console.log(`[알림] 예전 작품 3D 복구: ${todo.length}개 중 ${matched}개 짝지음 (Meshy 작업 ${found.length}개 확인)`);
+  send(res, 200, { matched });
+}
+
 const MAX_GLB = 40_000_000; // 3D 파일 최대 40MB
 async function saveModel(res, { id, model }) {
   if (!ID.test(String(id)) || !/^[\w-]{6,80}$/.test(String(model))) return send(res, 400, { error: 'input' });
@@ -71,24 +128,34 @@ export default async function works(req, res) {
   try {
     if (req.method === 'GET') {
       if (!store.enabled) return send(res, 200, { enabled: false, works: [] });
-      const [list, glb] = await Promise.all([recentWorks(GALLERY_LIMIT), models()]);
+      const [list, glb, task] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       // 여러 기기가 동시에 열어도 저장소를 매번 읽지 않게 15초 동안 같은 결과를 씀
       res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=60');
       return res.end(JSON.stringify({
         enabled: true,
-        works: list.reverse().map((w) => ({ id: w.id, no: w.no, name: w.name, date: w.date, img: w.img, model: glb[w.id] || null })),
+        // task: 3D 변환은 했는데 아직 파일을 보관하지 못한 작품 (갤러리에서 열면 그때 보관)
+        works: list.reverse().map((w) => ({ id: w.id, no: w.no, name: w.name, date: w.date, img: w.img, model: glb[w.id] || null, task: glb[w.id] ? null : task[w.id] || null })),
       }));
     }
 
     if (req.method === 'POST') {
       if (!store.enabled) return send(res, 503, { error: 'no_store' });
       if (!process.env.OPENAI_API_KEY) return send(res, 503, { error: 'no_key' });
-      if (!allowed(req)) return send(res, 401, { error: 'access_code' });
       const body = await readJSON(req);
+      // 갤러리에서 3D 기록만 있는 작품을 열면 3D 파일을 가져와 보관 (기록된 작업만 쓰니 접근 코드 없이도 됨)
+      if (body.fetch) {
+        if (!ID.test(String(body.id))) return send(res, 400, { error: 'input' });
+        const [t] = await store.list(`tasks/${body.id}.`, 1);
+        if (!t) return send(res, 404, { error: 'no_task' });
+        return saveModel(res, { id: body.id, model: t.pathname.slice(t.pathname.indexOf('.') + 1) });
+      }
+      if (!allowed(req)) return send(res, 401, { error: 'access_code' });
       if (body.rating) return rate(res, body);
       if (body.model) return saveModel(res, body);
+      if (body.task) return noteTask(res, body);
+      if (body.backfill) return backfill(res);
       const image = String(body.image || '');
       if (!image.startsWith('data:image/jpeg;base64,') || image.length > 900_000) return send(res, 400, { error: 'input' });
       const name = String(body.name || '').slice(0, 40);

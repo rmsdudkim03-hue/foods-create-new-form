@@ -13,10 +13,16 @@ export const cutoutInfo = { method: '준비 중' };
 
 /* RMBG-1.4 공식 사용법: 모델에 1024×1024 사진을 넣으면 '음식일 확률' 지도(마스크)가 나옴
    (범용 'background-removal' 방식으로 부르면 이 모델을 잘못 읽어서 배경이 이상하게 지워짐) */
-let segPromise = null;
-function segmenter() {
-  if (segPromise) return segPromise;
-  segPromise = (async () => {
+/* 모델 두 가지
+   - 'fast': 그래픽카드(WebGPU)로 빠르게 (기기에 따라 마스크가 엉망으로 나올 때가 있음)
+   - 'safe': 일반 방식(q8, 약 44MB). 느리지만 결과가 안정적
+   fast 결과가 이상하면(배경이 안 지워짐) safe로 다시 하고, 두 번 그러면 그 뒤로는 safe만 씀 */
+const segPromises = {};
+let fastBad = 0;
+function segmenter(kind = 'fast') {
+  if (kind === 'fast' && fastBad >= 2) kind = 'safe';
+  if (segPromises[kind]) return segPromises[kind];
+  const segPromise = (segPromises[kind] = (async () => {
     const { AutoModel, AutoProcessor, RawImage, env } = await import(LIB);
     env.allowLocalModels = false;
     const t = performance.now();
@@ -25,8 +31,9 @@ function segmenter() {
     const gpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
     try {
       // 그래픽카드(WebGPU)가 되면 빠르게, 안 되면 일반 방식. 모델 파일은 약 88MB (한 번 받으면 브라우저에 저장)
-      model = await load(gpu ? { device: 'webgpu', dtype: 'fp16' } : { dtype: 'fp16' });
+      model = await load(kind === 'safe' ? { dtype: 'q8' } : gpu ? { device: 'webgpu', dtype: 'fp16' } : { dtype: 'fp16' });
     } catch (err) {
+      if (kind === 'safe') throw err;
       console.warn('[배경 제거] 첫 시도 실패 → 다른 방식으로 다시', err);
       model = await load({ dtype: 'q8' });
     }
@@ -39,10 +46,11 @@ function segmenter() {
       },
     });
     console.info(`[배경 제거] 모델 준비 ${((performance.now() - t) / 1000).toFixed(1)}초`);
-    cutoutInfo.method = 'AI 모델';
-    return { model, processor, RawImage };
-  })();
+    cutoutInfo.method = kind === 'safe' ? 'AI 모델 (안정 모드)' : 'AI 모델';
+    return { model, processor, RawImage, kind };
+  })());
   segPromise.catch((err) => {
+    if (kind === 'safe') return;
     cutoutInfo.method = '간단한 방식 (모델 실패)';
     console.warn('[배경 제거] 모델을 못 씀 → 간단한 방식으로 대신', err);
   });
@@ -50,7 +58,7 @@ function segmenter() {
 }
 
 // 체험을 시작할 때 미리 모델을 받아 두기
-export function warmup() { segmenter().catch(() => {}); }
+export function warmup() { segmenter('fast').catch(() => {}); }
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -72,20 +80,45 @@ export function cutout(src) {
   return job;
 }
 
+// 사진에서 음식(불투명한 부분)이 차지하는 비율
+function coverage(canvas) {
+  const k = Math.min(1, 96 / Math.max(canvas.width, canvas.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(canvas.width * k));
+  c.height = Math.max(1, Math.round(canvas.height * k));
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(canvas, 0, 0, c.width, c.height);
+  const a = g.getImageData(0, 0, c.width, c.height).data;
+  let n = 0;
+  for (let i = 3; i < a.length; i += 4) if (a[i] > 128) n++;
+  return n / (c.width * c.height);
+}
+// 배경이 거의 안 지워졌거나(음식이 화면을 꽉 채움) 거의 다 지워졌으면 쓸 수 없는 결과
+const MAX_COVER = 0.88, MIN_COVER = 0.03;
+const usable = (cv) => cv >= MIN_COVER && cv <= MAX_COVER;
+
 async function cutoutNow(src) {
   const img = await loadImage(src);
-  let canvas;
+  let canvas = null;
   try {
-    canvas = await modelCutout(img, src);
+    canvas = await modelCutout(img, src, 'fast');
+    if (!usable(coverage(canvas)) && fastBad < 2) {
+      // 빠른 모델 결과가 이상하면 안정 모드로 한 번 더
+      const safe = await modelCutout(img, src, 'safe').catch(() => null);
+      if (safe && usable(coverage(safe))) { fastBad++; canvas = safe; }
+    }
   } catch (err) {
-    if (cutoutInfo.method === 'AI 모델') console.warn('[배경 제거] 이 사진은 모델 실패 → 간단한 방식', err);
+    if (cutoutInfo.method.startsWith('AI 모델')) console.warn('[배경 제거] 이 사진은 모델 실패 → 간단한 방식', err);
     canvas = simpleCutout(img);
   }
+  const cv = coverage(canvas);
+  // 배경을 제대로 못 지운 사진은 보여주지 않음 (음식 모양이 드러나지 않아서)
+  if (!usable(cv)) throw new Error(`배경 제거 결과가 이상해서 뺌 (음식 비율 ${Math.round(cv * 100)}%)`);
   return trimAlpha(canvas);
 }
 
-async function modelCutout(img, src) {
-  const { model, processor, RawImage } = await segmenter();
+async function modelCutout(img, src, kind) {
+  const { model, processor, RawImage } = await segmenter(kind);
   const image = await RawImage.fromURL(src);
   const { pixel_values } = await processor(image);
   const { output } = await model({ input: pixel_values });

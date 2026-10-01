@@ -197,14 +197,13 @@ export function foodImages(food) {
     const shots = plan.shots || [];
     const job = createJob(photos.length + shots.length);
     job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, shots };
-    // 실제 사진: 원본을 먼저 보여주고, 배경을 지우는 대로 바꿔 끼움 (cut: true가 되면 고를 수 있음)
+    // 실제 사진: 배경을 다 지운 사진만 보여줌 (그 전에는 빈 접시)
     photos.forEach((p, i) => {
       const src = `api/photo?u=${encodeURIComponent(p.src)}`;
-      const base = { w: p.w, h: p.h, alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
-      job.put(i, { ...base, src, cut: false });
+      const base = { alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
       cutout(src)
-        .then((c) => { if (!job.cancelled) job.update(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true }); })
-        .catch((err) => { console.error(err); job.drop(i); });
+        .then((c) => job.put(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true }))
+        .catch((err) => { console.error(err); job.fail(i); });
     });
     // AI 이미지: 흰 배경으로 그려서 배경 지우기는 필요 없음
     pool(shots.map((sh, j) => async () => {
@@ -318,9 +317,10 @@ export function tasteForms(analysis, picks, foods) {
 
 /* ---------- ③ 3D 변환 (관람객이 조형 하나를 골랐을 때만) ----------
    불러올 3D 파일 주소 목록을 돌려줌 (앞에서부터 시도) */
-export async function toModel(formImg, form, onProgress = () => {}) {
+export async function toModel(formImg, form, onProgress = () => {}, onStart = () => {}) {
   if (live && formImg?.startsWith('data:')) {
     const { taskId } = await call('api/model', { body: { image: formImg }, timeout: 60000 });
+    onStart(taskId);
     const started = Date.now();
     while (Date.now() - started < 8 * 60 * 1000) {
       await wait(4000);
@@ -341,9 +341,10 @@ export async function toModel(formImg, form, onProgress = () => {}) {
 
 /* ---------- 공유 갤러리 ----------
    모든 기기가 같이 보는 갤러리. 저장소가 없으면 { enabled: false } → 이 기기에만 저장 */
-export async function loadWorks() {
+export async function loadWorks(fresh = false) {
   try {
-    const r = await fetch('api/works', { cache: 'no-store' });
+    // fresh: 서버에 잠깐 저장된(15초) 목록 말고 새로 읽기
+    const r = await fetch(fresh ? `api/works?t=${Date.now()}` : 'api/works', { cache: 'no-store' });
     if (!r.ok) return { enabled: false, works: [] };
     return await r.json();
   } catch { return { enabled: false, works: [] }; }
@@ -353,6 +354,27 @@ export async function loadWorks() {
 export async function saveModel(id, taskId) {
   if (!live || !id || !taskId) return null;
   return call('api/works', { body: { id, model: taskId }, timeout: 120000, retries: 1 });
+}
+
+// 갤러리: 3D 변환 기록만 있는 작품의 3D 파일을 가져와 보관 (데모 모드 기기에서도 됨)
+export async function fetchModel(id) {
+  if (!id) return null;
+  const r = await fetch('api/works', { method: 'POST', headers: headers(), body: JSON.stringify({ id, fetch: true }) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+// 3D 변환을 시작했다고 기록 (끝나기 전에 떠나도 나중에 갤러리에서 3D 파일을 가져올 수 있게)
+export async function noteTask(id, taskId) {
+  if (!live || !id || !taskId) return null;
+  return call('api/works', { body: { id, task: taskId }, timeout: 30000, retries: 2 });
+}
+
+// 3D 기록이 없는 예전 작품을 Meshy 작업 목록에서 찾아 연결
+export async function backfillModels() {
+  if (!live) return null;
+  return call('api/works', { body: { backfill: true }, timeout: 120000, retries: 0 });
 }
 
 // 관람객 평가 저장 ('good' 좋아요 / 'bad' 별로예요). 다음 관람객의 조형 제안에 반영됨
