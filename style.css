@@ -71,6 +71,13 @@ html, body { height: 100%; margin: 0; background: var(--bg); }
 .is-portrait .cx  { left: calc(var(--pcx, var(--cx)) * var(--u)); top: calc(var(--py, var(--y)) * var(--u)); }
 .is-portrait .fs  { font-size: calc(var(--pfs, var(--fs)) * var(--u)); }
 
+/* 넓은 화면(16:9 모니터 등): 피그마 프레임은 가운데 두고, 구석 요소만 화면 끝으로 붙임
+   pin-l 왼쪽 끝 / pin-r 오른쪽 끝 / pin-t 위 끝 / pin-b 아래 끝 (--ox, --oy = 남는 여백, JS가 계산) */
+.app:not(.is-portrait) .abs.pin-l { left: calc((var(--x) - var(--ox, 0)) * var(--u)); }
+.app:not(.is-portrait) .abs.pin-r { left: calc((var(--x) + var(--ox, 0)) * var(--u)); white-space: nowrap; }
+.app:not(.is-portrait) .abs.pin-t { top: calc((var(--y) - var(--oy, 0)) * var(--u)); }
+.app:not(.is-portrait) .abs.pin-b { top: calc((var(--y) + var(--oy, 0)) * var(--u)); }
+
 img { display: block; max-width: none; -webkit-user-drag: none; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 4px; }

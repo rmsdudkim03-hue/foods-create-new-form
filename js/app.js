@@ -950,17 +950,20 @@ const gallery = (() => {
     const n = items.length;
     $('#gCount').textContent = `지금까지 모인 조형 ${n}개`;
     // 화면 영역 안에 가장 크게 들어가는 칸 수 계산
-    const A = view.portrait ? { x: 24, y: 180, w: 552, h: 890, max: 170 } : { x: 100, y: 180, w: 1240, h: 800, max: 230 };
+    // 넓은 화면이면 양옆 여백까지 씀
+    const ox = view.ox || 0;
+    const A = view.portrait ? { x: 24 - ox, y: 180, w: 552 + 2 * ox, h: 890, max: 170 } : { x: 100 - ox, y: 180, w: 1240 + 2 * ox, h: 800, max: 230 };
     let best = { size: 0, cols: 1 };
     for (let c = 1; c <= n; c++) {
       const rows = Math.ceil(n / c);
       const size = Math.min(A.w / c, A.h / (rows * 1.12), A.max);
-      if (size > best.size) best = { size, cols: c };
+      // 크기가 같으면 칸을 옆으로 더 늘어놓음 (몇 개 안 될 때 세로 한 줄로 서지 않게)
+      if (size >= best.size - 0.5) best = { size, cols: c };
     }
     const { size, cols } = best;
     const rows = Math.ceil(n / cols);
-    const ox = A.x + (A.w - cols * size) / 2;
-    const oy = A.y + (A.h - rows * size * 1.12) / 2;
+    const gx = A.x + (A.w - cols * size) / 2;
+    const gy = A.y + (A.h - rows * size * 1.12) / 2;
     const order = items.map((it, i) => i).reverse();
     order.forEach((i, k) => {
       const it = items[i];
@@ -968,7 +971,7 @@ const gallery = (() => {
       cell.type = 'button';
       cell.className = 'g-cell abs';
       const col = k % cols, row = Math.floor(k / cols);
-      cell.style.cssText = `--x:${ox + col * size + size * 0.06};--y:${oy + row * size * 1.12};width:calc(${size * 0.88} * var(--u));font-size:calc(${Math.max(11, size * 0.075)} * var(--u));--d:${Math.min(k * 0.04, 1.2)}s;--f:${-(k % 7) * 0.9}s`;
+      cell.style.cssText = `--x:${gx + col * size + size * 0.06};--y:${gy + row * size * 1.12};width:calc(${size * 0.88} * var(--u));font-size:calc(${Math.max(11, size * 0.075)} * var(--u));--d:${Math.min(k * 0.04, 1.2)}s;--f:${-(k % 7) * 0.9}s`;
       cell.innerHTML = `<span class="g-cell-plate"><img src="assets/img/plate-top.png" alt=""><img class="g-thumb" src="${it.thumb}" alt="">${it.model ? '<span class="g-cell-3d">3D</span>' : ''}</span><span class="g-cell-no">${it.no}</span>`;
       cell.setAttribute('aria-label', `${it.no} ${it.name}${it.model ? ', 3D로 볼 수 있음' : ''}`);
       cell.addEventListener('click', () => openDetail(i));
@@ -1164,8 +1167,13 @@ function layout() {
   const u = portrait ? Math.min(W / 600, H / 1100) : Math.min(W / 1440, H / 1024);
   view.u = u;
   view.portrait = portrait;
+  // 화면이 피그마 프레임보다 넓거나 길면 남는 여백 (피그마 px, 한쪽). 구석에 붙는 요소(로고·메뉴·버튼)가 이만큼 바깥으로 나감
+  view.ox = Math.max(0, (W / u - (portrait ? 600 : 1440)) / 2);
+  view.oy = Math.max(0, (H / u - (portrait ? 1100 : 1024)) / 2);
   app.classList.toggle('is-portrait', portrait);
   app.style.setProperty('--u', `${u}px`);
+  app.style.setProperty('--ox', view.ox);
+  app.style.setProperty('--oy', view.oy);
   carousel.render();
   gallery.layout();
 }
