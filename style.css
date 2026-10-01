@@ -328,6 +328,37 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 @media (hover: hover) { .rate:not(.is-done) .rate-btn:hover { background: var(--pill); color: var(--on-pill); } }
 
 /* ---------- 화면 8: 갤러리 ---------- */
+/* 모아보기 ↔ 크게 보기 전환 */
+.g-overview, .g-detail { position: absolute; inset: 0; transition: opacity .5s var(--ease), visibility 0s; }
+.screen.is-grid .g-detail, .screen:not(.is-grid) .g-overview { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .4s var(--ease), visibility 0s .4s; }
+/* 모아보기: 접시가 순서대로 떠오르듯 나타남 */
+.g-cell {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  translate: 0 calc(18 * var(--u));
+  scale: .85;
+  transition: opacity .6s var(--ease), translate .7s var(--ease), scale .7s var(--ease);
+  transition-delay: var(--d, 0s);
+}
+.screen.is-grid.is-active .g-cell.is-in { opacity: 1; translate: 0 0; scale: 1; }
+.g-cell-plate { position: relative; width: 100%; aspect-ratio: 1; animation: floaty 7s ease-in-out infinite; animation-delay: var(--f, 0s); }
+.g-cell-plate > img:first-child { width: 100%; height: 100%; }
+.g-cell-plate .g-thumb { position: absolute; left: 22%; top: 22%; width: 56%; height: 56%; object-fit: contain; mix-blend-mode: multiply; transition: scale .35s var(--ease); }
+.g-cell-no { margin-top: calc(4 * var(--u)); font-weight: 700; color: var(--ink-sub); font-variant-numeric: tabular-nums; }
+.g-cell-3d { position: absolute; right: 6%; top: 6%; padding: .1em .45em; border-radius: 999px; background: var(--pill); color: var(--on-pill); font-weight: 800; font-size: .7em; }
+@media (hover: hover) { .g-cell:hover .g-thumb { scale: 1.1; } }
+.g-back, .g-btn { font-weight: 700; color: var(--ink); z-index: 3; }
+.g-btn { padding: calc(8 * var(--u)) calc(22 * var(--u)); border: 1px solid var(--pill); border-radius: 999px; transition: background .25s var(--ease), color .25s var(--ease); }
+.g-btn.is-on { background: var(--pill); color: var(--on-pill); }
+@media (hover: hover) { .g-btn:hover { background: var(--pill); color: var(--on-pill); } .g-back:hover { text-decoration: underline; } }
+/* 크게 보기: 3D 뷰어는 이미지 자리에 겹쳐서 */
+.g-viewer { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .6s var(--ease); touch-action: none; cursor: grab; }
+.g-feature.is-3d .g-viewer { opacity: 1; pointer-events: auto; }
+.g-feature.is-3d img { opacity: 0; }
+.g-viewer canvas { display: block; width: 100% !important; height: 100% !important; }
 .g-feature img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; transition: opacity .35s var(--ease); }
 .g-feature.is-swapping img { opacity: 0; }
 .g-no { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
