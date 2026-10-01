@@ -2,7 +2,7 @@
    화면 5: 새로운 조형 요리하기
    1) 고른 사진 두 장이 원·삼각형·사각형·육각형 조각으로 분해되어 떠 있음
    2) 조각을 끌어다 놓거나 누르면 그릇으로 툭 떨어져 부딪히고 쌓임 (물리: matter.js)
-   3) 다 넣으면 조각이 하얗게 녹아 하나의 덩어리로 합쳐짐 (metaball)
+   3) 다 넣으면 조각들이 그릇 위에서 빙글빙글 돌며 섞이다가 가운데로 모여 사라짐
    좌표는 모두 피그마 좌표(데스크톱 1440×1024, 휴대폰 600×1100)로 계산하고 그릴 때만 화면 크기로 바꿈
    조절값은 아래 SETTINGS에서 바꾸면 돼.
    ========================================================= */
@@ -13,8 +13,8 @@ const SETTINGS = {
   photo: { d: 360, p: 230 },   // 분해되기 전 사진 크기 (데스크톱 / 휴대폰)
   spread: 1.55,        // 조각이 사진에서 벌어지는 정도
   shatter: 1.1,        // 사진이 조각으로 벌어지는 시간(초)
-  settle: 1.3,         // 마지막 조각을 넣고 녹기 시작할 때까지 기다리는 시간(초)
-  melt: 2.4,           // 녹아서 합쳐지는 시간(초)
+  settle: [0.6, 2.5],  // 마지막 조각을 넣고 섞기 시작할 때까지: 최소, 최대(초). 그 사이엔 조각이 멈추면 시작
+  mix: 3.2,            // 섞이는 시간(초)
   shapes: ['circle', 'triangle', 'square', 'hexagon', 'circle'],
 };
 const SIDES = { triangle: 3, square: 4, hexagon: 6 };
@@ -40,9 +40,10 @@ function loadMatter() {
 export function preloadCook() { loadMatter(); }
 
 /* ---------- 그릇 모양 (그릇 이미지 1018×509 안의 좌표) ----------
-   조각이 앞쪽 벽에 살짝 가려지면서 그릇 안에 담긴 것처럼 보이도록 바닥을 테두리보다 조금 아래에 둠 */
+   바닥을 그릇 테두리 앞쪽 선 바로 아래에 둠 → 조각 아랫부분만 테두리에 살짝 가려져서 '그릇 안에 담긴' 것처럼 보이고,
+   조각은 거의 다 보임 (예전엔 바닥이 깊어서 조각이 그릇 뒤로 숨는 것처럼 보였음) */
 const BOWL_IMG = { w: 1018, h: 509 };
-const BOWL_FLOOR = [[178, 214], [215, 236], [300, 256], [420, 266], [509, 268], [598, 266], [718, 256], [803, 236], [840, 214]];
+const BOWL_FLOOR = [[182, 214], [232, 226], [330, 234], [509, 238], [688, 234], [786, 226], [836, 214]];
 const RIM_Y = 214;
 function bowlGeom(portrait) {
   const b = portrait ? { x: -10, y: 600, w: 620 } : { x: 211, y: 546, w: 1018 };
@@ -156,80 +157,22 @@ async function decompose(pick, center, size, count, startIndex) {
   return { img, scale, pieces };
 }
 
-/* ---------- metaball: 여러 원이 녹아 하나로 합쳐진 흰 덩어리 그리기 ----------
-   각 원이 주변에 '영향'을 퍼뜨리고, 영향의 합이 기준보다 큰 곳을 덩어리로 칠함.
-   영향은 원 반지름의 1.7배까지만 닿아서 덩어리가 지나치게 부풀지 않음 */
-const META = { reach: 1.7, level: 0.35, cell: 1.25 }; // cell: 계산 간격 (작을수록 가장자리가 선명, 느려짐)
-function drawMetaballs(ctx, blobs, toPx, pxPerUnit, alpha) {
-  if (!blobs.length || alpha <= 0) return;
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const b of blobs) {
-    const R = b.r * META.reach;
-    x0 = Math.min(x0, b.x - R); y0 = Math.min(y0, b.y - R);
-    x1 = Math.max(x1, b.x + R); y1 = Math.max(y1, b.y + R);
-  }
-  const cell = META.cell;
-  const W = Math.ceil((x1 - x0) / cell) + 2, H = Math.ceil((y1 - y0) / cell) + 2;
-  if (W * H > 400000) return;
-  const f = new Float32Array(W * H);
-  for (const b of blobs) {
-    const R = b.r * META.reach, R2 = R * R;
-    const i0 = Math.max(0, Math.floor((b.x - R - x0) / cell)), i1 = Math.min(W - 1, Math.ceil((b.x + R - x0) / cell));
-    const j0 = Math.max(0, Math.floor((b.y - R - y0) / cell)), j1 = Math.min(H - 1, Math.ceil((b.y + R - y0) / cell));
-    for (let j = j0; j <= j1; j++) {
-      const dy = y0 + j * cell - b.y;
-      for (let i = i0; i <= i1; i++) {
-        const dx = x0 + i * cell - b.x;
-        const q = 1 - (dx * dx + dy * dy) / R2;
-        if (q > 0) f[j * W + i] += q * q;
-      }
-    }
-  }
-  const c = drawMetaballs.c ||= document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const g = c.getContext('2d');
-  const im = g.createImageData(W, H);
-  const T = META.level;
-  for (let j = 1; j < H - 1; j++) {
-    for (let i = 1; i < W - 1; i++) {
-      const k = j * W + i;
-      const v = f[k];
-      if (v < T - 0.03) continue;
-      // 표면 기울기 → 왼쪽 위에서 빛이 오는 흰 무광 덩어리. 가장자리는 살짝 어둡게
-      const nx = (f[k - 1] - f[k + 1]) * 6, ny = (f[k - W] - f[k + W]) * 6;
-      const len = Math.hypot(nx, ny, 1);
-      const lambert = Math.max(0, (-0.5 * nx - 0.6 * ny + 0.62) / len);
-      const inner = clamp((v - T) * 2.2, 0, 1);
-      const shade = 0.74 + 0.2 * lambert + 0.06 * inner;
-      const p = k * 4;
-      im.data[p] = 250 * shade; im.data[p + 1] = 249 * shade; im.data[p + 2] = 246 * shade;
-      im.data[p + 3] = 255 * clamp((v - T) / 0.035 + 0.5, 0, 1); // 가장자리 경계를 좁게 → 선명
-    }
-  }
-  g.putImageData(im, 0, 0);
-  const [px, py] = toPx(x0, y0);
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(c, px, py, W * cell * pxPerUnit, H * cell * pxPerUnit);
-  ctx.restore();
-}
-
 /* =========================================================
    요리 화면 시작
    canvas: 화면 전체 캔버스 (그릇 이미지 뒤)
-   opts: { picks: {A, B}, view: () => ({ u, portrait }), onBump, onMelt, onDone }
+   opts: { picks: {A, B}, view: () => ({ u, portrait }), onBump, onCount(넣은 수, 전체), onMix, onDone }
    ========================================================= */
 export function startCook(canvas, opts) {
   // 준비(사진 분해·물리 불러오기)가 끝나기 전에 화면을 떠나도 바로 멈출 수 있게, 멈춤 장치를 먼저 돌려줌
   const ctl = { stopped: false, cleanup: null };
   run(canvas, opts, ctl).catch((err) => { console.error('[요리 화면]', err); opts.onDone?.(); });
-  return { stop() { ctl.stopped = true; ctl.cleanup?.(); } };
+  return {
+    stop() { ctl.stopped = true; ctl.cleanup?.(); },
+    dropAll() { ctl.dropAll?.(); }, // '모두 넣기' 버튼
+  };
 }
 
-async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, onDone = () => {} }, ctl) {
+async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {}, onMix = () => {}, onDone = () => {} }, ctl) {
   const ctx = canvas.getContext('2d');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let raf = 0;
@@ -256,9 +199,28 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
       ];
       p.phase = Math.random() * Math.PI * 2;
       p.side = pi;
-      p.state = 'float'; // float → drag → fly → fall → (rest)
+      p.state = 'float'; // float → drag → fly → fall → mix
     }
   }
+  // 떠 있는 조각끼리 겹치지 않게 조금씩 밀어냄 (집기 쉽게)
+  const W = portrait ? 600 : 1440;
+  for (let it = 0; it < 60; it++) {
+    for (let i = 0; i < pieces.length; i++) {
+      for (let j = i + 1; j < pieces.length; j++) {
+        const a = pieces[i].float, b = pieces[j].float;
+        const need = (pieces[i].r + pieces[j].r) * 1.18;
+        const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 0.01;
+        if (d >= need) continue;
+        const push = (need - d) / 2, ux = dx / d, uy = dy / d;
+        a[0] -= ux * push; a[1] -= uy * push; b[0] += ux * push; b[1] += uy * push;
+      }
+    }
+    for (const p of pieces) {
+      p.float[0] = clamp(p.float[0], p.r + 10, W - p.r - 10);
+      p.float[1] = clamp(p.float[1], (portrait ? 250 : 240) + p.r, bowl.rimY - 70 - p.r);
+    }
+  }
+  onCount(0, pieces.length);
 
   /* ---------- 물리 세계 ---------- */
   let engine = null;
@@ -301,6 +263,9 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
     p.body = body;
   }
 
+  // 섞일 때 도는 길 (그릇 위 납작한 타원)
+  const mix = { cx: bowl.cx, cy: bowl.rimY - 6 * bowl.k, rx: (bowl.right - bowl.left) * 0.3, ry: 34 * bowl.k };
+
   /* ---------- 놓기: 그릇 위로 옮긴 뒤 떨어뜨림 ---------- */
   let dropped = 0;
   let lastDrop = 0;
@@ -310,7 +275,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
     const n = restN++;
     const row = Math.floor(n / 5), col = n % 5;
     const off = [0, -1, 1, -2, 2][col] * (bowl.right - bowl.left) * 0.16;
-    return [bowl.cx + off + (Math.random() - 0.5) * 10, bowl.rimY + 30 * bowl.k - r * 0.6 - row * 40 * bowl.k];
+    return [bowl.cx + off + (Math.random() - 0.5) * 10, bowl.rimY + 18 * bowl.k - r * 0.9 - row * 40 * bowl.k];
   };
   function drop(p, x, y) {
     if (p.state === 'fly' || p.state === 'fall') return;
@@ -320,7 +285,15 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
     p.state = 'fly';
     dropped++;
     lastDrop = performance.now();
+    onCount(dropped, pieces.length);
   }
+  // 모두 넣기: 남은 조각을 조금씩 시간차를 두고 그릇으로
+  ctl.dropAll = () => {
+    if (phase !== 'play') return;
+    pieces.filter((q) => q.state === 'float').forEach((q, i) => setTimeout(() => {
+      if (!ctl.stopped && q.state === 'float') drop(q, bowl.cx + (Math.random() - 0.5) * (bowl.right - bowl.left) * 0.6, q.y);
+    }, i * 140));
+  };
   function release(p) {
     if (engine) addBody(p, p.x, p.y, p.rot);
     else {
@@ -378,7 +351,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
     const p = pieces.find((q) => q.state === 'float');
-    if (p) drop(p, bowl.cx + (Math.random() - 0.5) * 200, p.y);
+    if (p && phase === 'play') drop(p, bowl.cx + (Math.random() - 0.5) * 200, p.y);
   };
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
@@ -387,11 +360,10 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
   canvas.addEventListener('keydown', onKey);
 
   /* ---------- 매 프레임 ---------- */
-  let phase = 'shatter'; // shatter → play → melt → done
+  let phase = 'shatter'; // shatter → play → mix → done
   let t0 = performance.now();
   let last = t0;
-  let blobs = [];
-  let meltT0 = 0;
+  let mixT0 = 0;
 
   function fit() {
     const r = canvas.getBoundingClientRect();
@@ -409,7 +381,6 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
     const t = (now - t0) / 1000;
     const k = fit();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const toPx = (x, y) => [x * k, y * k];
 
     // 1) 분해: 사진이 보였다가 조각이 바깥으로 벌어짐
     let open = 1;
@@ -430,10 +401,29 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
     // 2) 물리
     if (engine) Matter.Engine.update(engine, dt * 1000);
 
-    // 3) 조각 위치 정하고 그리기
-    const meltK = phase === 'melt' ? ease((now - meltT0) / 1000 / 0.7) : 0;
+    // 3) 조각 위치 정하기
+    const mt = phase === 'mix' || phase === 'done' ? (now - mixT0) / 1000 : 0;
     for (const p of pieces) {
-      if (p.state === 'float' || (phase === 'shatter')) {
+      p.alpha = 1;
+      p.scale = 1;
+      p.depth = 0;
+      if (phase === 'mix' || phase === 'done') {
+        // 섞기: 그릇 위 납작한 타원을 따라 점점 빨라지며 돌다가, 끝에는 가운데로 모여 사라짐
+        const T = SETTINGS.mix;
+        const enter = easeInOut(mt / 0.7);                       // 쌓인 자리 → 도는 길로
+        const spin = (mt * 1.1 + mt * mt * 0.55) * p.spd;        // 점점 빨라짐
+        const conv = easeInOut((mt - T * 0.5) / (T * 0.5));      // 끝 무렵 가운데로
+        const a = p.a0 + spin;
+        const rr = p.rr * (1 - 0.92 * conv);
+        const ox = mix.cx + Math.cos(a) * mix.rx * rr;
+        const oy = mix.cy + Math.sin(a) * mix.ry * rr - p.r * 0.55 * (1 - conv);
+        p.x = p.mx + (ox - p.mx) * enter;
+        p.y = p.my + (oy - p.my) * enter;
+        p.rot = p.mrot + spin * 1.6;
+        p.depth = Math.sin(a);                                   // 앞(+)·뒤(-)
+        p.scale = (0.9 + 0.12 * (p.depth + 1) / 2) * (1 - 0.55 * conv);
+        p.alpha = 1 - ease((mt - (T - 0.55)) / 0.55);
+      } else if (p.state === 'float' || (phase === 'shatter')) {
         const bob = Math.sin(t * 1.4 + p.phase) * 6;
         p.x = p.home[0] + (p.float[0] - p.home[0]) * open;
         p.y = p.home[1] + (p.float[1] - p.home[1]) * open + bob * open;
@@ -454,42 +444,41 @@ async function run(canvas, { picks, view, onBump = () => {}, onMelt = () => {}, 
           p.x += (p.rest[0] - p.x) * Math.min(1, dt * 9);
         }
       }
-      if (meltK >= 1) continue;
+    }
+
+    // 4) 그리기 (섞일 때는 뒤쪽 조각부터 → 앞쪽 조각이 위에 보임)
+    const order = phase === 'mix' || phase === 'done' ? [...pieces].sort((a, b) => a.depth - b.depth) : pieces;
+    for (const p of order) {
+      if (p.alpha <= 0) continue;
       ctx.save();
-      ctx.globalAlpha = 1 - meltK;
+      ctx.globalAlpha = p.alpha;
       ctx.translate(p.x * k, p.y * k);
       ctx.rotate(p.rot || 0);
-      const s = (p.r * 2 * k) / (p.tex.width - 2);
+      const s = (p.r * 2 * k * p.scale) / (p.tex.width - 2);
       ctx.drawImage(p.tex, (-p.tex.width / 2) * s, (-p.tex.height / 2) * s, p.tex.width * s, p.tex.height * s);
       ctx.restore();
     }
 
-    // 4) 다 넣었으면 잠시 뒤 녹기 시작
-    if (phase === 'play' && dropped === pieces.length && pieces.every((p) => p.state === 'fall')
-      && now - lastDrop > SETTINGS.settle * 1000) {
-      phase = 'melt';
-      meltT0 = now;
-      const cy = bowl.rimY - 34 * bowl.k;
-      blobs = pieces.map((p) => ({ sx: p.x, sy: p.y, r0: p.r * 0.92, x: p.x, y: p.y, r: p.r, ph: Math.random() * 6 }));
-      blobs.target = [bowl.cx, cy];
-      onMelt();
+    // 5) 다 넣었고 조각이 멈췄으면(또는 충분히 기다렸으면) 섞기 시작
+    if (phase === 'play' && dropped === pieces.length && pieces.every((p) => p.state === 'fall')) {
+      const since = (now - lastDrop) / 1000;
+      const still = pieces.every((p) => !p.body || (p.body.speed < 0.3 && Math.abs(p.body.angularSpeed) < 0.02));
+      if (since > SETTINGS.settle[1] || (since > SETTINGS.settle[0] && still)) {
+        phase = 'mix';
+        mixT0 = now;
+        if (engine) Matter.Composite.clear(engine.world, false); // 물리 멈춤
+        pieces.forEach((p, i) => {
+          p.mx = p.x; p.my = p.y; p.mrot = p.rot || 0;
+          p.a0 = (i / pieces.length) * Math.PI * 2 + Math.random() * 0.5;
+          p.rr = 0.45 + Math.random() * 0.55;
+          p.spd = 0.8 + Math.random() * 0.5;
+        });
+        onMix();
+      }
     }
-
-    // 5) 녹아서 합쳐지기: 원들이 가운데로 모이며 커지고, 하얀 덩어리로 이어짐
-    if (phase === 'melt' || phase === 'done') {
-      const mt = (now - meltT0) / 1000;
-      const gather = easeInOut(mt / SETTINGS.melt);
-      const [tx, ty] = blobs.target;
-      for (const bl of blobs) {
-        bl.x = bl.sx + (tx - bl.sx) * gather * 0.8 + Math.sin(mt * 2 + bl.ph) * 2;
-        bl.y = bl.sy + (ty - bl.sy) * gather * 0.8 + Math.cos(mt * 1.7 + bl.ph) * 2;
-        bl.r = bl.r0 * (1 + 0.2 * gather);
-      }
-      drawMetaballs(ctx, blobs, toPx, k, ease(mt / 0.6));
-      if (phase === 'melt' && mt > SETTINGS.melt + 0.4) {
-        phase = 'done';
-        onDone();
-      }
+    if (phase === 'mix' && mt > SETTINGS.mix + 0.1) {
+      phase = 'done';
+      onDone();
     }
     raf = requestAnimationFrame(frame);
   }

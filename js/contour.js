@@ -1,6 +1,6 @@
 /* =========================================================
    분석 화면 효과: 음식 사진이 윤곽선(등고선)으로 분해됨
-   1) 사진 위에 바깥 윤곽선부터 안쪽으로 등고선이 하나씩 그려짐
+   1) 사진 위에 바깥쪽부터 안쪽으로 등고선이 하나씩 그려짐 (진한 바깥 테두리선은 없음)
    2) 사진은 천천히 사라지고 선만 남음
    3) 남은 선은 물결처럼 천천히 흐르며 형태를 '읽는' 느낌을 줌
    등고선 높이 = 음식 덩어리의 두께(가장자리 → 가운데) + 사진의 밝고 어두움(표면 결)
@@ -202,16 +202,6 @@ export function contour(canvas, src, { delay = 0 } = {}) {
       ctx.drawImage(img, ox + 2 * s, oy + 2 * s, (W - 4) * s, (H - 4) * s);
       ctx.filter = 'none';
       ctx.globalAlpha = 1;
-    }
-
-    // 바깥 윤곽선 (가장 먼저, 진하게)
-    const outline = ease(t / (SETTINGS.draw * 0.35));
-    if (outline > 0) {
-      ctx.beginPath();
-      traceLevel(ctx, mask, W, H, 0.5, s, s, ox, oy);
-      ctx.strokeStyle = `rgba(${SETTINGS.ink}, ${0.85 * outline})`;
-      ctx.lineWidth = 1.3 * dpr;
-      ctx.stroke();
     }
 
     // 안쪽 등고선: 바깥부터 하나씩 나타나고, 다 나타나면 천천히 흐름

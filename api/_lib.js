@@ -287,8 +287,8 @@ async function getJSON(label, url, headers = {}) {
   return data;
 }
 
-export async function searchPhotos(query, name = query) {
-  const site = photoSite();
+// 검색어 하나로 사진 사이트 검색 → 사진 목록
+async function searchOne(site, query) {
   let list = [];
   if (site === 'Unsplash') {
     const data = await getJSON(`사진 검색 Unsplash (${query})`,
@@ -303,9 +303,9 @@ export async function searchPhotos(query, name = query) {
   } else if (site === 'Pixabay') {
     // 먼저 '음식' 카테고리 안에서 찾고, 너무 적으면 전체에서 다시 찾음
     const search = (extra) => getJSON(`사진 검색 Pixabay (${query})`,
-      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '40', safesearch: 'true', ...extra })}`);
+      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '20', safesearch: 'true', ...extra })}`);
     let data = await search({ category: 'food' });
-    if ((data.hits || []).length < PHOTO_COUNT) data = await search({});
+    if ((data.hits || []).length < 8) data = await search({});
     list = (data.hits || []).filter((p) => p.largeImageURL).map((p) => ({
       src: p.largeImageURL, w: p.imageWidth, h: p.imageHeight, alt: p.tags || '',
       by: p.user || '', link: p.pageURL || '',
@@ -337,7 +337,25 @@ export async function searchPhotos(query, name = query) {
         thumb: ii.thumburl.replace('/1000px-', '/330px-'),
       }));
   }
-  const candidates = list.slice(0, CANDIDATES);
+  return list;
+}
+
+// 검색어 여러 개(같은 음식의 다른 모습)로 찾아서 섞음 → 글 AI가 보고 고름
+export async function searchPhotos(queries, name) {
+  const site = photoSite();
+  const qs = [...new Set((Array.isArray(queries) ? queries : [queries]).map((q) => String(q || '').trim()).filter(Boolean))].slice(0, 3);
+  const lists = await Promise.all(qs.map((q) => searchOne(site, q).catch((err) => { console.error(err); return []; })));
+  // 검색어마다 앞쪽부터 번갈아 섞기 (한 검색어 결과만 몰리지 않게), 같은 사진은 한 번만
+  const seen = new Set();
+  const list = [];
+  for (let i = 0; list.length < CANDIDATES && lists.some((l) => i < l.length); i++) {
+    for (const l of lists) {
+      const p = l[i];
+      if (p && !seen.has(p.src) && list.length < CANDIDATES) { seen.add(p.src); list.push(p); }
+    }
+  }
+  const query = qs.join(', ');
+  const candidates = list;
   let picked;
   try {
     picked = await pickPhotos(candidates, name, query);
@@ -351,7 +369,7 @@ export async function searchPhotos(query, name = query) {
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------
    검색 결과에는 음식이 아닌 사진, 음식이 작게 나온 사진, 다른 것과 섞인 사진이 섞여 있어서
    작은 미리보기를 글 AI에 보여주고 '그 음식의 특징이 잘 드러나는' 사진만 고름 */
-const CANDIDATES = 24; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸림)
+const CANDIDATES = 30; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸림)
 
 async function thumbData(url) {
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
@@ -362,13 +380,22 @@ async function thumbData(url) {
 }
 
 const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보고, 음식의 조형적 특징을 분석하기 좋은 사진을 고른다.
-고르는 기준:
-- 그 음식 자체가 사진의 주인공이고, 화면에서 충분히 크게 보인다.
-- 그 음식의 고유한 형태, 윤곽, 단면, 표면 결 같은 특징이 잘 드러난다.
-- 다른 음식, 요리, 그릇 속 재료와 섞여서 무엇인지 흐려지지 않는다. (그 음식이 원래 요리 형태라면 그 요리로 본다)
-- 사람, 손, 포장지, 글자, 로고가 주인공이 아니다.
-- 음식이 아니거나 다른 음식인 사진은 고르지 않는다.
-고른 사진들은 서로 다른 모양·상태·시점을 보여주도록 다양하게 고른다.
+
+[정확도: 하나라도 어기면 고르지 않는다]
+- 사진 속 주인공이 바로 그 음식이다. 이름이 비슷한 다른 음식, 그 음식이 재료로 조금 들어간 요리는 고르지 않는다.
+  (그 음식이 원래 요리라면 그 요리 자체로 본다)
+- 실제 사진이다. 그림, 일러스트, 3D 렌더, 장난감, 모형은 고르지 않는다.
+- 음식이 화면에서 충분히 크고, 형태가 잘리거나 흐리지 않다.
+- 사람, 손, 포장지, 글자, 로고, 식기가 음식보다 눈에 띄지 않는다.
+
+[좋은 사진]
+- 그 음식의 고유한 형태, 윤곽, 단면, 표면 결이 잘 드러난다.
+- 배경이 단순할수록 좋다.
+
+[다양성]
+- 고른 사진들이 서로 다른 모습이 되게 한다: 통째, 자른 단면, 작은 조각, 여러 개 모인 모습, 다른 품종이나 색, 다른 시점.
+- 거의 같은 모습의 사진은 하나만 고른다.
+
 좋은 순서대로 번호를 쓴다. 기준에 맞는 사진이 적으면 맞는 것만 쓴다.`;
 
 async function pickPhotos(candidates, name, query) {
