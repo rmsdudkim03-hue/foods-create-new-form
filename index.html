@@ -61,39 +61,32 @@
       </button>
     </section>
 
-    <!-- ===== 화면 2: 음식 선택 (task 시작 / task1) ===== -->
-    <section class="screen" data-screen="select" aria-label="음식 선택">
-      <h2 class="title cx fs" style="--cx:720; --y:164; --fs:48; --pcx:300; --py:140; --pfs:38">음식을 선택해주세요</h2>
-      <p class="sub cx fs" style="--cx:720; --y:233; --fs:20; --pcx:300; --py:194; --pfs:18">A와 B에 섞고 싶은 음식을 하나씩 입력하세요</p>
+    <!-- ===== 화면 2: 음식 고르기 (입력 + 사진 선택을 한 화면에서) =====
+      A 입력 → 바로 아래에 사진이 뜸 → 하나 고르면 A 칸에 작게 들어가고 B로 넘어감 → B도 고르면 분석 시작
+      (좌표는 임시. 피그마 디자인 나오면 바꾸기) -->
+    <section class="screen" data-screen="pick" aria-label="음식 고르기">
+      <h2 class="title cx fs" style="--cx:720; --y:118; --fs:48; --pcx:300; --py:120; --pfs:36">음식을 선택해주세요</h2>
 
-      <img class="bowl abs box" src="assets/img/bowl.png" alt="" style="--x:211; --y:410; --w:1018; --h:509; --px:-10; --py:600; --pw:620; --ph:310">
-      <img class="mid-logo abs box" src="assets/img/logo.png" alt="" style="--x:657; --y:428; --w:127; --h:108; --px:241; --py:410; --pw:118; --ph:100">
-
-      <!-- 관람객이 A, B에 음식 이름을 직접 입력 → AI가 음식인지 확인 → 이미지 만들기 시작 -->
       <form id="foodForm" autocomplete="off">
-        <label class="pill abs box" id="pillA" style="--x:267; --y:444; --w:293; --h:59; --px:60; --py:300; --pw:480; --ph:72">
-          <span class="pill-letter fs" style="--fs:24; --pfs:26">A</span>
+        <label class="pill abs box" id="pillA" data-side="A" style="--x:397; --y:214; --w:300; --h:64; --px:30; --py:190; --pw:262; --ph:64">
+          <span class="pill-letter fs" style="--fs:24; --pfs:24">A</span>
           <span class="pill-caret" aria-hidden="true"></span>
-          <input class="pill-input fs" id="foodA" name="foodA" type="text" maxlength="20" placeholder="음식 이름" aria-label="음식 A" style="--fs:24; --pfs:26" enterkeyhint="next">
+          <input class="pill-input fs" id="foodA" name="foodA" type="text" maxlength="20" placeholder="음식 이름" aria-label="음식 A" style="--fs:22; --pfs:22" enterkeyhint="search">
+          <img class="pill-thumb" alt="" hidden>
         </label>
-        <label class="pill abs box" id="pillB" style="--x:881; --y:444; --w:293; --h:59; --px:60; --py:540; --pw:480; --ph:72">
-          <span class="pill-letter fs" style="--fs:24; --pfs:26">B</span>
+        <label class="pill abs box" id="pillB" data-side="B" style="--x:743; --y:214; --w:300; --h:64; --px:308; --py:190; --pw:262; --ph:64">
+          <span class="pill-letter fs" style="--fs:24; --pfs:24">B</span>
           <span class="pill-caret" aria-hidden="true"></span>
-          <input class="pill-input fs" id="foodB" name="foodB" type="text" maxlength="20" placeholder="음식 이름" aria-label="음식 B" style="--fs:24; --pfs:26" enterkeyhint="go">
+          <input class="pill-input fs" id="foodB" name="foodB" type="text" maxlength="20" placeholder="음식 이름" aria-label="음식 B" style="--fs:22; --pfs:22" enterkeyhint="search">
+          <img class="pill-thumb" alt="" hidden>
         </label>
       </form>
 
-      <button class="arrow abs fs" id="selectNext" type="button" aria-label="다음" style="--x:1363; --y:937; --fs:36; --px:524; --py:1010; --pfs:40">→</button>
-    </section>
-
-    <!-- ===== 화면 3: 이미지 선택 (task2-1 / task2-2) ===== -->
-    <section class="screen" data-screen="pick" aria-label="이미지 선택">
-      <h2 class="title cx fs" style="--cx:720; --y:164; --fs:48; --pcx:300; --py:140; --pfs:38">이미지를 선택해주세요</h2>
-      <p class="sub cx fs" id="pickSub" style="--cx:720; --y:233; --fs:20; --pcx:300; --py:194; --pfs:18">좌우로 넘기며 원하는 이미지를 선택하세요</p>
+      <p class="sub cx fs" id="pickSub" style="--cx:720; --y:302; --fs:20; --pcx:300; --py:280; --pfs:18">A에 섞고 싶은 음식을 입력하세요</p>
       <div class="car-track" id="carTrack" aria-roledescription="carousel"></div>
       <button class="btn-dark abs box fs" id="pickBtn" type="button"
-        style="--x:574; --y:805; --w:293; --h:76; --fs:24; --px:140; --py:880; --pw:320; --ph:80; --pfs:24">이 이미지로 선택하기 →</button>
-      <p class="note cx fs" style="--cx:720; --y:905; --fs:14; --pcx:300; --py:982; --pfs:15">AI가 생성한 참고 이미지예요</p>
+        style="--x:574; --y:808; --w:293; --h:76; --fs:24; --px:140; --py:880; --pw:320; --ph:80; --pfs:24">이 사진으로 선택하기 →</button>
+      <p class="note cx fs" id="pickNote" style="--cx:720; --y:910; --fs:14; --pcx:300; --py:984; --pfs:15"></p>
     </section>
 
     <!-- ===== 화면 4: 분석 중 (task3) ===== -->
@@ -123,6 +116,8 @@
       <h2 class="title cx fs" style="--cx:720; --y:115; --fs:48; --pcx:300; --py:110; --pfs:36">맛보기 조형을 선택하세요</h2>
       <p class="sub cx fs" style="--cx:720; --y:184; --fs:20; --pcx:300; --py:160; --pfs:18">맛보고 싶은 조형을 클릭하세요</p>
       <div id="tasteLayer"></div>
+      <!-- 조형이 만들어지는 동안 점이 맴돌다가, 도착하면 조형 모양으로 모임 (js/particles.js) -->
+      <canvas class="taste-fx" id="tasteFx" aria-hidden="true"></canvas>
     </section>
 
     <!-- ===== 화면 7: 결과 3D 조형 (task6) ===== -->
@@ -138,7 +133,7 @@
         <button class="rate-btn" type="button" data-rating="good">좋아요</button>
         <button class="rate-btn" type="button" data-rating="bad">별로예요</button>
       </div>
-      <button class="arrow abs fs" id="resultNext" type="button" aria-label="갤러리에서 보기" style="--x:1363; --y:937; --fs:36; --px:524; --py:1010; --pfs:40">→</button>
+      <button class="arrow abs fs" id="resultNext" type="button" aria-label="처음 화면으로" style="--x:1363; --y:937; --fs:36; --px:524; --py:1010; --pfs:40">→</button>
     </section>
 
     <!-- ===== 화면 8: 갤러리 ===== -->

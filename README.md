@@ -4,16 +4,19 @@
 디자인은 피그마 `web` 페이지(1440×1024 프레임)를 기준으로 구현.
 
 ## 흐름
-메인 → 음식 A·B 입력 → AI가 음식별 이미지 10장 생성 → 한 장씩 고르기 → 분석(사진이 흰 재료로 바뀌는 효과)
-→ 조각을 그릇에 넣기 → AI가 만든 맛보기 조형 6개 중 선택 → 3D 변환 → 갤러리
+메인 → 음식 고르기 (A 입력 → 실제 사진 10장, 배경 지움 → 한 장 고르기 → B도 같은 화면에서) → 분석(사진이 윤곽선으로 분해되는 효과)
+→ 조각을 그릇에 넣기 → 맛보기 조형 6개 (점이 모여 형태가 되며 등장) 중 선택 → 3D 변환 + 좋아요/별로예요 → 처음 화면
+갤러리는 메뉴에서 볼 수 있음
 
 ## 파일 구조
-- `index.html` — 화면 8개의 뼈대
+- `index.html` — 화면 7개의 뼈대
 - `style.css` — 색·폰트 토큰(맨 위)과 화면별 스타일
 - `js/app.js` — 화면 흐름과 인터랙션
 - `js/ai.js` — 화면에서 AI(서버)를 부르는 부분. 서버를 못 쓰면 데모 모드로 동작
 - `js/data.js` — 데모용 음식 이미지, 조각 위치, 맛보기 조형 배치, 갤러리 기본 작품
-- `js/material.js` — 분석 화면에서 사진이 흰 재료(석고)로 바뀌는 효과
+- `js/cutout.js` — 사진 배경 지우기 (브라우저에서 무료. 처음 한 번 모델 약 40MB를 받음)
+- `js/contour.js` — 분석 화면에서 사진이 윤곽선(등고선)으로 분해되는 효과
+- `js/particles.js` — 맛보기 조형이 점에서 모여 나타나는 효과
 - `js/viewer3d.js` — three.js 3D 뷰어
 - `api/` — Vercel 서버 함수 (AI 키는 여기서만 사용)
 - `prompts/` — AI 단계별 프롬프트 원문. **프롬프트를 고치려면 이 파일들만 수정**
@@ -22,8 +25,10 @@
 ## AI 단계
 | 단계 | 서버 | 서비스 |
 |---|---|---|
-| 음식인지 확인 + 이미지 10장 계획 | `api/food.js` | GPT-6 Astra |
-| 음식 이미지 그리기 | `api/image.js` | OpenAI 이미지 (저가 모델) |
+| 음식인지 확인 + 사진 검색 | `api/food.js` | GPT-6 Astra + Pexels |
+| 사진 전달 (배경 지우기용) | `api/photo.js` | Pexels |
+| 배경 지우기 | `js/cutout.js` | 브라우저 (RMBG-1.4) |
+| (Pexels 키가 없을 때) 음식 이미지 그리기 | `api/image.js` | OpenAI 이미지 (저가 모델) |
 | 특징 분석 | `api/analyze.js` | GPT-6 Astra |
 | 맛보기 조형 6개 계획 | `api/forms.js` | GPT-6 Astra |
 | 조형 이미지 그리기 | `api/image.js` | OpenAI 이미지 (고화질 모델) |
@@ -47,6 +52,7 @@ AI가 만든 계획에는 서버가 도장(서명)을 찍어서, 도장이 맞�
 |---|---|---|
 | `OPENAI_API_KEY` | 필수 | OpenAI API 키 |
 | `MESHY_API_KEY` | 필수 | Meshy API 키 |
+| `PEXELS_API_KEY` | 필수 | 실제 음식 사진 검색. https://www.pexels.com/api 에서 무료 가입. 없으면 AI가 음식 이미지를 그리는 예전 방식 |
 | `ACCESS_CODE` | 선택 | 설정하면 이 코드를 가진 기기에서만 실제 AI 사용 (주소 끝에 `?code=코드`를 붙여 한 번 열면 기억됨). 나머지는 데모 모드 |
 | `TEXT_MODEL` | 선택 | 기본 `gpt-6-astra` |
 | `IMAGE_MODEL_FOOD` / `IMAGE_QUALITY_FOOD` | 선택 | 기본 `gpt-image-1-mini` / `medium` |

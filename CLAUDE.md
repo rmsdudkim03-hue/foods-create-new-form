@@ -1,6 +1,6 @@
 # CLAUDE.md — FOODS CREATE NEW FORM
 
-졸업 작품 체험형 웹. 관람객이 음식 두 개를 입력하면 AI가 음식 이미지를 만들고, 고른 이미지의 특징을 분석해서
+졸업 작품 체험형 웹. 관람객이 음식 두 개를 입력하면 실제 음식 사진을 찾아 배경을 지우고, 고른 이미지의 특징을 분석해서
 새로운 추상 조형 6개를 제안하고, 하나를 3D로 바꿔 보여준다. 음식이 무엇인지보다 **조형적 가능성**이 중요한 작품.
 
 ## 작업자와 소통
@@ -15,15 +15,17 @@
 - 흰 배경, 폰트는 Apple SD Gothic Neo → Noto Sans KR. 조형은 **흰색 무광**으로 통일.
 
 ## 구조
-- `index.html` 화면 8개 / `style.css` 토큰과 스타일 / `js/app.js` 흐름과 인터랙션
+- `index.html` 화면 7개 (메인 → 음식 고르기(입력+사진 선택 한 화면) → 분석 → 요리 → 맛보기 → 3D 결과 → 갤러리) / `style.css` 토큰과 스타일 / `js/app.js` 흐름과 인터랙션
 - `js/ai.js` 화면에서 서버(AI)를 부르는 부분. 서버를 못 쓰면 데모 모드(젤리·브로콜리만)
-- `js/material.js` 분석 화면에서 사진이 흰 석고 재료로 바뀌는 효과 / `js/viewer3d.js` three.js 3D 뷰어
-- `api/` Vercel 서버 함수. AI 키는 여기서만 사용 (`_lib.js` 공통, `food` `image` `analyze` `forms` `model` `model-file` `status` `works`)
+- `js/cutout.js` 사진 배경 지우기 (브라우저에서 RMBG-1.4 모델, 못 쓰면 간단한 방식) / `js/contour.js` 분석 화면에서 사진이 윤곽선(등고선)으로 분해되는 효과
+- `js/particles.js` 맛보기 조형 등장 효과 (점이 맴돌다 조형 모양으로 모임) / `js/viewer3d.js` three.js 3D 뷰어
+- `api/` Vercel 서버 함수. AI 키는 여기서만 사용 (`_lib.js` 공통, `food` `photo` `image` `analyze` `forms` `model` `model-file` `status` `works`)
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
-음식 확인 + 이미지 10장 계획(GPT-6 Astra) → 음식 이미지(gpt-image-1-mini) → 특징 분석(Astra)
+음식 확인 + 영어 검색어(GPT-6 Astra) → 실제 사진 10장(Pexels) → 배경 지우기(브라우저) → 특징 분석(Astra)
 → 조형 6개 계획(Astra) → 조형 이미지(gpt-image-2.5-flare) → 3D 변환(Meshy, 텍스처 없이)
+- `PEXELS_API_KEY`가 없으면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.
 - 이미지 AI는 한 번에 한 장만 그리므로, 여러 장을 조율하는 조건은 글 AI가 먼저 계획하고 이미지 AI는 한 장씩 그린다.
 - 조형 이미지 AI에는 음식 사진을 주지 않는다 (음식 외형을 따라 그리지 않게).
 - 단계별 소요 시간은 서버에서 `[시간] ...`으로 Vercel 로그에 남긴다.
@@ -31,17 +33,18 @@
 ## 규칙
 - **프롬프트 원문(`prompts/*.md`) 내용은 작업자 확인 없이 바꾸지 않는다.** 바꿨다면 파일 맨 위 `<!-- 변경 기록 -->`에 날짜와 이유를 남긴다 (HTML 주석은 AI에 보내지 않음).
 - 화면에 조형의 출처 음식을 따로 드러내지 않는다.
-- AI 생성물에는 안내 문구 유지: 이미지 선택 화면 "AI가 생성한 참고 이미지예요", 3D 화면 "보이지 않는 면은 AI가 추정한 형태예요".
+- 안내 문구 유지: 사진 선택 화면 "사진: 작가 / Pexels · 배경은 AI가 지웠어요" (AI 이미지 모드면 "AI가 생성한 참고 이미지예요"), 3D 화면 "보이지 않는 면은 AI가 추정한 형태예요".
+- 끝나면 갤러리로 가지 않고 처음 화면으로 (갤러리는 메뉴에서).
 
 ## 배포
 - `main`에 푸시하면 Vercel이 자동 배포 (https://foods-create-new-form.vercel.app).
-- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, `ACCESS_CODE`. 선택: README 참고.
+- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, `PEXELS_API_KEY`, `ACCESS_CODE`. 선택: README 참고.
 - `ACCESS_CODE`가 있으면 주소에 `?code=...`를 붙여 연 기기에서만 실제 AI, 나머지는 데모 모드.
 - 브랜치로 푸시하면 Preview 배포가 되는데, 환경 변수가 Production에만 있어서 AI가 안 된다.
 
 ## 테스트
 - 실제 AI 호출은 요금이 든다 (관람객 1명당 대략 $1~3).
-- 로컬 테스트: `OPENAI_BASE`, `MESHY_BASE` 환경 변수로 가짜 서버 주소를 지정하면 `api/`를 요금 없이 돌려볼 수 있다.
+- 로컬 테스트: `OPENAI_BASE`, `MESHY_BASE`, `PEXELS_BASE` 환경 변수로 가짜 서버 주소를 지정하면 `api/`를 요금 없이 돌려볼 수 있다.
 - 정적 서버로 `index.html`만 열면 데모 모드로 전체 흐름 확인 가능.
 
 ## 남은 일
@@ -49,5 +52,6 @@
 - 공유 갤러리 + 관람객 평가(3D 화면 좋아요/별로예요) 참고: `api/works.js`, 저장소는 Vercel Blob(Public). 저장소가 없으면 갤러리는 각 기기(localStorage)에만 저장
   - 참고 규칙 `prompts/2-forms-memory.md` (작업자 확인 완료). 하나의 조형으로 몰리지 않게 무작위 예시 + 이어받은 조형은 예시에서 제외
   - 평가 버튼 좌표는 임시. 피그마 디자인 나오면 맞추기
+- 음식 고르기 화면(입력+사진 선택 합침) 좌표는 임시. 피그마 디자인 나오면 맞추기
   - 로컬 테스트: `BLOB_LOCAL_DIR=폴더`로 저장소 대신 폴더에 저장
 - Meshy Pro는 한 달 약 50회 변환. 전시 기간엔 요금제 상향 필요

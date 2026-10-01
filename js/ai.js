@@ -5,13 +5,15 @@
    - 접근 코드: ACCESS_CODE를 설정했다면 주소 끝에 ?code=코드 를 붙여 한 번 열면 그 기기에 기억됨
 
    AI 단계
-   ⓐ checkFood   입력한 단어 → 음식인지 확인 + ⓪ 이미지 10장 계획   (GPT-6 Astra)
-   ⓪ foodImages  계획 → 음식 이미지 10장                         (OpenAI 이미지, 저가 모델)
+   ⓐ checkFood   입력한 단어 → 음식인지 확인 + 실제 사진 10장 검색 (GPT-6 Astra + Pexels)
+   ⓪ foodImages  사진 10장 → 배경 지우기 (브라우저, js/cutout.js)
+                 (Pexels 키가 없으면 예전처럼 AI가 이미지 10장을 그림)
    ① analyze     고른 이미지 2장 → 특징 분석                      (GPT-6 Astra)
    ② tasteForms  분석 → 조형 6개 계획 → 조형 이미지 6장           (GPT-6 Astra + OpenAI 이미지, 고화질)
    ③ toModel     고른 조형 이미지 → 3D 모델                       (Meshy)
    ========================================================= */
 import { FOODS, FORMS, SAMPLE_MODEL, ANALYZE_MS } from './data.js';
+import { cutout, onWhite, warmup } from './cutout.js';
 
 export const FOOD_IMAGE_COUNT = 10;
 
@@ -134,8 +136,25 @@ function createJob(count) {
       job.ready++;
       job.listeners.forEach((f) => f(i, item));
     },
+    // 이미 도착한 자리를 새 결과로 바꿈 (예: 배경을 지운 사진)
+    update(i, item) {
+      if (job.cancelled || !job.items[i]) return;
+      job.items[i] = item;
+      job.listeners.forEach((f) => f(i, item));
+    },
+    lost: new Set(), // 실패한 자리 번호
     fail(i) {
-      if (job.cancelled || job.items[i]) return;
+      if (job.cancelled || job.items[i] || job.lost.has(i)) return;
+      job.lost.add(i);
+      job.failed++;
+      job.listeners.forEach((f) => f(i, null));
+    },
+    // 도착했던 자리를 실패로 바꿈 (예: 사진을 못 불러옴)
+    drop(i) {
+      if (job.cancelled || !job.items[i]) return;
+      job.items[i] = null;
+      job.lost.add(i);
+      job.ready--;
       job.failed++;
       job.listeners.forEach((f) => f(i, null));
     },
@@ -159,6 +178,7 @@ export async function checkFood(word) {
     const r = await call('api/food', { body: { word: w }, timeout: 120000 });
     if (!r.ok) return { ok: false, message: r.message };
     foodPlans.set(r.name, r);
+    if (r.photos) warmup(); // 배경 제거 모델을 미리 받아 둠
     return { ok: true, name: r.name, interpretation: r.interpretation };
   }
   await wait(rand(300, 700));
@@ -171,6 +191,20 @@ export async function checkFood(word) {
 /* ---------- ⓪ 음식 이미지 10장 ---------- */
 export function foodImages(food) {
   const plan = foodPlans.get(food);
+  // 실제 사진: 원본을 먼저 보여주고, 배경을 지우는 대로 바꿔 끼움 (cut: true가 되면 고를 수 있음)
+  if (live && plan?.photos) {
+    const job = createJob(plan.photos.length);
+    job.meta = { photos: true };
+    plan.photos.forEach((p, i) => {
+      const src = `api/photo?u=${encodeURIComponent(p.src)}`;
+      const base = { w: p.w, h: p.h, alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link };
+      job.put(i, { ...base, src, cut: false });
+      cutout(src)
+        .then((c) => { if (!job.cancelled) job.update(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true }); })
+        .catch((err) => { console.error(err); job.drop(i); });
+    });
+    return job;
+  }
   if (live && plan) {
     const job = createJob(plan.shots.length);
     job.meta = { interpretation: plan.interpretation, shots: plan.shots };
@@ -197,8 +231,9 @@ export function foodImages(food) {
 /* ---------- ① 특징 분석 ---------- */
 export async function analyze(picks, foods) {
   if (live && picks.A.src.startsWith('data:')) {
+    const [a, b] = await Promise.all([onWhite(picks.A.src), onWhite(picks.B.src)]);
     const { analysis } = await call('api/analyze', {
-      body: { A: { name: foods.A, image: picks.A.src }, B: { name: foods.B, image: picks.B.src } },
+      body: { A: { name: foods.A, image: a }, B: { name: foods.B, image: b } },
       timeout: 240000,
     });
     return analysis;
@@ -213,8 +248,9 @@ export function tasteForms(analysis, picks, foods) {
   if (live && analysis && !analysis.demo) {
     (async () => {
       try {
+        const [a, b] = await Promise.all([onWhite(picks.A.src), onWhite(picks.B.src)]);
         const plan = await call('api/forms', {
-          body: { A: { name: foods.A, image: picks.A.src }, B: { name: foods.B, image: picks.B.src }, analysis },
+          body: { A: { name: foods.A, image: a }, B: { name: foods.B, image: b }, analysis },
           timeout: 240000,
         });
         if (job.cancelled) return;

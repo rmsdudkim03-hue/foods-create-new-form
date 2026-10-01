@@ -13,6 +13,7 @@ import crypto from 'node:crypto';
 
 const OPENAI = process.env.OPENAI_BASE || 'https://api.openai.com/v1';
 const MESHY = process.env.MESHY_BASE || 'https://api.meshy.ai/openapi/v1';
+const PEXELS = process.env.PEXELS_BASE || 'https://api.pexels.com/v1';
 
 export const MODELS = {
   text: process.env.TEXT_MODEL || 'gpt-6-astra',
@@ -247,4 +248,29 @@ export function checkPlan(plan) {
   const b = Buffer.from(signPlan(plan));
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   return Object.fromEntries(PLAN_FIELDS.map((k) => [k, plan[k] ?? '']));
+}
+
+/* ---------- Pexels: 실제 음식 사진 검색 ----------
+   무료 사진 사이트. 검색 결과 앞쪽 18장 중 10장을 무작위로 골라서 관람객마다 조금씩 다르게.
+   배경은 화면(브라우저)에서 AI가 지움 */
+export const PHOTO_COUNT = 10;
+export async function searchPhotos(query) {
+  const url = `${PEXELS}/search?${new URLSearchParams({ query, per_page: '30' })}`;
+  const r = await timed(`사진 검색 (${query})`, () => fetch(url, { headers: { Authorization: process.env.PEXELS_API_KEY } }));
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`Pexels ${r.status}: ${data.error || 'error'}`);
+  const list = (data.photos || []).filter((p) => p.src?.large);
+  const top = list.slice(0, 18);
+  for (let i = top.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [top[i], top[j]] = [top[j], top[i]];
+  }
+  return top.slice(0, PHOTO_COUNT).map((p) => ({
+    src: p.src.large,
+    w: p.width,
+    h: p.height,
+    alt: p.alt || '',
+    by: p.photographer || '',
+    link: p.url || '',
+  }));
 }
