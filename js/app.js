@@ -591,6 +591,7 @@ function bumpBowl() {
 }
 enter.cook = () => {
   cookBowl.classList.remove('cooking', 'bump');
+  cookBowl.style.opacity = '';
   cookFx?.stop();
   const sub = $('#cookSub');
   const all = $('#cookAll');
@@ -599,10 +600,11 @@ enter.cook = () => {
   cookFx = startCook($('#cookFx'), {
     picks: state.picks,
     view: () => view,
+    bowlEl: cookBowl,
     onBump: bumpBowl,
     // 넣은 조각 수 표시, 다 넣으면 '모두 넣기' 숨김
     onCount: (n, total) => {
-      sub.textContent = n < total ? `음식을 드래그하여 그릇안으로 넣어주세요 (${n}/${total})` : '조각들을 섞고 있어요';
+      sub.textContent = n < total ? `음식을 드래그하여 그릇안으로 넣어주세요 (${n}/${total})` : '조각들을 섞어볼게요';
       all.hidden = n >= total;
     },
     onMix: () => cookBowl.classList.remove('bump'),
