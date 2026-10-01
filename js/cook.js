@@ -15,6 +15,7 @@ const SETTINGS = {
   shatter: 1.1,        // 사진이 조각으로 벌어지는 시간(초)
   settle: [0.6, 2.5],  // 마지막 조각을 넣고 섞기 시작할 때까지: 최소, 최대(초). 그 사이엔 조각이 멈추면 시작
   mix: 3.2,            // 섞이는 시간(초)
+  inBowl: 0.6,         // 그릇에 들어가면 조각 크기 (1 = 떠 있을 때 크기). 작게 해야 그릇 입구 안에 쏙 들어감
   shapes: ['circle', 'triangle', 'square', 'hexagon', 'circle'],
 };
 const SIDES = { triangle: 3, square: 4, hexagon: 6 };
@@ -40,10 +41,11 @@ function loadMatter() {
 export function preloadCook() { loadMatter(); }
 
 /* ---------- 그릇 모양 (그릇 이미지 1018×509 안의 좌표) ----------
-   바닥을 그릇 테두리 앞쪽 선 바로 아래에 둠 → 조각 아랫부분만 테두리에 살짝 가려져서 '그릇 안에 담긴' 것처럼 보이고,
-   조각은 거의 다 보임 (예전엔 바닥이 깊어서 조각이 그릇 뒤로 숨는 것처럼 보였음) */
+   캔버스가 그릇 이미지 뒤에 있어서, 바닥을 테두리 앞쪽 선보다 조금 아래에 두면
+   조각 아랫부분이 그릇 앞쪽 벽에 가려져 '그릇 안에 담긴' 것처럼 보임.
+   (너무 깊으면 그릇 뒤로 숨는 것처럼, 너무 얕으면 그릇 위에 얹힌 것처럼 보여서 중간으로) */
 const BOWL_IMG = { w: 1018, h: 509 };
-const BOWL_FLOOR = [[182, 214], [232, 226], [330, 234], [509, 238], [688, 234], [786, 226], [836, 214]];
+const BOWL_FLOOR = [[204, 214], [250, 232], [340, 246], [509, 251], [678, 246], [768, 232], [814, 214]];
 const RIM_Y = 214;
 function bowlGeom(portrait) {
   const b = portrait ? { x: -10, y: 600, w: 620 } : { x: 211, y: 546, w: 1018 };
@@ -52,8 +54,8 @@ function bowlGeom(portrait) {
   return {
     floor: BOWL_FLOOR.map(P),
     rimY: b.y + RIM_Y * k,
-    left: b.x + 186 * k,
-    right: b.x + 832 * k,
+    left: b.x + 214 * k,
+    right: b.x + 804 * k,
     cx: b.x + 509 * k,
     k,
   };
@@ -255,8 +257,9 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
   function addBody(p, x, y, angle) {
     if (!engine) return;
     const { Bodies, Composite, Body } = Matter;
-    const opt = { restitution: 0.15, friction: 0.7, frictionAir: 0.01, density: 0.002, label: 'piece', angle };
-    const body = SIDES[p.type] ? Bodies.polygon(x, y, SIDES[p.type], p.r, opt) : Bodies.circle(x, y, p.r, opt);
+    const opt = { restitution: 0.1, friction: 0.8, frictionAir: 0.012, density: 0.002, label: 'piece', angle };
+    const r = p.r * SETTINGS.inBowl;
+    const body = SIDES[p.type] ? Bodies.polygon(x, y, SIDES[p.type], r, opt) : Bodies.circle(x, y, r, opt);
     body.plugin = { landed: false };
     Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.08);
     Composite.add(engine.world, body);
@@ -264,7 +267,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
   }
 
   // 섞일 때 도는 길 (그릇 위 납작한 타원)
-  const mix = { cx: bowl.cx, cy: bowl.rimY - 6 * bowl.k, rx: (bowl.right - bowl.left) * 0.3, ry: 34 * bowl.k };
+  const mix = { cx: bowl.cx, cy: bowl.rimY + 16 * bowl.k, rx: (bowl.right - bowl.left) * 0.3, ry: 20 * bowl.k };
 
   /* ---------- 놓기: 그릇 위로 옮긴 뒤 떨어뜨림 ---------- */
   let dropped = 0;
@@ -275,13 +278,14 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
     const n = restN++;
     const row = Math.floor(n / 5), col = n % 5;
     const off = [0, -1, 1, -2, 2][col] * (bowl.right - bowl.left) * 0.16;
-    return [bowl.cx + off + (Math.random() - 0.5) * 10, bowl.rimY + 18 * bowl.k - r * 0.9 - row * 40 * bowl.k];
+    return [bowl.cx + off + (Math.random() - 0.5) * 10, bowl.rimY + 34 * bowl.k - r * 0.8 - row * 28 * bowl.k];
   };
   function drop(p, x, y) {
     if (p.state === 'fly' || p.state === 'fall') return;
-    const tx = clamp(x + (Math.random() - 0.5) * 30, bowl.left + p.r, bowl.right - p.r);
-    const ty = Math.min(y, bowl.rimY - 140 - p.r);
-    p.fly = { from: [p.x, p.y], to: [tx, ty], t: 0, dur: Math.hypot(tx - p.x, ty - p.y) > 20 ? 0.35 : 0 };
+    const r = p.r * SETTINGS.inBowl;
+    const tx = clamp(x + (Math.random() - 0.5) * 30, bowl.left + r, bowl.right - r);
+    const ty = Math.min(y, bowl.rimY - 120 - r);
+    p.fly = { from: [p.x, p.y], to: [tx, ty], t: 0, dur: Math.hypot(tx - p.x, ty - p.y) > 20 ? 0.4 : 0.15 };
     p.state = 'fly';
     dropped++;
     lastDrop = performance.now();
@@ -298,7 +302,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
     if (engine) addBody(p, p.x, p.y, p.rot);
     else {
       // 물리 없이: 그릇 안으로 떨어져 차곡차곡 쌓임
-      p.rest = restSpot(p.r);
+      p.rest = restSpot(p.r * SETTINGS.inBowl);
       setTimeout(onBump, 350);
     }
     p.state = 'fall';
@@ -405,7 +409,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
     const mt = phase === 'mix' || phase === 'done' ? (now - mixT0) / 1000 : 0;
     for (const p of pieces) {
       p.alpha = 1;
-      p.scale = 1;
+      p.scale = p.state === 'float' || p.state === 'drag' || phase === 'shatter' ? 1 : SETTINGS.inBowl;
       p.depth = 0;
       if (phase === 'mix' || phase === 'done') {
         // 섞기: 그릇 위 납작한 타원을 따라 점점 빨라지며 돌다가, 끝에는 가운데로 모여 사라짐
@@ -416,12 +420,12 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
         const a = p.a0 + spin;
         const rr = p.rr * (1 - 0.92 * conv);
         const ox = mix.cx + Math.cos(a) * mix.rx * rr;
-        const oy = mix.cy + Math.sin(a) * mix.ry * rr - p.r * 0.55 * (1 - conv);
+        const oy = mix.cy + Math.sin(a) * mix.ry * rr - p.r * SETTINGS.inBowl * 0.35 * (1 - conv);
         p.x = p.mx + (ox - p.mx) * enter;
         p.y = p.my + (oy - p.my) * enter;
         p.rot = p.mrot + spin * 1.6;
         p.depth = Math.sin(a);                                   // 앞(+)·뒤(-)
-        p.scale = (0.9 + 0.12 * (p.depth + 1) / 2) * (1 - 0.55 * conv);
+        p.scale = SETTINGS.inBowl * (0.9 + 0.12 * (p.depth + 1) / 2) * (1 - 0.55 * conv);
         p.alpha = 1 - ease((mt - (T - 0.55)) / 0.55);
       } else if (p.state === 'float' || (phase === 'shatter')) {
         const bob = Math.sin(t * 1.4 + p.phase) * 6;
@@ -433,6 +437,7 @@ async function run(canvas, { picks, view, onBump = () => {}, onCount = () => {},
         const e = p.fly.dur ? easeInOut(p.fly.t / p.fly.dur) : 1;
         p.x = p.fly.from[0] + (p.fly.to[0] - p.fly.from[0]) * e;
         p.y = p.fly.from[1] + (p.fly.to[1] - p.fly.from[1]) * e;
+        p.scale = 1 + (SETTINGS.inBowl - 1) * e; // 그릇으로 가면서 작아짐
         if (e >= 1) release(p);
       } else if (p.state === 'fall') {
         if (p.body) {
