@@ -204,10 +204,11 @@ export const store = {
   async list(prefix, limit) {
     const dir = process.env.BLOB_LOCAL_DIR;
     if (dir) {
-      const d = path.join(dir, prefix);
+      const folder = prefix.slice(0, prefix.lastIndexOf('/') + 1);
+      const d = path.join(dir, folder);
       if (!fs.existsSync(d)) return [];
-      return fs.readdirSync(d).sort().slice(0, limit)
-        .map((f) => ({ pathname: prefix + f, url: `file://${path.join(d, f)}` }));
+      return fs.readdirSync(d).map((f) => folder + f).filter((p) => p.startsWith(prefix)).sort().slice(0, limit)
+        .map((p) => ({ pathname: p, url: `file://${path.join(dir, p)}` }));
     }
     const { list } = await import('@vercel/blob');
     const r = await list({ prefix, limit });

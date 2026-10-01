@@ -301,6 +301,21 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 /* 작은 안내 문구 (AI 생성 이미지, 추정한 면) */
 .note { font-weight: 500; color: var(--ink-faint); line-height: 1.4; }
 
+/* ---------- 화면 7: 관람객 평가 (좋아요 / 별로예요) ---------- */
+.rate { display: flex; align-items: center; gap: calc(10 * var(--u)); z-index: 3; }
+.rate-q { font-weight: 600; color: var(--ink-sub); margin-right: calc(6 * var(--u)); }
+.rate-btn {
+  padding: calc(8 * var(--u)) calc(20 * var(--u));
+  border: 1px solid var(--pill);
+  border-radius: 999px;
+  font-weight: 700;
+  transition: background .25s var(--ease), color .25s var(--ease), opacity .25s var(--ease);
+}
+.rate-btn.is-picked { background: var(--pill); color: var(--on-pill); }
+.rate.is-done .rate-btn:not(.is-picked) { opacity: .25; }
+.rate.is-done .rate-btn { cursor: default; }
+@media (hover: hover) { .rate:not(.is-done) .rate-btn:hover { background: var(--pill); color: var(--on-pill); } }
+
 /* ---------- 화면 8: 갤러리 ---------- */
 .g-feature img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; transition: opacity .35s var(--ease); }
 .g-feature.is-swapping img { opacity: 0; }

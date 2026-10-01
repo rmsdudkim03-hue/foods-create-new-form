@@ -46,7 +46,8 @@
 
 ## 남은 일
 - 실제 AI로 단계별 시간 측정 후 추가 속도 개선
-- 공유 갤러리 + 이전 관람객 참고: `api/works.js`, 저장소는 Vercel Blob(Public). 저장소가 없으면 갤러리는 각 기기(localStorage)에만 저장
+- 공유 갤러리 + 관람객 평가(3D 화면 좋아요/별로예요) 참고: `api/works.js`, 저장소는 Vercel Blob(Public). 저장소가 없으면 갤러리는 각 기기(localStorage)에만 저장
   - 참고 규칙 `prompts/2-forms-memory.md`는 Claude 초안 → 작업자 확인 필요
+  - 평가 버튼 좌표는 임시. 피그마 디자인 나오면 맞추기
   - 로컬 테스트: `BLOB_LOCAL_DIR=폴더`로 저장소 대신 폴더에 저장
 - Meshy Pro는 한 달 약 50회 변환. 전시 기간엔 요금제 상향 필요

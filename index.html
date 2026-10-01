@@ -132,6 +132,12 @@
         <img class="viewer-fallback" id="resultImg" src="" alt="" hidden>
       </div>
       <p class="note cx fs" id="resultNote" style="--cx:720; --y:930; --fs:14; --pcx:300; --py:930; --pfs:15" hidden>보이지 않는 면은 AI가 추정한 형태예요</p>
+      <!-- 관람객 평가: 누른 결과가 다음 관람객의 조형 제안에 반영됨 (좌표는 임시. 피그마 디자인 나오면 바꾸기) -->
+      <div class="rate cx fs" id="resultRate" style="--cx:720; --y:962; --fs:16; --pcx:300; --py:964; --pfs:17" hidden>
+        <span class="rate-q" id="rateQ">이 조형, 어땠어요?</span>
+        <button class="rate-btn" type="button" data-rating="good">좋아요</button>
+        <button class="rate-btn" type="button" data-rating="bad">별로예요</button>
+      </div>
       <button class="arrow abs fs" id="resultNext" type="button" aria-label="갤러리에서 보기" style="--x:1363; --y:937; --fs:36; --px:524; --py:1010; --pfs:40">→</button>
     </section>
 

@@ -28,6 +28,7 @@ const state = {
   side: 'A',                     // 지금 고르는 쪽
   form: null,                    // 고른 맛보기 조형
   saved: false,                  // 이번 체험 결과를 갤러리에 넣었는지
+  saving: null,                  // 공유 갤러리 저장이 끝나면 작품 id를 주는 약속 (평가할 때 씀)
   jobs: { A: null, B: null },    // AI가 음식 이미지를 만드는 작업
   analysis: null,                // AI 분석 결과
   formsJob: null,                // AI가 맛보기 조형을 만드는 작업
@@ -79,6 +80,7 @@ function startFlow() {
   state.side = 'A';
   state.form = null;
   state.saved = false;
+  state.saving = null;
   state.analysis = null;
   state.run++;
   cancelJobs();
@@ -685,6 +687,7 @@ enter.result = async () => {
   viewer?.stop();
   viewer?.setVisible(false);
   note.hidden = true;
+  resetRate();
   img.src = f.img;
   img.hidden = false;
   sub.textContent = '선택한 조형을 3D로 바꾸는 중이에요';
@@ -706,15 +709,42 @@ enter.result = async () => {
     viewer.start();
     sub.textContent = isTouch() ? '손가락으로 드래그해서 3D 조형을 돌려보세요' : '마우스 왼쪽을 누르며 3D 조형을 돌려보세요';
     note.hidden = false; // 보이지 않는 면은 AI가 추정했다는 안내
+    rate.hidden = false;
   } catch (err) {
     console.error(err);
     if (run !== state.run || current !== 'result') return;
     sub.textContent = '3D로 바꾸지 못해서 이미지로 보여줄게요';
+    rate.hidden = false;
   } finally {
     sub.classList.remove('is-waiting');
   }
 };
 leave.result = () => viewer?.stop();
+
+/* ---------- 관람객 평가: 좋아요 / 별로예요 ----------
+   누르면 저장되고, 다음 관람객의 조형 6개를 만들 때 AI가 참고함
+   (좋아요 = 이어받을 경향, 별로예요 = 피할 경향). 한 번만 누를 수 있음 */
+const rate = $('#resultRate');
+function resetRate() {
+  rate.hidden = true;
+  rate.classList.remove('is-done');
+  rate.querySelectorAll('.rate-btn').forEach((b) => { b.classList.remove('is-picked'); b.disabled = false; });
+  $('#rateQ').textContent = '이 조형, 어땠어요?';
+}
+rate.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.rate-btn');
+  if (!btn || rate.classList.contains('is-done')) return;
+  rate.classList.add('is-done');
+  btn.classList.add('is-picked');
+  rate.querySelectorAll('.rate-btn').forEach((b) => (b.disabled = true));
+  $('#rateQ').textContent = '다음 조형에 반영할게요';
+  try {
+    const id = await state.saving;
+    await ai.rateWork(id, btn.dataset.rating);
+  } catch (err) {
+    console.error('평가 저장 실패', err);
+  }
+});
 $('#resultNext').addEventListener('click', () => {
   gallery.showLatest();
   go('gallery');
@@ -872,9 +902,13 @@ async function shrink(src, max = 520) {
   return c.toDataURL('image/jpeg', 0.86);
 }
 
-async function saveCreation(f) {
-  if (state.saved) return;
+function saveCreation(f) {
+  if (state.saved) return state.saving;
   state.saved = true;
+  state.saving = saveCreationNow(f);
+  return state.saving;
+}
+async function saveCreationNow(f) {
   const d = new Date();
   const date = `${d.getFullYear()} . ${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   let img = f.img;
@@ -896,10 +930,12 @@ async function saveCreation(f) {
       item.id = r.id;
       item.no = r.no;
       gallery.refresh();
+      return r.id;
     }
   } catch (err) {
     console.error('공유 갤러리 저장 실패', err);
   }
+  return null;
 }
 
 /* =========================================================

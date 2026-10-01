@@ -270,6 +270,12 @@ export async function loadWorks() {
   } catch { return { enabled: false, works: [] }; }
 }
 
+// 관람객 평가 저장 ('good' 좋아요 / 'bad' 별로예요). 다음 관람객의 조형 제안에 반영됨
+export async function rateWork(id, rating) {
+  if (!live || !id) return null;
+  return call('api/works', { body: { id, rating }, timeout: 30000 });
+}
+
 // 관람객이 고른 조형을 공유 갤러리 + 학습 기록으로 저장 (실제 AI로 만든 것만)
 export async function saveWork({ name, date, image, plan }) {
   if (!live || !image?.startsWith('data:image/jpeg')) return null;

@@ -2,6 +2,8 @@
 // GET  → 최근 작품 목록 { enabled, works: [{ id, no, name, date, img }] } (오래된 것 → 최신 순)
 // POST { name, date, image, plan } → 작품 저장 { id, no }
 //   plan은 /api/forms가 도장(sig)을 찍어 준 조형 계획. 도장이 맞을 때만 "학습" 기록으로 남김
+// POST { id, rating: 'good' | 'bad' } → 관람객 평가 저장 (작품 하나에 한 번만)
+//   평가는 ratings/작품id.good 처럼 파일 이름에 담아서, 내용을 읽지 않고 목록만으로 알 수 있게 함
 import { send, readJSON, allowed, store, newKey, checkPlan } from './_lib.js';
 
 export const GALLERY_LIMIT = 60;   // 갤러리에 보여줄 최근 작품 수
@@ -14,6 +16,27 @@ export async function recentWorks(limit) {
     try { return { id: b.pathname.slice(6, -5), ...(await store.readJSON(b.url)) }; } catch { return null; }
   }));
   return out.filter(Boolean);
+}
+
+const ID = /^\d{13}-[a-z0-9]{1,8}$/;
+
+// 작품별 평가 { 작품id: 'good' | 'bad' } (최근 것부터 최대 limit개)
+export async function ratings(limit = 1000) {
+  const blobs = await store.list('ratings/', limit);
+  const out = {};
+  for (const b of blobs) {
+    const [id, rating] = b.pathname.slice(8).split('.');
+    if (!out[id]) out[id] = rating;
+  }
+  return out;
+}
+
+async function rate(res, { id, rating }) {
+  if (!ID.test(String(id)) || !['good', 'bad'].includes(rating)) return send(res, 400, { error: 'input' });
+  if (!(await store.list(`works/${id}.`, 1)).length) return send(res, 404, { error: 'not_found' });
+  if ((await store.list(`ratings/${id}.`, 1)).length) return send(res, 409, { error: 'already' });
+  await store.put(`ratings/${id}.${rating}`, rating, 'text/plain');
+  send(res, 200, { ok: true });
 }
 
 export default async function works(req, res) {
@@ -36,6 +59,7 @@ export default async function works(req, res) {
       if (!process.env.OPENAI_API_KEY) return send(res, 503, { error: 'no_key' });
       if (!allowed(req)) return send(res, 401, { error: 'access_code' });
       const body = await readJSON(req);
+      if (body.rating) return rate(res, body);
       const image = String(body.image || '');
       if (!image.startsWith('data:image/jpeg;base64,') || image.length > 900_000) return send(res, 400, { error: 'input' });
       const name = String(body.name || '').slice(0, 40);
