@@ -293,7 +293,11 @@ export async function toModel(formImg, form, onProgress = () => {}) {
       await wait(4000);
       const s = await call(`api/model?id=${encodeURIComponent(taskId)}`, { timeout: 30000, retries: 2 });
       onProgress(s.progress || 0);
-      if (s.status === 'SUCCEEDED') return [`api/model-file?id=${encodeURIComponent(taskId)}`, s.glb].filter(Boolean);
+      if (s.status === 'SUCCEEDED') {
+        const urls = [`api/model-file?id=${encodeURIComponent(taskId)}`, s.glb].filter(Boolean);
+        urls.taskId = taskId; // 갤러리 보관용
+        return urls;
+      }
       if (s.status === 'FAILED' || s.status === 'CANCELED') throw new Error(s.error || '3D 변환 실패');
     }
     throw new Error('3D 변환 시간 초과');
@@ -310,6 +314,12 @@ export async function loadWorks() {
     if (!r.ok) return { enabled: false, works: [] };
     return await r.json();
   } catch { return { enabled: false, works: [] }; }
+}
+
+// 완성된 3D 파일을 공유 저장소에 보관 → 갤러리에서 다른 관람객도 3D로 볼 수 있음
+export async function saveModel(id, taskId) {
+  if (!live || !id || !taskId) return null;
+  return call('api/works', { body: { id, model: taskId }, timeout: 120000, retries: 1 });
 }
 
 // 관람객 평가 저장 ('good' 좋아요 / 'bad' 별로예요). 다음 관람객의 조형 제안에 반영됨

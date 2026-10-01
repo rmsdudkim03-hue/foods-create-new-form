@@ -108,7 +108,11 @@ export function prompt(file) {
 /* ---------- OpenAI: 글 AI (GPT-6 Astra) ---------- */
 export async function askJSON({ instructions, text, images = [], name, schema, effort = 'medium' }) {
   const content = [{ type: 'input_text', text }];
-  for (const url of images) content.push({ type: 'input_image', image_url: url });
+  for (const img of images) {
+    // 문자열이면 그대로, { url, detail }이면 'low'(작게 보기, 빠르고 저렴)처럼 지정
+    if (typeof img === 'string') content.push({ type: 'input_image', image_url: img });
+    else content.push({ type: 'input_image', image_url: img.url, detail: img.detail || 'auto' });
+  }
   const request = (fast) => fetch(`${OPENAI}/responses`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
@@ -283,7 +287,7 @@ async function getJSON(label, url, headers = {}) {
   return data;
 }
 
-export async function searchPhotos(query) {
+export async function searchPhotos(query, name = query) {
   const site = photoSite();
   let list = [];
   if (site === 'Unsplash') {
@@ -294,13 +298,18 @@ export async function searchPhotos(query) {
       src: p.urls.regular, w: p.width, h: p.height, alt: p.alt_description || '',
       by: p.user?.name || '', link: p.links?.html || '',
       track: p.links?.download_location || '', // Unsplash 규칙: 사진을 쓰면 '다운로드'로 알려줘야 함
+      thumb: p.urls.small,
     }));
   } else if (site === 'Pixabay') {
-    const data = await getJSON(`사진 검색 Pixabay (${query})`,
-      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '30', safesearch: 'true' })}`);
+    // 먼저 '음식' 카테고리 안에서 찾고, 너무 적으면 전체에서 다시 찾음
+    const search = (extra) => getJSON(`사진 검색 Pixabay (${query})`,
+      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '40', safesearch: 'true', ...extra })}`);
+    let data = await search({ category: 'food' });
+    if ((data.hits || []).length < PHOTO_COUNT) data = await search({});
     list = (data.hits || []).filter((p) => p.largeImageURL).map((p) => ({
       src: p.largeImageURL, w: p.imageWidth, h: p.imageHeight, alt: p.tags || '',
       by: p.user || '', link: p.pageURL || '',
+      thumb: p.webformatURL?.replace('_640', '_340') || p.previewURL,
     }));
   } else if (site === 'Pexels') {
     const data = await getJSON(`사진 검색 Pexels (${query})`,
@@ -309,6 +318,7 @@ export async function searchPhotos(query) {
     list = (data.photos || []).filter((p) => p.src?.large).map((p) => ({
       src: p.src.large, w: p.width, h: p.height, alt: p.alt || '',
       by: p.photographer || '', link: p.url || '',
+      thumb: p.src.medium,
     }));
   } else if (site === 'Wikimedia Commons') {
     const data = await getJSON(`사진 검색 Wikimedia (${query})`, `${COMMONS}?${new URLSearchParams({
@@ -324,14 +334,68 @@ export async function searchPhotos(query) {
         src: ii.thumburl, w: ii.thumbwidth, h: ii.thumbheight,
         alt: strip(ii.extmetadata?.ImageDescription?.value) || p.title.replace(/^File:|\.[a-z]+$/gi, ''),
         by: strip(ii.extmetadata?.Artist?.value) || 'Wikimedia', link: ii.descriptionurl || '',
+        thumb: ii.thumburl.replace('/1000px-', '/330px-'),
       }));
   }
-  const top = list.slice(0, 18);
-  for (let i = top.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [top[i], top[j]] = [top[j], top[i]];
+  const candidates = list.slice(0, CANDIDATES);
+  let picked;
+  try {
+    picked = await pickPhotos(candidates, name, query);
+  } catch (err) {
+    console.error('[알림] 사진 고르기 실패 → 검색 순서대로 씀', err);
+    picked = candidates.slice(0, PHOTO_COUNT);
   }
-  return top.slice(0, PHOTO_COUNT).map((p) => ({ ...p, site }));
+  return picked.map(({ thumb, ...p }) => ({ ...p, site }));
+}
+
+/* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------
+   검색 결과에는 음식이 아닌 사진, 음식이 작게 나온 사진, 다른 것과 섞인 사진이 섞여 있어서
+   작은 미리보기를 글 AI에 보여주고 '그 음식의 특징이 잘 드러나는' 사진만 고름 */
+const CANDIDATES = 24; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸림)
+
+async function thumbData(url) {
+  const r = await fetch(url, { headers: { 'User-Agent': UA } });
+  if (!r.ok) throw new Error(`thumb ${r.status}`);
+  const type = r.headers.get('content-type') || 'image/jpeg';
+  if (!type.startsWith('image/')) throw new Error('thumb type');
+  return `data:${type};base64,${Buffer.from(await r.arrayBuffer()).toString('base64')}`;
+}
+
+const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보고, 음식의 조형적 특징을 분석하기 좋은 사진을 고른다.
+고르는 기준:
+- 그 음식 자체가 사진의 주인공이고, 화면에서 충분히 크게 보인다.
+- 그 음식의 고유한 형태, 윤곽, 단면, 표면 결 같은 특징이 잘 드러난다.
+- 다른 음식, 요리, 그릇 속 재료와 섞여서 무엇인지 흐려지지 않는다. (그 음식이 원래 요리 형태라면 그 요리로 본다)
+- 사람, 손, 포장지, 글자, 로고가 주인공이 아니다.
+- 음식이 아니거나 다른 음식인 사진은 고르지 않는다.
+고른 사진들은 서로 다른 모양·상태·시점을 보여주도록 다양하게 고른다.
+좋은 순서대로 번호를 쓴다. 기준에 맞는 사진이 적으면 맞는 것만 쓴다.`;
+
+async function pickPhotos(candidates, name, query) {
+  if (candidates.length <= 3) return candidates;
+  // 미리보기를 서버에서 받아서 전달 (사진 사이트가 AI의 직접 접근을 막는 경우 대비). 못 받은 사진은 후보에서 뺌
+  const thumbs = await timed('후보 사진 받기', () => Promise.all(candidates.map((c) => thumbData(c.thumb || c.src).catch(() => null))));
+  const usable = candidates.map((c, i) => ({ c, img: thumbs[i] })).filter((x) => x.img);
+  if (usable.length <= 3) return candidates.slice(0, PHOTO_COUNT);
+  const out = await askJSON({
+    instructions: PICK_INSTRUCTIONS,
+    text: `음식: ${name} (검색어: ${query})\n후보 사진 ${usable.length}장이 0번부터 순서대로 첨부되어 있다. 최대 ${PHOTO_COUNT}장을 고른다.`,
+    images: usable.map((x) => ({ url: x.img, detail: 'low' })),
+    name: 'photo_pick',
+    schema: S.obj({ picks: S.arr({ type: 'integer' }, `고른 사진 번호 (좋은 순서, 최대 ${PHOTO_COUNT}개)`) }),
+    effort: 'low',
+  });
+  const seen = new Set();
+  const picked = (out.picks || [])
+    .filter((i) => Number.isInteger(i) && i >= 0 && i < usable.length && !seen.has(i) && seen.add(i))
+    .slice(0, PHOTO_COUNT)
+    .map((i) => usable[i].c);
+  console.log(`[알림] 사진 ${usable.length}장 중 ${picked.length}장 고름 (${name})`);
+  // 너무 적게 골랐으면 (4장 미만) 검색 순서대로 채움
+  if (picked.length < 4) {
+    for (const x of usable) if (picked.length < 4 && !picked.includes(x.c)) picked.push(x.c);
+  }
+  return picked;
 }
 
 // Unsplash: 관람객이 사진을 고르면 '다운로드했다'고 알려줌 (Unsplash 이용 규칙)

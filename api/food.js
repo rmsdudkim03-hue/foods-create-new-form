@@ -56,7 +56,7 @@ export default handler(async (req, res, body) => {
     if (!out.is_food) {
       return send(res, 200, { ok: false, message: out.message || `${word}은(는) 음식이 아니에요. 다른 음식을 입력해 주세요` });
     }
-    const photos = await searchPhotos(out.query || word);
+    const photos = await searchPhotos(out.query || word, out.name || word);
     if (!photos.length) return send(res, 200, { ok: false, message: `${out.name || word} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
     return send(res, 200, { ok: true, name: out.name || word, interpretation: '', photos });
   }

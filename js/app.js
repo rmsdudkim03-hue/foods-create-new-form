@@ -2,10 +2,11 @@
    화면 흐름과 인터랙션
    메인 → 음식 고르기(입력 + 사진 선택, A·B) → 분석 → 요리하기 → 맛보기 선택 → 3D 결과 → 갤러리
    ========================================================= */
-import { FOODS, FRAGMENTS, FORMS, GALLERY_SEED, IDLE_RESET_MS } from './data.js';
+import { FOODS, FORMS, GALLERY_SEED, IDLE_RESET_MS } from './data.js';
 import * as ai from './ai.js';
 import { contour } from './contour.js';
 import { formParticles } from './particles.js';
+import { startCook, preloadCook } from './cook.js';
 import { cutoutInfo } from './cutout.js';
 
 // 주소 끝에 ?debug를 붙이면 확인용 정보가 화면에 보임
@@ -20,11 +21,6 @@ const mod = (a, n) => ((a % n) + n) % n;
 
 /* ---------- 화면 크기: 피그마 1px = 화면 몇 px인지 계산 ---------- */
 const view = { u: 1, portrait: false };
-
-function toStage(clientX, clientY) {
-  const r = stage.getBoundingClientRect();
-  return { x: (clientX - r.left) / view.u, y: (clientY - r.top) / view.u };
-}
 
 /* ---------- 상태 ---------- */
 const state = {
@@ -498,6 +494,7 @@ leave.pick = () => {
    ========================================================= */
 let materialFx = [];
 enter.analyze = async () => {
+  preloadCook(); // 다음 화면(요리)에 쓸 물리 엔진을 미리 받아 둠
   const a = $('#analyzeA');
   const b = $('#analyzeB');
   a.src = state.picks.A.src; a.alt = state.picks.A.alt;
@@ -544,122 +541,30 @@ leave.analyze = () => {
    화면 5: 새로운 조형 요리하기 (조각을 그릇에 드래그)
    ========================================================= */
 const cookBowl = $('#cookBowl');
-const cook = { dropped: 0, total: 0 };
+let cookFx = null;
 
-// 그릇 안으로 인정되는 영역 (피그마 좌표)
-const bowlZone = () =>
-  view.portrait
-    ? { x1: 80, x2: 520, y1: 620, y2: 860, tx: 300, ty: 752 }
-    : { x1: 370, x2: 1070, y1: 640, y2: 940, tx: 720, ty: 800 };
-
-function buildFragments() {
-  const layer = $('#fragLayer');
-  layer.innerHTML = '';
-  cook.dropped = 0;
-  cook.total = 0;
+function bumpBowl() {
+  cookBowl.classList.remove('bump');
+  void cookBowl.offsetWidth;
+  cookBowl.classList.add('bump');
+}
+enter.cook = () => {
   cookBowl.classList.remove('cooking', 'bump');
-  ['A', 'B'].forEach((side) => {
-    const pic = state.picks[side];
-    FRAGMENTS[side].forEach((f, i) => {
-      const [l, t, r, b] = f.crop;
-      const cw = r - l;
-      const ch = b - t;
-      const ratio = (ch * pic.h) / (cw * pic.w); // 높이 / 너비
-      const [dx, dy, dw] = f.d;
-      const [px, py, pw] = f.p;
-      const dh = dw * ratio;
-      const ph = pw * ratio;
-      const el = document.createElement('div');
-      el.className = 'frag abs box';
-      el.style.cssText = `--x:${dx - dw / 2};--y:${dy - dh / 2};--w:${dw};--h:${dh};--px:${px - pw / 2};--py:${py - ph / 2};--pw:${pw};--ph:${ph}`;
-      el.innerHTML = `<div class="frag-float" style="--d:${-(i * 1.3 + (side === 'B' ? 0.7 : 0))}s"><div class="frag-crop"><img src="${pic.src}" alt="" draggable="false" style="width:${100 / cw}%;height:${100 / ch}%;left:${(-l / cw) * 100}%;top:${(-t / ch) * 100}%"></div></div>`;
-      el.setAttribute('role', 'button');
-      el.tabIndex = 0;
-      el.setAttribute('aria-label', `${state.foods[side]} 조각을 그릇에 넣기`);
-      attachDrag(el);
-      layer.append(el);
-      cook.total++;
-    });
+  cookFx?.stop();
+  cookFx = startCook($('#cookFx'), {
+    picks: state.picks,
+    view: () => view,
+    onBump: bumpBowl,
+    onMelt: () => { cookBowl.classList.remove('bump'); cookBowl.classList.add('cooking'); },
+    onDone: () => { if (current === 'cook') timers.cook2 = setTimeout(() => go('taste'), 300); },
   });
-}
-
-function attachDrag(el) {
-  let sx = 0;
-  let sy = 0;
-  let id = null;
-  let dragging = false;
-  el.addEventListener('pointerdown', (e) => {
-    if (el.classList.contains('is-dropping')) return;
-    id = e.pointerId;
-    el.setPointerCapture(id);
-    sx = e.clientX;
-    sy = e.clientY;
-    dragging = false;
-  });
-  el.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== id) return;
-    const dx = e.clientX - sx;
-    const dy = e.clientY - sy;
-    if (!dragging && Math.hypot(dx, dy) > 5) {
-      dragging = true;
-      el.classList.add('is-dragging');
-    }
-    if (dragging) el.style.transform = `translate(${dx}px, ${dy}px)`;
-  });
-  el.addEventListener('pointerup', (e) => {
-    if (e.pointerId !== id) return;
-    id = null;
-    el.classList.remove('is-dragging');
-    if (!dragging) return dropFragment(el); // 그냥 누르면 알아서 그릇으로 날아감
-    const r = el.getBoundingClientRect();
-    const p = toStage(r.left + r.width / 2, r.top + r.height / 2);
-    const z = bowlZone();
-    if (p.x > z.x1 && p.x < z.x2 && p.y > z.y1 && p.y < z.y2) dropFragment(el);
-    else el.style.transform = ''; // 그릇 밖이면 제자리로
-  });
-  el.addEventListener('pointercancel', () => {
-    id = null;
-    el.classList.remove('is-dragging');
-    el.style.transform = '';
-  });
-  el.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dropFragment(el); }
-  });
-}
-
-function dropFragment(el) {
-  if (el.classList.contains('is-dropping')) return;
-  const z = bowlZone();
-  const u = view.u;
-  const sr = stage.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
-  const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(el.style.transform || '');
-  const curX = m ? +m[1] : 0;
-  const curY = m ? +m[2] : 0;
-  const targetX = sr.left + (z.tx + (Math.random() - 0.5) * 160) * u;
-  const targetY = sr.top + z.ty * u;
-  const tx = curX + targetX - (r.left + r.width / 2);
-  const ty = curY + targetY - (r.top + r.height / 2);
-  el.classList.add('is-dropping');
-  el.style.transform = `translate(${tx}px, ${ty}px) scale(.3)`;
-  setTimeout(() => {
-    cookBowl.classList.remove('bump');
-    void cookBowl.offsetWidth;
-    cookBowl.classList.add('bump');
-    cook.dropped++;
-    if (cook.dropped === cook.total) {
-      timers.cook1 = setTimeout(() => {
-        cookBowl.classList.remove('bump');
-        cookBowl.classList.add('cooking');
-      }, 250);
-      timers.cook2 = setTimeout(() => go('taste'), 2200);
-    }
-  }, 480);
-}
-enter.cook = buildFragments;
+  if (!isTouch()) setTimeout(() => current === 'cook' && $('#cookFx').focus({ preventScroll: true }), 400);
+};
 leave.cook = () => {
-  clearTimeout(timers.cook1);
   clearTimeout(timers.cook2);
+  const fx = cookFx;
+  cookFx = null;
+  setTimeout(() => fx?.stop(), 600); // 화면이 사라진 뒤 정지
 };
 
 /* =========================================================
@@ -780,6 +685,13 @@ enter.result = async () => {
       try { await viewer.load(url); loaded = true; break; } catch (err) { console.warn('3D 불러오기 실패', url, err); }
     }
     if (!loaded) throw new Error('3D 파일을 불러오지 못함');
+    // 갤러리에서도 3D로 볼 수 있게 3D 파일 보관 (작품 저장이 끝난 뒤)
+    if (urls.taskId) {
+      Promise.resolve(state.saving)
+        .then((id) => ai.saveModel(id, urls.taskId))
+        .then((r) => r?.model && gallery.setModel(r.model))
+        .catch((err) => console.error('3D 파일 보관 실패', err));
+    }
     if (run !== state.run || current !== 'result') return;
     img.hidden = true;
     viewer.setVisible(true);
@@ -900,6 +812,7 @@ const gallery = (() => {
       $('#gName').textContent = it.name;
       $('#gDate').textContent = it.date;
       shown = it;
+      show3d(false);
     };
     if (instant || !shown) { apply(); return; }
     feature.classList.add('is-swapping');
@@ -910,6 +823,83 @@ const gallery = (() => {
     cur = Math.max(0, Math.min(items.length - 1, i));
     render();
   }
+
+  /* ---------- 모아보기: 모든 작품을 한 화면에 (최신 작품이 먼저) ---------- */
+  const section = $('.screen[data-screen="gallery"]');
+  const grid = $('#gGrid');
+  function buildGrid() {
+    grid.innerHTML = '';
+    const n = items.length;
+    $('#gCount').textContent = `지금까지 모인 조형 ${n}개`;
+    // 화면 영역 안에 가장 크게 들어가는 칸 수 계산
+    const A = view.portrait ? { x: 24, y: 180, w: 552, h: 890, max: 170 } : { x: 100, y: 180, w: 1240, h: 800, max: 230 };
+    let best = { size: 0, cols: 1 };
+    for (let c = 1; c <= n; c++) {
+      const rows = Math.ceil(n / c);
+      const size = Math.min(A.w / c, A.h / (rows * 1.12), A.max);
+      if (size > best.size) best = { size, cols: c };
+    }
+    const { size, cols } = best;
+    const rows = Math.ceil(n / cols);
+    const ox = A.x + (A.w - cols * size) / 2;
+    const oy = A.y + (A.h - rows * size * 1.12) / 2;
+    const order = items.map((it, i) => i).reverse();
+    order.forEach((i, k) => {
+      const it = items[i];
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'g-cell abs';
+      const col = k % cols, row = Math.floor(k / cols);
+      cell.style.cssText = `--x:${ox + col * size + size * 0.06};--y:${oy + row * size * 1.12};width:calc(${size * 0.88} * var(--u));font-size:calc(${Math.max(11, size * 0.075)} * var(--u));--d:${Math.min(k * 0.04, 1.2)}s;--f:${-(k % 7) * 0.9}s`;
+      cell.innerHTML = `<span class="g-cell-plate"><img src="assets/img/plate-top.png" alt=""><img class="g-thumb" src="${it.thumb}" alt="">${it.model ? '<span class="g-cell-3d">3D</span>' : ''}</span><span class="g-cell-no">${it.no}</span>`;
+      cell.setAttribute('aria-label', `${it.no} ${it.name}${it.model ? ', 3D로 볼 수 있음' : ''}`);
+      cell.addEventListener('click', () => openDetail(i));
+      grid.append(cell);
+    });
+    requestAnimationFrame(() => requestAnimationFrame(() => $$('.g-cell', grid).forEach((c) => c.classList.add('is-in'))));
+  }
+  function openGrid() {
+    show3d(false);
+    section.classList.add('is-grid');
+    buildGrid();
+  }
+  function openDetail(i) {
+    cur = i;
+    shown = null;
+    render(true);
+    section.classList.remove('is-grid');
+  }
+  const isGrid = () => section.classList.contains('is-grid');
+  $('#gBack').addEventListener('click', openGrid);
+
+  /* ---------- 3D로 보기 (3D 파일이 보관된 작품만) ---------- */
+  const g3d = $('#g3d');
+  let gViewer = null;
+  let on3d = false;
+  async function show3d(on) {
+    const it = items[cur];
+    g3d.hidden = !it?.model;
+    on3d = Boolean(on && it?.model);
+    g3d.classList.toggle('is-on', on3d);
+    g3d.textContent = on3d ? '이미지로 보기' : '3D로 보기';
+    feature.classList.toggle('is-3d', on3d);
+    if (!on3d) { gViewer?.stop(); return; }
+    try {
+      viewerMod ??= await import('./viewer3d.js');
+      gViewer ??= viewerMod.createViewer($('#gViewer'));
+      g3d.textContent = '불러오는 중…';
+      await gViewer.load(it.model);
+      if (!on3d || items[cur] !== it) return;
+      g3d.textContent = '이미지로 보기';
+      gViewer.setVisible(true);
+      gViewer.start();
+    } catch (err) {
+      console.error(err);
+      toast('3D를 불러오지 못했어요');
+      show3d(false);
+    }
+  }
+  g3d.addEventListener('click', () => show3d(!on3d));
   const step = (d) => select(cur + d);
 
   function add(item) {
@@ -918,6 +908,7 @@ const gallery = (() => {
     else writeSaved(items.slice(GALLERY_SEED.length));
     cur = items.length - 1;
     build();
+    if (isGrid()) buildGrid();
   }
 
   // 공유 갤러리에서 최신 작품 목록을 받아와 다시 그림
@@ -933,6 +924,14 @@ const gallery = (() => {
     cur = at >= 0 ? at : items.length - 1;
     shown = null;
     build();
+    if (isGrid()) buildGrid();
+  }
+  // 방금 만든 작품의 3D 파일이 보관되면 연결
+  function setModel(url) {
+    const it = mine[mine.length - 1];
+    if (!it) return;
+    it.model = url;
+    if (items[cur] === it) show3d(false);
   }
   // 저장이 끝나 번호가 정해지면 화면 글자 다시 쓰기
   function refresh() { shown = null; render(true); }
@@ -946,6 +945,7 @@ const gallery = (() => {
   let acc = 0;
   let lock = false;
   $('.screen[data-screen="gallery"]').addEventListener('wheel', (e) => {
+    if (isGrid() || on3d) return;
     acc += e.deltaY;
     if (lock || Math.abs(acc) < 40) return;
     step(acc > 0 ? 1 : -1);
@@ -955,10 +955,10 @@ const gallery = (() => {
   }, { passive: true });
 
   build();
-  return { render, step, add, showLatest, nextNo, sync, refresh };
+  return { render, step: (d) => !isGrid() && !on3d && step(d), add, showLatest, nextNo, sync, refresh, setModel, openGrid, isGrid, layout: () => { render(true); if (isGrid()) buildGrid(); } };
 })();
 enter.gallery = () => {
-  gallery.render(true);
+  gallery.openGrid(); // 들어오면 항상 모아보기부터
   gallery.sync(); // 다른 관람객이 만든 작품도 불러옴
 };
 gallery.sync();
@@ -1047,7 +1047,7 @@ function layout() {
   app.classList.toggle('is-portrait', portrait);
   app.style.setProperty('--u', `${u}px`);
   carousel.render();
-  gallery.render(true);
+  gallery.layout();
 }
 new ResizeObserver(layout).observe(app);
 layout();

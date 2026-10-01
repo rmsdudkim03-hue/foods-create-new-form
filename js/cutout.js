@@ -63,10 +63,12 @@ function loadImage(src) {
 }
 
 // 차례대로 처리 (동시에 여러 장 돌리면 오히려 느려짐)
+// 한 장 끝날 때마다 잠깐 쉬어서 화면·컴퓨터가 멈춘 것처럼 느려지지 않게 함
+const REST_MS = 120;
 let chain = Promise.resolve();
 export function cutout(src) {
   const job = chain.then(() => cutoutNow(src));
-  chain = job.catch(() => {});
+  chain = job.catch(() => {}).then(() => new Promise((r) => setTimeout(r, REST_MS)));
   return job;
 }
 

@@ -107,8 +107,10 @@
     <section class="screen" data-screen="cook" aria-label="새로운 조형 요리하기">
       <h2 class="title cx fs" style="--cx:720; --y:115; --fs:48; --pcx:300; --py:110; --pfs:38">새로운 조형 요리하기</h2>
       <p class="sub cx fs" style="--cx:720; --y:184; --fs:20; --pcx:300; --py:164; --pfs:18">음식을 드래그하여 그릇안으로 넣어주세요</p>
+      <!-- 사진이 도형 조각으로 분해 → 끌거나 눌러서 그릇에 떨어뜨림 → 다 넣으면 녹아서 합쳐짐 (js/cook.js)
+           캔버스가 그릇 이미지보다 뒤에 있어서, 그릇에 들어간 조각은 앞쪽 벽에 살짝 가려짐 -->
+      <canvas class="cook-fx" id="cookFx" tabindex="0" aria-label="음식 조각을 그릇에 넣기. 누르거나 Enter 키로 넣을 수 있어요"></canvas>
       <img class="bowl abs box" id="cookBowl" src="assets/img/bowl.png" alt="" style="--x:211; --y:546; --w:1018; --h:509; --px:-10; --py:600; --pw:620; --ph:310">
-      <div id="fragLayer"></div>
     </section>
 
     <!-- ===== 화면 6: 맛보기 조형 선택 (task5) ===== -->
@@ -137,14 +139,27 @@
     </section>
 
     <!-- ===== 화면 8: 갤러리 ===== -->
-    <section class="screen" data-screen="gallery" aria-label="갤러리">
-      <div class="g-feature abs box" style="--x:175; --y:285; --w:669; --h:435; --px:40; --py:180; --pw:520; --ph:338">
-        <img id="gImg" src="" alt="">
+    <!-- 두 가지 상태: 모아보기(전체 작품 격자) ↔ 크게 보기(작품 하나 + 3D 보기)
+         모아보기·버튼 좌표는 임시. 피그마 디자인 나오면 바꾸기 -->
+    <section class="screen is-grid" data-screen="gallery" aria-label="갤러리">
+      <!-- 모아보기 -->
+      <div class="g-overview">
+        <p class="sub cx fs" id="gCount" style="--cx:720; --y:132; --fs:20; --pcx:300; --py:120; --pfs:18"></p>
+        <div id="gGrid"></div>
       </div>
-      <p class="g-no abs fs" id="gNo" style="--x:831; --y:638; --fs:22; --px:512; --py:500; --pfs:22"></p>
-      <p class="g-name cx fs" id="gName" style="--cx:509; --y:756; --fs:21; --pcx:300; --py:545; --pfs:22"></p>
-      <p class="g-date cx fs" id="gDate" style="--cx:509; --y:798; --fs:21; --pcx:300; --py:585; --pfs:20"></p>
-      <div id="gPlates"></div>
+      <!-- 크게 보기 -->
+      <div class="g-detail">
+        <div class="g-feature abs box" style="--x:175; --y:285; --w:669; --h:435; --px:40; --py:180; --pw:520; --ph:338">
+          <img id="gImg" src="" alt="">
+          <div class="g-viewer" id="gViewer" aria-hidden="true"></div>
+        </div>
+        <p class="g-no abs fs" id="gNo" style="--x:831; --y:638; --fs:22; --px:512; --py:500; --pfs:22"></p>
+        <p class="g-name cx fs" id="gName" style="--cx:509; --y:756; --fs:21; --pcx:300; --py:545; --pfs:22"></p>
+        <p class="g-date cx fs" id="gDate" style="--cx:509; --y:798; --fs:21; --pcx:300; --py:585; --pfs:20"></p>
+        <button class="g-btn cx fs" id="g3d" type="button" style="--cx:509; --y:846; --fs:16; --pcx:300; --py:630; --pfs:17" hidden>3D로 보기</button>
+        <button class="g-back abs fs" id="gBack" type="button" style="--x:40; --y:140; --fs:17; --px:24; --py:110; --pfs:18">← 모아보기</button>
+        <div id="gPlates"></div>
+      </div>
     </section>
 
   </div>
