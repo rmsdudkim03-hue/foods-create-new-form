@@ -1,10 +1,11 @@
 /* =========================================================
    화면 흐름과 인터랙션
-   메인 → 음식 입력 → 이미지 선택(A, B) → 분석 → 요리하기 → 맛보기 선택 → 3D 결과 → 갤러리
+   메인 → 음식 고르기(입력 + 사진 선택, A·B) → 분석 → 요리하기 → 맛보기 선택 → 3D 결과 → 갤러리
    ========================================================= */
 import { FOODS, FRAGMENTS, FORMS, GALLERY_SEED, IDLE_RESET_MS } from './data.js';
 import * as ai from './ai.js';
-import { materialize } from './material.js';
+import { contour } from './contour.js';
+import { formParticles } from './particles.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -28,6 +29,7 @@ const state = {
   side: 'A',                     // 지금 고르는 쪽
   form: null,                    // 고른 맛보기 조형
   saved: false,                  // 이번 체험 결과를 갤러리에 넣었는지
+  saving: null,                  // 공유 갤러리 저장이 끝나면 작품 id를 주는 약속 (평가할 때 씀)
   jobs: { A: null, B: null },    // AI가 음식 이미지를 만드는 작업
   analysis: null,                // AI 분석 결과
   formsJob: null,                // AI가 맛보기 조형을 만드는 작업
@@ -79,11 +81,12 @@ function startFlow() {
   state.side = 'A';
   state.form = null;
   state.saved = false;
+  state.saving = null;
   state.analysis = null;
   state.run++;
   cancelJobs();
   picker.reset();
-  go('select');
+  go('pick');
 }
 
 /* ---------- 메인 · 메뉴 · 로고 ---------- */
@@ -108,116 +111,6 @@ function shake(el) {
   el.classList.add('shake');
 }
 
-const picker = (() => {
-  const inputs = { A: $('#foodA'), B: $('#foodB') };
-  const pills = { A: $('#pillA'), B: $('#pillB') };
-  const nextBtn = $('#selectNext');
-  const okWord = { A: null, B: null };   // 확인을 통과한 입력값
-  const name = { A: null, B: null };     // AI가 정리한 음식 이름
-  const pending = { A: null, B: null };  // 진행 중인 확인
-  let submitting = false;
-
-  function sync() {
-    for (const side of ['A', 'B']) pills[side].classList.toggle('is-filled', inputs[side].value.trim() !== '');
-    nextBtn.disabled = submitting || !(inputs.A.value.trim() && inputs.B.value.trim());
-  }
-
-  function invalidate(side) {
-    okWord[side] = null;
-    name[side] = null;
-    state.jobs[side]?.cancel();
-    state.jobs[side] = null;
-  }
-
-  // 입력한 단어를 확인. 통과하면 true
-  async function commit(side) {
-    const word = inputs[side].value.trim();
-    if (!word) return false;
-    if (okWord[side] === word) return true;
-    if (pending[side]?.word === word) return pending[side].promise;
-    const run = state.run;
-    const promise = (async () => {
-      pills[side].classList.add('is-checking');
-      let res;
-      try { res = await ai.checkFood(word); } catch (err) {
-        console.error(err);
-        res = { ok: false, message: '확인하지 못했어요. 다시 시도해 주세요' };
-      }
-      if (pending[side]?.promise !== promise) return false; // 그사이 다른 단어로 바뀜
-      pending[side] = null;
-      pills[side].classList.remove('is-checking');
-      if (run !== state.run || inputs[side].value.trim() !== word) return false;
-      if (!res.ok) {
-        invalidate(side);
-        shake(pills[side]);
-        toast(res.message);
-        return false;
-      }
-      okWord[side] = word;
-      name[side] = res.name;
-      state.jobs[side]?.cancel();
-      state.jobs[side] = ai.foodImages(res.name); // 바로 이미지 만들기 시작
-      return true;
-    })();
-    pending[side] = { word, promise };
-    return promise;
-  }
-
-  async function submit() {
-    if (submitting) return;
-    if (!inputs.A.value.trim()) return inputs.A.focus();
-    if (!inputs.B.value.trim()) return inputs.B.focus();
-    submitting = true;
-    sync();
-    const [a, b] = await Promise.all([commit('A'), commit('B')]);
-    submitting = false;
-    sync();
-    if (current !== 'select') return;
-    if (!a) return inputs.A.focus();
-    if (!b) return inputs.B.focus();
-    document.activeElement?.blur();
-    state.foods = { A: name.A, B: name.B };
-    state.picks = { A: null, B: null };
-    state.side = 'A';
-    go('pick');
-  }
-
-  for (const side of ['A', 'B']) {
-    const inp = inputs[side];
-    inp.addEventListener('input', () => {
-      if (okWord[side] !== inp.value.trim()) invalidate(side);
-      sync();
-    });
-    inp.addEventListener('blur', () => { if (current === 'select' && !submitting) commit(side); });
-    inp.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' || e.isComposing) return; // 한글 조합 중 Enter는 무시
-      e.preventDefault();
-      if (side === 'A' && !inputs.B.value.trim()) { commit('A'); inputs.B.focus(); }
-      else submit();
-    });
-  }
-  $('#foodForm').addEventListener('submit', (e) => { e.preventDefault(); submit(); });
-  nextBtn.addEventListener('click', submit);
-
-  function reset() {
-    for (const side of ['A', 'B']) {
-      inputs[side].value = '';
-      pending[side] = null;
-      okWord[side] = null;
-      name[side] = null;
-      pills[side].classList.remove('is-checking');
-    }
-    submitting = false;
-    sync();
-  }
-  sync();
-  return { reset, sync };
-})();
-enter.select = () => {
-  picker.sync();
-  if (!isTouch()) setTimeout(() => current === 'select' && $('#foodA').focus(), 450);
-};
-
 /* =========================================================
    화면 3: 이미지 캐러셀
    ========================================================= */
@@ -233,8 +126,8 @@ const carousel = (() => {
 
   const cfg = () =>
     view.portrait
-      ? { cx: 300, cy: 540, box: 300, gap: 290, side: 0.72 }
-      : { cx: 720, cy: 515, box: 350, gap: 390, side: 0.74 };
+      ? { cx: 300, cy: 570, box: 300, gap: 290, side: 0.72 }
+      : { cx: 720, cy: 556, box: 330, gap: 370, side: 0.74 };
 
   function place(el, k) {
     const c = cfg();
@@ -291,6 +184,7 @@ const carousel = (() => {
     const img = $('.car-img', el);
     if (!it) { el.setAttribute('aria-label', '이미지 준비 중'); return; }
     el.setAttribute('aria-label', it.alt || '음식 이미지');
+    el.classList.toggle('is-raw', it.cut === false); // 아직 배경을 지우는 중
     if (img.getAttribute('src') === it.src) return;
     img.onload = () => el.classList.add('is-ready');
     img.src = it.src;
@@ -367,56 +261,226 @@ const carousel = (() => {
   return { set, fill, next, prev, selected, render: update, track };
 })();
 
+/* ---------- 음식 고르기: 입력 + 사진 선택 ----------
+   A 입력(Enter) → AI가 음식인지 확인하고 사진을 찾음 → 아래 캐러셀에 사진이 뜸
+   → 고르면 A 칸에 작게 들어가고 B로 넘어감 → B까지 고르면 분석 시작
+   입력 칸을 다시 누르면 그쪽 사진을 다시 고를 수 있음 */
 const pickSub = $('#pickSub');
 const pickBtn = $('#pickBtn');
+const pickNote = $('#pickNote');
 let unsubPick = null;
-function loadSide(side) {
-  const food = state.foods[side];
-  if (!state.jobs[side]) state.jobs[side] = ai.foodImages(food);
-  const job = state.jobs[side];
-  const sync = () => {
-    pickBtn.disabled = !carousel.selected();
-    const total = job.items.length - job.failed;
-    pickSub.textContent = job.ready < total
-      ? `AI가 ${food} 이미지를 만들고 있어요 (${job.ready}/${total})`
-      : `좌우로 넘기며 원하는 ${food} 이미지를 선택하세요`;
-  };
-  const onDone = () => {
-    if (!job.finished || !job.failed) return;
-    if (!job.ready) {
-      toast('이미지를 만들지 못했어요. 다시 시도해 주세요');
-      state.jobs[side] = null;
-      timers.pickFail = setTimeout(() => go('select'), 1500);
+
+const picker = (() => {
+  const inputs = { A: $('#foodA'), B: $('#foodB') };
+  const pills = { A: $('#pillA'), B: $('#pillB') };
+  const okWord = { A: null, B: null };   // 확인을 통과한 입력값
+  const pending = { A: null, B: null };  // 진행 중인 확인
+  let active = 'A';
+  const other = (side) => (side === 'A' ? 'B' : 'A');
+
+  function sync() {
+    for (const side of ['A', 'B']) {
+      pills[side].classList.toggle('is-filled', inputs[side].value.trim() !== '');
+      pills[side].classList.toggle('is-active', side === active);
+      pills[side].classList.toggle('is-picked', Boolean(state.picks[side]));
+    }
+  }
+
+  function setThumb(side) {
+    const img = $('.pill-thumb', pills[side]);
+    const pick = state.picks[side];
+    img.hidden = !pick;
+    if (pick) img.src = pick.src;
+  }
+
+  function setActive(side, { focus = false } = {}) {
+    const changed = active !== side;
+    active = side;
+    state.side = side;
+    sync();
+    if (changed) swapCarousel(() => show(side));
+    else show(side);
+    if (focus && !isTouch() && !okWord[side]) inputs[side].focus();
+  }
+
+  function invalidate(side) {
+    okWord[side] = null;
+    state.foods[side] = null;
+    state.jobs[side]?.cancel();
+    state.jobs[side] = null;
+    state.picks[side] = null;
+    setThumb(side);
+  }
+
+  // 입력한 단어 확인. 통과하면 사진 찾기 시작
+  async function commit(side) {
+    const word = inputs[side].value.trim();
+    if (!word) return false;
+    if (okWord[side] === word) return true;
+    if (pending[side]?.word === word) return pending[side].promise;
+    const run = state.run;
+    const promise = (async () => {
+      pills[side].classList.add('is-checking');
+      let res;
+      try { res = await ai.checkFood(word); } catch (err) {
+        console.error(err);
+        res = { ok: false, message: '확인하지 못했어요. 다시 시도해 주세요' };
+      }
+      if (pending[side]?.promise !== promise) return false; // 그사이 다른 단어로 바뀜
+      pending[side] = null;
+      pills[side].classList.remove('is-checking');
+      if (run !== state.run || inputs[side].value.trim() !== word) return false;
+      if (!res.ok) {
+        invalidate(side);
+        shake(pills[side]);
+        toast(res.message);
+        if (side === active) show(side);
+        return false;
+      }
+      okWord[side] = word;
+      state.foods[side] = res.name;
+      state.jobs[side]?.cancel();
+      state.jobs[side] = ai.foodImages(res.name);
+      if (side === active) {
+        show(side);
+        if (document.activeElement === inputs[side]) inputs[side].blur(); // 휴대폰 키보드 내리기
+      }
+      return true;
+    })();
+    pending[side] = { word, promise };
+    if (side === active) show(side);
+    return promise;
+  }
+
+  // 캐러셀에 지금 쪽(A/B)의 상태를 보여줌
+  function show(side) {
+    unsubPick?.();
+    unsubPick = null;
+    const job = okWord[side] ? state.jobs[side] : null;
+    if (!job) {
+      carousel.set(Array(5).fill(null), 0, () => {});
+      const word = inputs[side].value.trim();
+      pickSub.textContent = pending[side] ? `${word} 사진을 찾고 있어요` : `${side}에 섞고 싶은 음식을 입력하세요`;
+      pickBtn.disabled = true;
+      pickNote.textContent = '';
       return;
     }
-    // 실패한 자리는 빼고 다시 배치
-    carousel.set(job.items.filter(Boolean), 0, sync);
-  };
-  unsubPick?.();
-  carousel.set(job.items, FOODS[food]?.start ?? 0, sync);
-  unsubPick = job.on((i) => { carousel.fill(i); onDone(); });
-  sync();
-  onDone();
-}
-enter.pick = () => loadSide(state.side);
-
-pickBtn.addEventListener('click', () => {
-  if (!carousel.selected()) return;
-  state.picks[state.side] = carousel.selected();
-  if (state.side === 'A') {
-    state.side = 'B';
-    const track = carousel.track;
-    track.classList.add('is-swapping');
-    timers.swap = setTimeout(() => {
-      loadSide('B');
-      requestAnimationFrame(() => requestAnimationFrame(() => track.classList.remove('is-swapping')));
-    }, 380);
-  } else {
-    go('analyze');
+    loadJob(side, job);
   }
-});
+
+  function loadJob(side, job) {
+    const food = state.foods[side];
+    const photos = Boolean(job.meta?.photos);
+    const update = () => {
+      const sel = carousel.selected();
+      pickBtn.disabled = !sel || sel.cut === false;
+      const total = job.items.length - job.failed;
+      const cut = job.items.filter((it) => it && it.cut !== false).length;
+      if (photos) {
+        pickSub.textContent = cut < total
+          ? `${food} 사진의 배경을 지우고 있어요 (${cut}/${total})`
+          : `좌우로 넘기며 ${food} 사진을 고르세요`;
+        const site = sel?.site || '사진 사이트';
+        pickNote.textContent = sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
+      } else {
+        pickSub.textContent = job.ready < total
+          ? `AI가 ${food} 이미지를 만들고 있어요 (${job.ready}/${total})`
+          : `좌우로 넘기며 ${food} 이미지를 고르세요`;
+        pickNote.textContent = 'AI가 생성한 참고 이미지예요';
+      }
+    };
+    const onDone = () => {
+      if (!job.finished || !job.failed) return;
+      if (!job.ready) {
+        toast('사진을 불러오지 못했어요. 다른 음식을 입력해 주세요');
+        invalidate(side);
+        show(side);
+        return;
+      }
+      // 실패한 자리는 빼고 다시 배치
+      carousel.set(job.items.filter(Boolean), 0, update);
+    };
+    const prevSel = state.picks[side];
+    const start = Math.max(0, job.items.indexOf(prevSel));
+    carousel.set(job.items, prevSel ? start : FOODS[state.foods[side]]?.start ?? 0, update);
+    unsubPick = job.on((i) => { carousel.fill(i); onDone(); });
+    update();
+    onDone();
+  }
+
+  function choose() {
+    const sel = carousel.selected();
+    if (!sel || sel.cut === false) return;
+    const side = active;
+    state.picks[side] = sel;
+    ai.trackPhoto(sel);
+    setThumb(side);
+    sync();
+    if (state.picks.A && state.picks.B) {
+      pickBtn.disabled = true;
+      pickSub.textContent = '두 음식을 섞어볼게요';
+      timers.pickGo = setTimeout(() => current === 'pick' && go('analyze'), 700);
+      return;
+    }
+    setActive(other(side), { focus: true });
+  }
+
+  for (const side of ['A', 'B']) {
+    const inp = inputs[side];
+    inp.addEventListener('input', () => {
+      if (okWord[side] !== inp.value.trim()) {
+        invalidate(side);
+        if (side === active) show(side);
+      }
+      sync();
+    });
+    inp.addEventListener('focus', () => { if (active !== side) setActive(side); });
+    // Enter 없이 다른 칸으로 넘어가도 사진 찾기 시작
+    inp.addEventListener('blur', () => { if (current === 'pick') commit(side); });
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.isComposing) return; // 한글 조합 중 Enter는 무시
+      e.preventDefault();
+      commit(side);
+    });
+    // 이미 고른 칸을 누르면 그쪽 사진을 다시 고를 수 있음
+    pills[side].addEventListener('click', () => { if (active !== side) setActive(side); });
+  }
+  $('#foodForm').addEventListener('submit', (e) => { e.preventDefault(); commit(active); });
+  pickBtn.addEventListener('click', choose);
+
+  function reset() {
+    clearTimeout(timers.pickGo);
+    for (const side of ['A', 'B']) {
+      inputs[side].value = '';
+      pending[side] = null;
+      okWord[side] = null;
+      pills[side].classList.remove('is-checking');
+      setThumb(side);
+    }
+    active = 'A';
+    sync();
+  }
+  function refresh() { setThumb('A'); setThumb('B'); sync(); }
+  return { reset, setActive, refresh };
+})();
+
+// A↔B 바꿀 때 캐러셀이 잠깐 사라졌다 나타남
+function swapCarousel(fn) {
+  const track = carousel.track;
+  clearTimeout(timers.swap);
+  track.classList.add('is-swapping');
+  timers.swap = setTimeout(() => {
+    fn();
+    requestAnimationFrame(() => requestAnimationFrame(() => track.classList.remove('is-swapping')));
+  }, 300);
+}
+
+enter.pick = () => {
+  picker.refresh();
+  picker.setActive(state.picks.A ? 'B' : 'A', { focus: true });
+};
 leave.pick = () => {
-  clearTimeout(timers.pickFail);
+  clearTimeout(timers.pickGo);
   unsubPick?.();
   unsubPick = null;
   clearTimeout(timers.swap);
@@ -433,13 +497,13 @@ enter.analyze = async () => {
   const b = $('#analyzeB');
   a.src = state.picks.A.src; a.alt = state.picks.A.alt;
   b.src = state.picks.B.src; b.alt = state.picks.B.alt;
-  // 사진 → 흰 재료 효과 (실패하면 사진이 그대로 보임)
+  // 사진 → 윤곽선으로 분해되는 효과 (실패하면 사진이 그대로 보임)
   materialFx.forEach((f) => f.stop());
   materialFx = [];
   try {
     materialFx = [
-      materialize($('#materialA'), state.picks.A.src, { delay: 250 }),
-      materialize($('#materialB'), state.picks.B.src, { delay: 700 }),
+      contour($('#materialA'), state.picks.A.src, { delay: 250 }),
+      contour($('#materialB'), state.picks.B.src, { delay: 700 }),
     ];
     $$('.scan').forEach((el) => el.classList.add('has-fx'));
   } catch (err) {
@@ -448,14 +512,13 @@ enter.analyze = async () => {
   }
   const run = state.run;
   try {
-    // 재료 효과가 끝까지 보이도록 분석 화면은 최소 3.5초 유지
+    // 윤곽선 효과가 끝까지 보이도록 분석 화면은 최소 3.5초 유지
     [state.analysis] = await Promise.all([ai.analyze(state.picks, state.foods), new Promise((r) => setTimeout(r, 3500))]);
   } catch (err) {
     console.error(err);
     if (run === state.run && current === 'analyze') {
       toast('분석에 실패했어요. 다시 시도해 주세요');
-      state.picks = { A: null, B: null };
-      state.side = 'A';
+      state.picks = { A: null, B: null }; // 사진을 다시 고르게
       timers.analyzeFail = setTimeout(() => go('pick'), 1500);
     }
     return;
@@ -598,12 +661,29 @@ leave.cook = () => {
    화면 6: 맛보기 조형 선택
    ========================================================= */
 let unsubTaste = null;
+let tasteFx = null;
 function buildTaste() {
   const layer = $('#tasteLayer');
   layer.innerHTML = '';
   layer.classList.remove('has-choice');
   if (!state.formsJob) state.formsJob = ai.tasteForms(state.analysis, state.picks, state.foods);
   const job = state.formsJob;
+  tasteFx?.stop();
+  tasteFx = formParticles($('#tasteFx'));
+  // 조형 이미지가 도착하면: 점이 모양대로 모인 뒤 이미지가 나타나고 고를 수 있게 됨
+  const show = (i, src) => {
+    const cell = layer.children[i];
+    if (!cell || !src) return;
+    const formImg = cell.querySelector('.taste-form');
+    const fx = tasteFx;
+    formImg.onload = async () => {
+      await fx.reveal(i, src);
+      if (fx !== tasteFx) return;
+      cell.classList.add('is-ready');
+      cell.querySelector('.taste-hit').disabled = false;
+    };
+    formImg.src = src;
+  };
   const k = 280 / 463; // 휴대폰에서 그릇 크기 비율
   FORMS.forEach((f, i) => {
     const [fx, fy, fw, fh] = f.form;
@@ -624,17 +704,13 @@ function buildTaste() {
       <img class="taste-form abs box" alt="" style="--x:${fx};--y:${fy};--w:${fw};--h:${fh};--px:${pfx};--py:${pfy};--pw:${pfw};--ph:${pfh}">
       <button class="taste-hit abs box" type="button" aria-label="맛보기 조형 ${f.id} 선택" style="--x:${bx + 60};--y:${top};--w:343;--h:${by + 170 - top};--px:${pbx + 36};--py:${ptop};--pw:208;--ph:${pby + 103 - ptop}"></button>`;
     const hit = cell.querySelector('.taste-hit');
-    const formImg = cell.querySelector('.taste-form');
-    const show = (src) => {
-      formImg.onload = () => cell.classList.add('is-ready');
-      formImg.src = src;
-      hit.disabled = false;
-    };
     hit.disabled = true;
-    if (job.items[i]) show(job.items[i]);
+    tasteFx.add(i, cell.querySelector('.taste-form'));
     hit.addEventListener('click', () => chooseForm({ ...f, img: job.items[i], plan: job.meta?.forms?.[i] || null }, cell));
     layer.append(cell);
   });
+  job.items.forEach((src, i) => src && show(i, src));
+  job.lost.forEach((i) => tasteFx.cancel(i));
   unsubTaste?.();
   const checkFailed = () => {
     if (job.finished && !job.ready) {
@@ -644,13 +720,8 @@ function buildTaste() {
   };
   checkFailed();
   unsubTaste = job.on((i, src) => {
-    const cell = layer.children[i];
-    if (!src) { checkFailed(); return; }
-    if (!cell) return;
-    const formImg = cell.querySelector('.taste-form');
-    formImg.onload = () => cell.classList.add('is-ready');
-    formImg.src = src;
-    cell.querySelector('.taste-hit').disabled = false;
+    if (!src) { tasteFx?.cancel(i); checkFailed(); return; }
+    show(i, src);
   });
 }
 function chooseForm(f, cell) {
@@ -667,6 +738,9 @@ leave.taste = () => {
   clearTimeout(timers.tasteFail);
   unsubTaste?.();
   unsubTaste = null;
+  const fx = tasteFx;
+  tasteFx = null;
+  setTimeout(() => fx?.stop(), 600); // 화면이 사라진 뒤 정지
 };
 
 /* =========================================================
@@ -685,6 +759,7 @@ enter.result = async () => {
   viewer?.stop();
   viewer?.setVisible(false);
   note.hidden = true;
+  resetRate();
   img.src = f.img;
   img.hidden = false;
   sub.textContent = '선택한 조형을 3D로 바꾸는 중이에요';
@@ -706,19 +781,44 @@ enter.result = async () => {
     viewer.start();
     sub.textContent = isTouch() ? '손가락으로 드래그해서 3D 조형을 돌려보세요' : '마우스 왼쪽을 누르며 3D 조형을 돌려보세요';
     note.hidden = false; // 보이지 않는 면은 AI가 추정했다는 안내
+    rate.hidden = false;
   } catch (err) {
     console.error(err);
     if (run !== state.run || current !== 'result') return;
     sub.textContent = '3D로 바꾸지 못해서 이미지로 보여줄게요';
+    rate.hidden = false;
   } finally {
     sub.classList.remove('is-waiting');
   }
 };
 leave.result = () => viewer?.stop();
-$('#resultNext').addEventListener('click', () => {
-  gallery.showLatest();
-  go('gallery');
+
+/* ---------- 관람객 평가: 좋아요 / 별로예요 ----------
+   누르면 저장되고, 다음 관람객의 조형 6개를 만들 때 AI가 참고함
+   (좋아요 = 이어받을 경향, 별로예요 = 피할 경향). 한 번만 누를 수 있음 */
+const rate = $('#resultRate');
+function resetRate() {
+  rate.hidden = true;
+  rate.classList.remove('is-done');
+  rate.querySelectorAll('.rate-btn').forEach((b) => { b.classList.remove('is-picked'); b.disabled = false; });
+  $('#rateQ').textContent = '이 조형, 어땠어요?';
+}
+rate.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.rate-btn');
+  if (!btn || rate.classList.contains('is-done')) return;
+  rate.classList.add('is-done');
+  btn.classList.add('is-picked');
+  rate.querySelectorAll('.rate-btn').forEach((b) => (b.disabled = true));
+  $('#rateQ').textContent = '다음 조형에 반영할게요';
+  try {
+    const id = await state.saving;
+    await ai.rateWork(id, btn.dataset.rating);
+  } catch (err) {
+    console.error('평가 저장 실패', err);
+  }
 });
+// 끝나면 갤러리로 가지 않고 처음 화면으로 (다음 관람객 차례). 갤러리는 메뉴에서 볼 수 있음
+$('#resultNext').addEventListener('click', () => go('home'));
 
 /* =========================================================
    화면 8: 갤러리
@@ -734,6 +834,9 @@ function writeSaved(list) {
 const gallery = (() => {
   let items = [...GALLERY_SEED, ...loadSaved()];
   let cur = GALLERY_SEED.length - 1;
+  // 공유 갤러리: 저장소가 연결돼 있으면 모든 기기가 같은 작품을 봄 (아니면 이 기기에만 저장)
+  let shared = false;
+  const mine = []; // 이 기기에서 방금 만든 작품 (저장소에 아직 안 보일 수 있어서 따로 들고 있음)
   let els = [];
   const layer = $('#gPlates');
   const feature = $('.g-feature');
@@ -806,10 +909,28 @@ const gallery = (() => {
 
   function add(item) {
     items.push(item);
-    writeSaved(items.slice(GALLERY_SEED.length));
+    if (shared) mine.push(item);
+    else writeSaved(items.slice(GALLERY_SEED.length));
     cur = items.length - 1;
     build();
   }
+
+  // 공유 갤러리에서 최신 작품 목록을 받아와 다시 그림
+  async function sync() {
+    const res = await ai.loadWorks();
+    if (!res.enabled) return;
+    shared = true;
+    const keep = items[cur];
+    const ids = new Set(res.works.map((w) => w.id));
+    const pending = mine.filter((it) => !it.id || !ids.has(it.id));
+    items = [...GALLERY_SEED, ...res.works.map((w) => ({ ...w, thumb: w.img })), ...pending];
+    const at = items.findIndex((it) => it === keep || (keep?.id && it.id === keep.id));
+    cur = at >= 0 ? at : items.length - 1;
+    shown = null;
+    build();
+  }
+  // 저장이 끝나 번호가 정해지면 화면 글자 다시 쓰기
+  function refresh() { shown = null; render(true); }
   function showLatest() { cur = items.length - 1; render(true); }
   function nextNo() {
     const max = Math.max(0, ...items.map((it) => parseInt(it.no, 10) || 0));
@@ -829,9 +950,13 @@ const gallery = (() => {
   }, { passive: true });
 
   build();
-  return { render, step, add, showLatest, nextNo };
+  return { render, step, add, showLatest, nextNo, sync, refresh };
 })();
-enter.gallery = () => gallery.render(true);
+enter.gallery = () => {
+  gallery.render(true);
+  gallery.sync(); // 다른 관람객이 만든 작품도 불러옴
+};
+gallery.sync();
 
 // AI가 만든 큰 이미지는 저장 공간을 많이 차지해서 작게 줄여서 보관
 async function shrink(src, max = 520) {
@@ -847,14 +972,18 @@ async function shrink(src, max = 520) {
   return c.toDataURL('image/jpeg', 0.86);
 }
 
-async function saveCreation(f) {
-  if (state.saved) return;
+function saveCreation(f) {
+  if (state.saved) return state.saving;
   state.saved = true;
+  state.saving = saveCreationNow(f);
+  return state.saving;
+}
+async function saveCreationNow(f) {
   const d = new Date();
   const date = `${d.getFullYear()} . ${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   let img = f.img;
   try { img = await shrink(f.img); } catch { /* 줄이기 실패하면 원본 */ }
-  gallery.add({
+  const item = {
     no: gallery.nextNo(),
     name: `${state.foods.A || '젤리'} ${state.foods.B || '브로콜리'}`,
     date,
@@ -862,7 +991,21 @@ async function saveCreation(f) {
     thumb: img,
     // 선택 특징과 해석의 기록 (화면에는 안 보임)
     record: { foods: { ...state.foods }, analysis: state.analysis?.demo ? null : state.analysis, plan: f.plan || null },
-  });
+  };
+  gallery.add(item);
+  // 공유 갤러리 + 학습 기록으로 저장 (실제 AI 모드에서만)
+  try {
+    const r = await ai.saveWork({ name: item.name, date, image: img, plan: f.plan });
+    if (r) {
+      item.id = r.id;
+      item.no = r.no;
+      gallery.refresh();
+      return r.id;
+    }
+  } catch (err) {
+    console.error('공유 갤러리 저장 실패', err);
+  }
+  return null;
 }
 
 /* =========================================================
@@ -870,6 +1013,7 @@ async function saveCreation(f) {
    ========================================================= */
 window.addEventListener('keydown', (e) => {
   if (current === 'pick') {
+    if (e.target.matches?.('input')) return; // 입력 중일 땐 방향키로 사진 넘기지 않음
     if (e.key === 'ArrowLeft') carousel.prev();
     if (e.key === 'ArrowRight') carousel.next();
   } else if (current === 'gallery') {
@@ -881,7 +1025,7 @@ window.addEventListener('keydown', (e) => {
 let idleTimer;
 function resetIdle() {
   clearTimeout(idleTimer);
-  if (['select', 'pick', 'analyze', 'cook', 'taste', 'result'].includes(current)) {
+  if (['pick', 'analyze', 'cook', 'taste', 'result'].includes(current)) {
     idleTimer = setTimeout(() => go('home'), IDLE_RESET_MS);
   }
 }

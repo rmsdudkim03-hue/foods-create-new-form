@@ -1,6 +1,20 @@
-// ⓐ 음식인지 확인 + ⓪ 음식 이미지 10장 계획 (GPT-6 Astra)
-// 프롬프트 원문: prompts/0-food-images.md
-import { handler, send, askJSON, prompt, S } from './_lib.js';
+// ⓐ 음식인지 확인 + ⓪ 음식 사진 10장
+//   사진 사이트 키(UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY)가 있으면:
+//     글 AI가 음식인지 확인하고 영어 검색어를 정함 → 사진 사이트에서 실제 사진 10장 검색
+//   없으면 (예전 방식): 글 AI가 이미지 10장을 계획 → 이미지 AI가 그림. 프롬프트 원문: prompts/0-food-images.md
+import { handler, send, askJSON, prompt, S, searchPhotos, photoSite } from './_lib.js';
+
+// 실제 사진 모드: 음식인지 확인 + 검색어만 정함 (빠르게)
+const PHOTO_SCHEMA = S.obj({
+  is_food: S.bool('입력된 단어가 음식이면 true'),
+  name: S.str('정리된 음식 이름 (한국어, 짧게). 음식이 아니면 빈 문자열'),
+  message: S.str('음식이 아닐 때 관람객에게 보여줄 한 문장 (한국어). 음식이면 빈 문자열'),
+  query: S.str('사진 사이트에서 이 음식 사진을 찾을 영어 검색어 (1~3단어, 예: broccoli, gummy bears, tteokbokki). 음식이 아니면 빈 문자열'),
+});
+const PHOTO_INSTRUCTIONS = `관람객이 입력한 단어가 음식인지 판단한다.
+음식이 아니면 is_food를 false로 하고, message에 "○○은(는) 음식이 아니에요. 다른 음식을 입력해 주세요"처럼 한 문장을 쓴다.
+음식이면 name에 정리된 이름을, query에 그 음식 사진을 찾을 짧은 영어 검색어를 쓴다.
+검색어는 음식 자체가 잘 보이는 사진이 나오도록 음식 이름 위주로 쓴다.`;
 
 const SCHEMA = S.obj({
   is_food: S.bool('입력된 단어가 음식이면 true'),
@@ -30,6 +44,22 @@ const INSTRUCTIONS = `너는 웹 전시 작품의 한 단계를 맡는다. 관�
 export default handler(async (req, res, body) => {
   const word = String(body.word || '').trim().slice(0, 30);
   if (!word) return send(res, 400, { error: 'empty' });
+
+  if (photoSite()) {
+    const out = await askJSON({
+      instructions: PHOTO_INSTRUCTIONS,
+      text: `입력 단어: ${word}`,
+      name: 'food_check',
+      schema: PHOTO_SCHEMA,
+      effort: 'low',
+    });
+    if (!out.is_food) {
+      return send(res, 200, { ok: false, message: out.message || `${word}은(는) 음식이 아니에요. 다른 음식을 입력해 주세요` });
+    }
+    const photos = await searchPhotos(out.query || word);
+    if (!photos.length) return send(res, 200, { ok: false, message: `${out.name || word} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
+    return send(res, 200, { ok: true, name: out.name || word, interpretation: '', photos });
+  }
   const out = await askJSON({
     instructions: INSTRUCTIONS,
     text: `[프롬프트]\n${prompt('0-food-images.md').replaceAll('{음식명}', word)}\n\n입력 단어: ${word}`,

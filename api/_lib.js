@@ -9,9 +9,11 @@
    ========================================================= */
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const OPENAI = process.env.OPENAI_BASE || 'https://api.openai.com/v1';
 const MESHY = process.env.MESHY_BASE || 'https://api.meshy.ai/openapi/v1';
+const PEXELS = process.env.PEXELS_BASE || 'https://api.pexels.com/v1';
 
 export const MODELS = {
   text: process.env.TEXT_MODEL || 'gpt-6-astra',
@@ -177,3 +179,163 @@ export const S = {
   arr: (items, description) => ({ type: 'array', items, description }),
   obj: (properties) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false }),
 };
+
+/* ---------- 공유 저장소 (Vercel Blob) ----------
+   갤러리 작품과 "이전 관람객이 고른 조형" 기록을 모든 기기가 같이 보도록 저장.
+   Vercel에서 Blob 저장소(Public)를 프로젝트에 연결하면 BLOB_READ_WRITE_TOKEN이 자동으로 생겨.
+   로컬 테스트: BLOB_LOCAL_DIR=폴더 를 주면 그 폴더에 파일로 저장 (요금 없음) */
+export const store = {
+  get enabled() { return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_LOCAL_DIR); },
+
+  // 파일 하나 저장 → 주소 반환
+  async put(pathname, body, contentType) {
+    const dir = process.env.BLOB_LOCAL_DIR;
+    if (dir) {
+      const file = path.join(dir, pathname);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, body);
+      return `file://${file}`;
+    }
+    const { put } = await import('@vercel/blob');
+    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false });
+    return r.url;
+  },
+
+  // 폴더 안 파일 목록 (이름순. 이름 앞에 '거꾸로 시간'을 붙여서 최신이 먼저 나옴)
+  async list(prefix, limit) {
+    const dir = process.env.BLOB_LOCAL_DIR;
+    if (dir) {
+      const folder = prefix.slice(0, prefix.lastIndexOf('/') + 1);
+      const d = path.join(dir, folder);
+      if (!fs.existsSync(d)) return [];
+      return fs.readdirSync(d).map((f) => folder + f).filter((p) => p.startsWith(prefix)).sort().slice(0, limit)
+        .map((p) => ({ pathname: p, url: `file://${path.join(dir, p)}` }));
+    }
+    const { list } = await import('@vercel/blob');
+    const r = await list({ prefix, limit });
+    return r.blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
+  },
+
+  // 저장한 JSON 읽기
+  async readJSON(url) {
+    if (url.startsWith('file://')) return JSON.parse(fs.readFileSync(url.slice(7), 'utf8'));
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`blob ${r.status}`);
+    return r.json();
+  },
+};
+
+// 최신이 먼저 오도록 하는 파일 이름 (거꾸로 시간 + 임의 글자)
+export function newKey() {
+  const rev = String(9_999_999_999_999 - Date.now()).padStart(13, '0');
+  return `${rev}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/* ---------- 서명 ----------
+   AI가 만든 조형 계획에 서버만 아는 도장을 찍어 둠.
+   나중에 기록으로 저장할 때 도장이 맞는 것만 "학습" 기록으로 인정 (장난 입력 거르기) */
+const PLAN_FIELDS = ['type', 'features', 'method', 'rationale', 'prompt', 'reference'];
+function planText(plan) {
+  return JSON.stringify(PLAN_FIELDS.map((k) => plan?.[k] ?? null));
+}
+export function signPlan(plan) {
+  const key = process.env.MEMORY_SECRET || process.env.OPENAI_API_KEY || '';
+  return crypto.createHmac('sha256', key).update(planText(plan)).digest('hex').slice(0, 32);
+}
+export function checkPlan(plan) {
+  if (!plan || typeof plan.sig !== 'string') return null;
+  const a = Buffer.from(plan.sig);
+  const b = Buffer.from(signPlan(plan));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return Object.fromEntries(PLAN_FIELDS.map((k) => [k, plan[k] ?? '']));
+}
+
+/* ---------- 실제 음식 사진 검색 ----------
+   무료 사진 사이트 중 키가 있는 곳을 씀 (우선순위: Unsplash → Pixabay → Pexels)
+     UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY
+   키가 하나도 없으면 Wikimedia Commons(위키백과 사진 저장소)에서 찾음 → 키 없이 바로 동작
+   끄려면 PHOTOS=0 (그러면 예전처럼 AI가 음식 이미지를 그림)
+   검색 결과 앞쪽 18장 중 10장을 무작위로 골라서 관람객마다 조금씩 다르게.
+   배경은 화면(브라우저)에서 AI가 지움 */
+export const PHOTO_COUNT = 10;
+const UNSPLASH = process.env.UNSPLASH_BASE || 'https://api.unsplash.com';
+const PIXABAY = process.env.PIXABAY_BASE || 'https://pixabay.com/api';
+const COMMONS = process.env.COMMONS_BASE || 'https://commons.wikimedia.org/w/api.php';
+// Wikimedia는 누가 요청하는지 이름을 밝히도록 요구함
+const UA = 'FoodsCreateNewForm/1.0 (graduation exhibition; https://foods-create-new-form.vercel.app)';
+
+// 사진을 가져와도 되는 주소 (api/photo.js가 이 주소의 사진만 전달)
+export const PHOTO_HOSTS = ['images.unsplash.com', 'pixabay.com', 'cdn.pixabay.com', 'images.pexels.com', 'upload.wikimedia.org'];
+export const PHOTO_UA = UA;
+
+export function photoSite() {
+  if (process.env.UNSPLASH_ACCESS_KEY) return 'Unsplash';
+  if (process.env.PIXABAY_API_KEY) return 'Pixabay';
+  if (process.env.PEXELS_API_KEY) return 'Pexels';
+  if (process.env.PHOTOS === '0') return null;
+  return 'Wikimedia Commons';
+}
+
+async function getJSON(label, url, headers = {}) {
+  const r = await timed(label, () => fetch(url, { headers: { 'User-Agent': UA, ...headers } }));
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`${label} ${r.status}: ${data.error || data.errors?.[0] || 'error'}`);
+  return data;
+}
+
+export async function searchPhotos(query) {
+  const site = photoSite();
+  let list = [];
+  if (site === 'Unsplash') {
+    const data = await getJSON(`사진 검색 Unsplash (${query})`,
+      `${UNSPLASH}/search/photos?${new URLSearchParams({ query, per_page: '30', content_filter: 'high' })}`,
+      { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`, 'Accept-Version': 'v1' });
+    list = (data.results || []).filter((p) => p.urls?.regular).map((p) => ({
+      src: p.urls.regular, w: p.width, h: p.height, alt: p.alt_description || '',
+      by: p.user?.name || '', link: p.links?.html || '',
+      track: p.links?.download_location || '', // Unsplash 규칙: 사진을 쓰면 '다운로드'로 알려줘야 함
+    }));
+  } else if (site === 'Pixabay') {
+    const data = await getJSON(`사진 검색 Pixabay (${query})`,
+      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '30', safesearch: 'true' })}`);
+    list = (data.hits || []).filter((p) => p.largeImageURL).map((p) => ({
+      src: p.largeImageURL, w: p.imageWidth, h: p.imageHeight, alt: p.tags || '',
+      by: p.user || '', link: p.pageURL || '',
+    }));
+  } else if (site === 'Pexels') {
+    const data = await getJSON(`사진 검색 Pexels (${query})`,
+      `${PEXELS}/search?${new URLSearchParams({ query, per_page: '30' })}`,
+      { Authorization: process.env.PEXELS_API_KEY });
+    list = (data.photos || []).filter((p) => p.src?.large).map((p) => ({
+      src: p.src.large, w: p.width, h: p.height, alt: p.alt || '',
+      by: p.photographer || '', link: p.url || '',
+    }));
+  } else if (site === 'Wikimedia Commons') {
+    const data = await getJSON(`사진 검색 Wikimedia (${query})`, `${COMMONS}?${new URLSearchParams({
+      action: 'query', format: 'json', generator: 'search', gsrnamespace: '6', gsrlimit: '40',
+      gsrsearch: `${query} filetype:bitmap`, prop: 'imageinfo', iiprop: 'url|size|mime|extmetadata', iiurlwidth: '1000',
+    })}`);
+    const strip = (h) => String(h || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    list = Object.values(data.query?.pages || {})
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0)) // 검색 순위대로
+      .map((p) => ({ p, ii: p.imageinfo?.[0] }))
+      .filter(({ ii }) => ii?.thumburl && /jpe?g|png/.test(ii.mime || '') && ii.width >= 500 && ii.height >= 400)
+      .map(({ p, ii }) => ({
+        src: ii.thumburl, w: ii.thumbwidth, h: ii.thumbheight,
+        alt: strip(ii.extmetadata?.ImageDescription?.value) || p.title.replace(/^File:|\.[a-z]+$/gi, ''),
+        by: strip(ii.extmetadata?.Artist?.value) || 'Wikimedia', link: ii.descriptionurl || '',
+      }));
+  }
+  const top = list.slice(0, 18);
+  for (let i = top.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [top[i], top[j]] = [top[j], top[i]];
+  }
+  return top.slice(0, PHOTO_COUNT).map((p) => ({ ...p, site }));
+}
+
+// Unsplash: 관람객이 사진을 고르면 '다운로드했다'고 알려줌 (Unsplash 이용 규칙)
+export async function trackPhoto(url) {
+  if (!process.env.UNSPLASH_ACCESS_KEY || !url.startsWith(`${UNSPLASH}/photos/`)) return;
+  await fetch(url, { headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` } }).catch(() => {});
+}
