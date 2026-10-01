@@ -324,6 +324,7 @@ const picker = (() => {
         : 'B에 섞고 싶은 음식을 입력하세요';
     pickBtn.disabled = true;
     pickNote.textContent = '';
+    moreBtn.hidden = true;
   }
 
   function setActive(side, { focus = false } = {}) {
@@ -394,10 +395,36 @@ const picker = (() => {
       pickSub.textContent = pending[side] ? `${word} 사진을 찾고 있어요` : `${side}에 섞고 싶은 음식을 입력하세요`;
       pickBtn.disabled = true;
       pickNote.textContent = '';
+      moreBtn.hidden = true;
       return;
     }
+    moreBtn.hidden = false;
     loadJob(side, job);
   }
+
+  // '다른 사진 보기': 지금 고르는 쪽 사진을 새로 찾아옴
+  const moreBtn = $('#pickMore');
+  moreBtn.addEventListener('click', async () => {
+    const side = active;
+    if (!side || !okWord[side] || moreBtn.disabled) return;
+    moreBtn.disabled = true;
+    pickBtn.disabled = true;
+    pickSub.textContent = `다른 ${state.foods[side]} 사진을 찾고 있어요`;
+    const run = state.run;
+    try {
+      const job = await ai.moreImages(state.foods[side]);
+      if (run !== state.run || !okWord[side]) { job.cancel(); return; }
+      state.jobs[side]?.cancel();
+      state.jobs[side] = job;
+      if (active === side) swapCarousel(() => show(side));
+    } catch (err) {
+      console.error(err);
+      toast(err.message || '사진을 더 찾지 못했어요');
+      if (active === side) show(side);
+    } finally {
+      moreBtn.disabled = false;
+    }
+  });
 
   function loadJob(side, job) {
     const food = state.foods[side];
@@ -409,10 +436,12 @@ const picker = (() => {
       const cut = job.items.filter((it) => it && it.cut !== false).length;
       if (photos) {
         pickSub.textContent = cut < total
-          ? `${food} 사진의 배경을 지우고 있어요 (${cut}/${total})`
+          ? `${food} 사진을 준비하고 있어요 (${cut}/${total})`
           : `좌우로 넘기며 ${food} 사진을 고르세요`;
         const site = sel?.site || '사진 사이트';
-        pickNote.textContent = sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
+        // 사진이 모자라서 AI가 그린 이미지가 섞여 있으면 그 이미지에는 AI 안내 문구
+        pickNote.textContent = sel?.ai ? 'AI가 생성한 참고 이미지예요'
+          : sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
         if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}]`;
       } else {
         pickSub.textContent = job.ready < total
@@ -583,6 +612,7 @@ leave.analyze = () => {
    ========================================================= */
 const cookBowl = $('#cookBowl');
 let cookFx = null;
+let cookMixing = false; // 섞는 중이면 버튼이 '다 섞었어요'
 
 function bumpBowl() {
   cookBowl.classList.remove('bump');
@@ -597,6 +627,8 @@ enter.cook = () => {
   const all = $('#cookAll');
   sub.textContent = '음식을 드래그하여 그릇안으로 넣어주세요';
   all.hidden = false;
+  all.textContent = '모두 넣기 ↓';
+  cookMixing = false;
   cookFx = startCook($('#cookFx'), {
     picks: state.picks,
     view: () => view,
@@ -608,11 +640,25 @@ enter.cook = () => {
       all.hidden = n >= total;
     },
     onMix: () => cookBowl.classList.remove('bump'),
+    // 섞기: 커서(손가락)로 저은 만큼 진행도 표시. '다 섞었어요'로 바로 끝낼 수도 있음
+    onStir: (p, finished) => {
+      if (finished) {
+        cookMixing = false;
+        sub.textContent = '잘 섞였어요';
+        all.hidden = true;
+        return;
+      }
+      cookMixing = true;
+      const how = isTouch() ? '손가락으로' : '커서로';
+      sub.textContent = `${how} 그릇을 휘저어 섞어주세요${p > 0 ? ` (${Math.round(p * 100)}%)` : ''}`;
+      all.textContent = '다 섞었어요 →';
+      all.hidden = false;
+    },
     onDone: () => { if (current === 'cook') timers.cook2 = setTimeout(() => go('taste'), 200); },
   });
   if (!isTouch()) setTimeout(() => current === 'cook' && $('#cookFx').focus({ preventScroll: true }), 400);
 };
-$('#cookAll').addEventListener('click', () => cookFx?.dropAll());
+$('#cookAll').addEventListener('click', () => (cookMixing ? cookFx?.finishMix() : cookFx?.dropAll()));
 leave.cook = () => {
   clearTimeout(timers.cook2);
   const fx = cookFx;
@@ -755,8 +801,14 @@ enter.result = async () => {
     if (urls.taskId) {
       Promise.resolve(state.saving)
         .then((id) => ai.saveModel(id, urls.taskId))
-        .then((r) => r?.model && gallery.setModel(r.model))
-        .catch((err) => console.error('3D 파일 보관 실패', err));
+        .then((r) => {
+          if (r?.model) gallery.setModel(r.model);
+          if (DEBUG) toast(r?.model ? '3D 파일 보관 완료' : '3D 파일 보관 안 됨 (실제 AI 모드·저장소 확인)');
+        })
+        .catch((err) => {
+          console.error('3D 파일 보관 실패', err);
+          if (DEBUG) toast(`3D 파일 보관 실패: ${err.message}`);
+        });
     }
     if (run !== state.run || current !== 'result') return;
     img.hidden = true;
@@ -934,6 +986,7 @@ const gallery = (() => {
     shown = null;
     render(true);
     section.classList.remove('is-grid');
+    if (items[i]?.model) show3d(true); // 3D 파일이 있으면 바로 3D로
   }
   const isGrid = () => section.classList.contains('is-grid');
   $('#gBack').addEventListener('click', openGrid);
@@ -944,10 +997,11 @@ const gallery = (() => {
   let on3d = false;
   async function show3d(on) {
     const it = items[cur];
-    g3d.hidden = !it?.model;
+    g3d.hidden = !it;
+    g3d.disabled = !it?.model;
     on3d = Boolean(on && it?.model);
     g3d.classList.toggle('is-on', on3d);
-    g3d.textContent = on3d ? '이미지로 보기' : '3D로 보기';
+    g3d.textContent = !it?.model ? '3D 파일이 없는 작품이에요' : on3d ? '이미지로 보기' : '3D로 보기';
     feature.classList.toggle('is-3d', on3d);
     if (!on3d) { gViewer?.stop(); return; }
     try {
