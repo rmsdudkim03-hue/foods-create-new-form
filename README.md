@@ -28,6 +28,13 @@
 | 맛보기 조형 6개 계획 | `api/forms.js` | GPT-6 Astra |
 | 조형 이미지 그리기 | `api/image.js` | OpenAI 이미지 (고화질 모델) |
 | 3D 변환 | `api/model.js` | Meshy |
+| 공유 갤러리 + 관람객 선택 기록 | `api/works.js` | Vercel Blob |
+
+## 이전 관람객 참고 (학습)
+관람객이 고른 조형의 계획(묘사·방법·근거)이 공유 저장소에 쌓이고, 다음 관람객의 조형 6개를 계획할 때 최근 8개를 글 AI에 참고로 줌.
+참고 규칙은 `prompts/2-forms-memory.md`. 기본 조합 3개는 참고하지 않고, 조형적 재해석 중 1~2개만 이어받음.
+AI가 만든 계획에는 서버가 도장(서명)을 찍어서, 도장이 맞는 기록만 참고에 씀 (장난 입력 거르기).
+잘못 쌓인 기록은 Vercel → Storage → Blob에서 `works/` 파일을 지우면 됨.
 
 ## Vercel 환경 변수
 | 이름 | 필수 | 설명 |
@@ -39,6 +46,8 @@
 | `IMAGE_MODEL_FOOD` / `IMAGE_QUALITY_FOOD` | 선택 | 기본 `gpt-image-1-mini` / `medium` |
 | `IMAGE_MODEL_FORM` / `IMAGE_QUALITY_FORM` | 선택 | 기본 `gpt-image-2` / `high` |
 | `MESHY_POLYCOUNT` | 선택 | 3D 면 개수, 기본 60000 |
+| `BLOB_READ_WRITE_TOKEN` | 선택 | Vercel → Storage에서 Blob 저장소(**Public**)를 만들어 프로젝트에 연결하면 자동으로 생김. 없으면 갤러리는 각 기기에만 저장 |
+| `MEMORY` | 선택 | `0`이면 이전 관람객 참고를 끔 |
 
 ## 좌표 규칙
 `style="--x:87; --y:274"`는 피그마 좌표 그대로. `--px`, `--py`처럼 p가 붙은 값은 휴대폰(세로 화면, 600×1100 기준) 좌표.

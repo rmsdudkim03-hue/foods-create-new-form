@@ -9,6 +9,7 @@
    ========================================================= */
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const OPENAI = process.env.OPENAI_BASE || 'https://api.openai.com/v1';
 const MESHY = process.env.MESHY_BASE || 'https://api.meshy.ai/openapi/v1';
@@ -177,3 +178,72 @@ export const S = {
   arr: (items, description) => ({ type: 'array', items, description }),
   obj: (properties) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false }),
 };
+
+/* ---------- 공유 저장소 (Vercel Blob) ----------
+   갤러리 작품과 "이전 관람객이 고른 조형" 기록을 모든 기기가 같이 보도록 저장.
+   Vercel에서 Blob 저장소(Public)를 프로젝트에 연결하면 BLOB_READ_WRITE_TOKEN이 자동으로 생겨.
+   로컬 테스트: BLOB_LOCAL_DIR=폴더 를 주면 그 폴더에 파일로 저장 (요금 없음) */
+export const store = {
+  get enabled() { return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_LOCAL_DIR); },
+
+  // 파일 하나 저장 → 주소 반환
+  async put(pathname, body, contentType) {
+    const dir = process.env.BLOB_LOCAL_DIR;
+    if (dir) {
+      const file = path.join(dir, pathname);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, body);
+      return `file://${file}`;
+    }
+    const { put } = await import('@vercel/blob');
+    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false });
+    return r.url;
+  },
+
+  // 폴더 안 파일 목록 (이름순. 이름 앞에 '거꾸로 시간'을 붙여서 최신이 먼저 나옴)
+  async list(prefix, limit) {
+    const dir = process.env.BLOB_LOCAL_DIR;
+    if (dir) {
+      const d = path.join(dir, prefix);
+      if (!fs.existsSync(d)) return [];
+      return fs.readdirSync(d).sort().slice(0, limit)
+        .map((f) => ({ pathname: prefix + f, url: `file://${path.join(d, f)}` }));
+    }
+    const { list } = await import('@vercel/blob');
+    const r = await list({ prefix, limit });
+    return r.blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
+  },
+
+  // 저장한 JSON 읽기
+  async readJSON(url) {
+    if (url.startsWith('file://')) return JSON.parse(fs.readFileSync(url.slice(7), 'utf8'));
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`blob ${r.status}`);
+    return r.json();
+  },
+};
+
+// 최신이 먼저 오도록 하는 파일 이름 (거꾸로 시간 + 임의 글자)
+export function newKey() {
+  const rev = String(9_999_999_999_999 - Date.now()).padStart(13, '0');
+  return `${rev}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/* ---------- 서명 ----------
+   AI가 만든 조형 계획에 서버만 아는 도장을 찍어 둠.
+   나중에 기록으로 저장할 때 도장이 맞는 것만 "학습" 기록으로 인정 (장난 입력 거르기) */
+const PLAN_FIELDS = ['type', 'features', 'method', 'rationale', 'prompt', 'reference'];
+function planText(plan) {
+  return JSON.stringify(PLAN_FIELDS.map((k) => plan?.[k] ?? null));
+}
+export function signPlan(plan) {
+  const key = process.env.MEMORY_SECRET || process.env.OPENAI_API_KEY || '';
+  return crypto.createHmac('sha256', key).update(planText(plan)).digest('hex').slice(0, 32);
+}
+export function checkPlan(plan) {
+  if (!plan || typeof plan.sig !== 'string') return null;
+  const a = Buffer.from(plan.sig);
+  const b = Buffer.from(signPlan(plan));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return Object.fromEntries(PLAN_FIELDS.map((k) => [k, plan[k] ?? '']));
+}

@@ -259,3 +259,19 @@ export async function toModel(formImg, form, onProgress = () => {}) {
   await wait(2500);
   return [form?.model || SAMPLE_MODEL];
 }
+
+/* ---------- 공유 갤러리 ----------
+   모든 기기가 같이 보는 갤러리. 저장소가 없으면 { enabled: false } → 이 기기에만 저장 */
+export async function loadWorks() {
+  try {
+    const r = await fetch('api/works', { cache: 'no-store' });
+    if (!r.ok) return { enabled: false, works: [] };
+    return await r.json();
+  } catch { return { enabled: false, works: [] }; }
+}
+
+// 관람객이 고른 조형을 공유 갤러리 + 학습 기록으로 저장 (실제 AI로 만든 것만)
+export async function saveWork({ name, date, image, plan }) {
+  if (!live || !image?.startsWith('data:image/jpeg')) return null;
+  return call('api/works', { body: { name, date, image, plan }, timeout: 60000 });
+}

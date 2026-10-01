@@ -18,7 +18,7 @@
 - `index.html` 화면 8개 / `style.css` 토큰과 스타일 / `js/app.js` 흐름과 인터랙션
 - `js/ai.js` 화면에서 서버(AI)를 부르는 부분. 서버를 못 쓰면 데모 모드(젤리·브로콜리만)
 - `js/material.js` 분석 화면에서 사진이 흰 석고 재료로 바뀌는 효과 / `js/viewer3d.js` three.js 3D 뷰어
-- `api/` Vercel 서버 함수. AI 키는 여기서만 사용 (`_lib.js` 공통, `food` `image` `analyze` `forms` `model` `model-file` `status`)
+- `api/` Vercel 서버 함수. AI 키는 여기서만 사용 (`_lib.js` 공통, `food` `image` `analyze` `forms` `model` `model-file` `status` `works`)
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
@@ -46,5 +46,7 @@
 
 ## 남은 일
 - 실제 AI로 단계별 시간 측정 후 추가 속도 개선
-- 갤러리는 지금 브라우저(localStorage)에만 저장됨. 전시장에서 관람객 작품을 모아 보여주려면 공유 저장소(Vercel Blob 등) 필요
+- 공유 갤러리 + 이전 관람객 참고: `api/works.js`, 저장소는 Vercel Blob(Public). 저장소가 없으면 갤러리는 각 기기(localStorage)에만 저장
+  - 참고 규칙 `prompts/2-forms-memory.md`는 Claude 초안 → 작업자 확인 필요
+  - 로컬 테스트: `BLOB_LOCAL_DIR=폴더`로 저장소 대신 폴더에 저장
 - Meshy Pro는 한 달 약 50회 변환. 전시 기간엔 요금제 상향 필요

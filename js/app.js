@@ -734,6 +734,9 @@ function writeSaved(list) {
 const gallery = (() => {
   let items = [...GALLERY_SEED, ...loadSaved()];
   let cur = GALLERY_SEED.length - 1;
+  // 공유 갤러리: 저장소가 연결돼 있으면 모든 기기가 같은 작품을 봄 (아니면 이 기기에만 저장)
+  let shared = false;
+  const mine = []; // 이 기기에서 방금 만든 작품 (저장소에 아직 안 보일 수 있어서 따로 들고 있음)
   let els = [];
   const layer = $('#gPlates');
   const feature = $('.g-feature');
@@ -806,10 +809,28 @@ const gallery = (() => {
 
   function add(item) {
     items.push(item);
-    writeSaved(items.slice(GALLERY_SEED.length));
+    if (shared) mine.push(item);
+    else writeSaved(items.slice(GALLERY_SEED.length));
     cur = items.length - 1;
     build();
   }
+
+  // 공유 갤러리에서 최신 작품 목록을 받아와 다시 그림
+  async function sync() {
+    const res = await ai.loadWorks();
+    if (!res.enabled) return;
+    shared = true;
+    const keep = items[cur];
+    const ids = new Set(res.works.map((w) => w.id));
+    const pending = mine.filter((it) => !it.id || !ids.has(it.id));
+    items = [...GALLERY_SEED, ...res.works.map((w) => ({ ...w, thumb: w.img })), ...pending];
+    const at = items.findIndex((it) => it === keep || (keep?.id && it.id === keep.id));
+    cur = at >= 0 ? at : items.length - 1;
+    shown = null;
+    build();
+  }
+  // 저장이 끝나 번호가 정해지면 화면 글자 다시 쓰기
+  function refresh() { shown = null; render(true); }
   function showLatest() { cur = items.length - 1; render(true); }
   function nextNo() {
     const max = Math.max(0, ...items.map((it) => parseInt(it.no, 10) || 0));
@@ -829,9 +850,13 @@ const gallery = (() => {
   }, { passive: true });
 
   build();
-  return { render, step, add, showLatest, nextNo };
+  return { render, step, add, showLatest, nextNo, sync, refresh };
 })();
-enter.gallery = () => gallery.render(true);
+enter.gallery = () => {
+  gallery.render(true);
+  gallery.sync(); // 다른 관람객이 만든 작품도 불러옴
+};
+gallery.sync();
 
 // AI가 만든 큰 이미지는 저장 공간을 많이 차지해서 작게 줄여서 보관
 async function shrink(src, max = 520) {
@@ -854,7 +879,7 @@ async function saveCreation(f) {
   const date = `${d.getFullYear()} . ${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   let img = f.img;
   try { img = await shrink(f.img); } catch { /* 줄이기 실패하면 원본 */ }
-  gallery.add({
+  const item = {
     no: gallery.nextNo(),
     name: `${state.foods.A || '젤리'} ${state.foods.B || '브로콜리'}`,
     date,
@@ -862,7 +887,19 @@ async function saveCreation(f) {
     thumb: img,
     // 선택 특징과 해석의 기록 (화면에는 안 보임)
     record: { foods: { ...state.foods }, analysis: state.analysis?.demo ? null : state.analysis, plan: f.plan || null },
-  });
+  };
+  gallery.add(item);
+  // 공유 갤러리 + 학습 기록으로 저장 (실제 AI 모드에서만)
+  try {
+    const r = await ai.saveWork({ name: item.name, date, image: img, plan: f.plan });
+    if (r) {
+      item.id = r.id;
+      item.no = r.no;
+      gallery.refresh();
+    }
+  } catch (err) {
+    console.error('공유 갤러리 저장 실패', err);
+  }
 }
 
 /* =========================================================
