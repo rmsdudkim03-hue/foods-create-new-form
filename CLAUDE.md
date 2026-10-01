@@ -23,9 +23,9 @@
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
-음식 확인 + 영어 검색어(GPT-6 Astra) → 실제 사진 10장(Pexels) → 배경 지우기(브라우저) → 특징 분석(Astra)
+음식 확인 + 영어 검색어(GPT-6 Astra) → 실제 사진 10장(Unsplash / Pixabay / Pexels 중 키 있는 곳) → 배경 지우기(브라우저) → 특징 분석(Astra)
 → 조형 6개 계획(Astra) → 조형 이미지(gpt-image-2.5-flare) → 3D 변환(Meshy, 텍스처 없이)
-- `PEXELS_API_KEY`가 없으면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.
+- 사진 사이트 키가 하나도 없으면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.
 - 이미지 AI는 한 번에 한 장만 그리므로, 여러 장을 조율하는 조건은 글 AI가 먼저 계획하고 이미지 AI는 한 장씩 그린다.
 - 조형 이미지 AI에는 음식 사진을 주지 않는다 (음식 외형을 따라 그리지 않게).
 - 단계별 소요 시간은 서버에서 `[시간] ...`으로 Vercel 로그에 남긴다.
@@ -33,18 +33,18 @@
 ## 규칙
 - **프롬프트 원문(`prompts/*.md`) 내용은 작업자 확인 없이 바꾸지 않는다.** 바꿨다면 파일 맨 위 `<!-- 변경 기록 -->`에 날짜와 이유를 남긴다 (HTML 주석은 AI에 보내지 않음).
 - 화면에 조형의 출처 음식을 따로 드러내지 않는다.
-- 안내 문구 유지: 사진 선택 화면 "사진: 작가 / Pexels · 배경은 AI가 지웠어요" (AI 이미지 모드면 "AI가 생성한 참고 이미지예요"), 3D 화면 "보이지 않는 면은 AI가 추정한 형태예요".
+- 안내 문구 유지: 사진 선택 화면 "사진: 작가 / 사이트 · 배경은 AI가 지웠어요" (AI 이미지 모드면 "AI가 생성한 참고 이미지예요"), 3D 화면 "보이지 않는 면은 AI가 추정한 형태예요".
 - 끝나면 갤러리로 가지 않고 처음 화면으로 (갤러리는 메뉴에서).
 
 ## 배포
 - `main`에 푸시하면 Vercel이 자동 배포 (https://foods-create-new-form.vercel.app).
-- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, `PEXELS_API_KEY`, `ACCESS_CODE`. 선택: README 참고.
+- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, 사진 사이트 키(`UNSPLASH_ACCESS_KEY` 또는 `PIXABAY_API_KEY`. Pexels는 2026-10 신규 키 발급 중단), `ACCESS_CODE`. 선택: README 참고.
 - `ACCESS_CODE`가 있으면 주소에 `?code=...`를 붙여 연 기기에서만 실제 AI, 나머지는 데모 모드.
 - 브랜치로 푸시하면 Preview 배포가 되는데, 환경 변수가 Production에만 있어서 AI가 안 된다.
 
 ## 테스트
 - 실제 AI 호출은 요금이 든다 (관람객 1명당 대략 $1~3).
-- 로컬 테스트: `OPENAI_BASE`, `MESHY_BASE`, `PEXELS_BASE` 환경 변수로 가짜 서버 주소를 지정하면 `api/`를 요금 없이 돌려볼 수 있다.
+- 로컬 테스트: `OPENAI_BASE`, `MESHY_BASE`, `UNSPLASH_BASE`, `PIXABAY_BASE`, `PEXELS_BASE` 환경 변수로 가짜 서버 주소를 지정하면 `api/`를 요금 없이 돌려볼 수 있다.
 - 정적 서버로 `index.html`만 열면 데모 모드로 전체 흐름 확인 가능.
 
 ## 남은 일

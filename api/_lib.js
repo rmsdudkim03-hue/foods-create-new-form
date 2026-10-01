@@ -250,27 +250,70 @@ export function checkPlan(plan) {
   return Object.fromEntries(PLAN_FIELDS.map((k) => [k, plan[k] ?? '']));
 }
 
-/* ---------- Pexels: 실제 음식 사진 검색 ----------
-   무료 사진 사이트. 검색 결과 앞쪽 18장 중 10장을 무작위로 골라서 관람객마다 조금씩 다르게.
+/* ---------- 실제 음식 사진 검색 ----------
+   무료 사진 사이트 세 곳 중 키가 있는 곳을 씀 (우선순위: Unsplash → Pixabay → Pexels)
+     UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY
+   검색 결과 앞쪽 18장 중 10장을 무작위로 골라서 관람객마다 조금씩 다르게.
    배경은 화면(브라우저)에서 AI가 지움 */
 export const PHOTO_COUNT = 10;
-export async function searchPhotos(query) {
-  const url = `${PEXELS}/search?${new URLSearchParams({ query, per_page: '30' })}`;
-  const r = await timed(`사진 검색 (${query})`, () => fetch(url, { headers: { Authorization: process.env.PEXELS_API_KEY } }));
+const UNSPLASH = process.env.UNSPLASH_BASE || 'https://api.unsplash.com';
+const PIXABAY = process.env.PIXABAY_BASE || 'https://pixabay.com/api';
+
+// 사진을 가져와도 되는 주소 (api/photo.js가 이 주소의 사진만 전달)
+export const PHOTO_HOSTS = ['images.unsplash.com', 'pixabay.com', 'cdn.pixabay.com', 'images.pexels.com'];
+
+export function photoSite() {
+  if (process.env.UNSPLASH_ACCESS_KEY) return 'Unsplash';
+  if (process.env.PIXABAY_API_KEY) return 'Pixabay';
+  if (process.env.PEXELS_API_KEY) return 'Pexels';
+  return null;
+}
+
+async function getJSON(label, url, headers = {}) {
+  const r = await timed(label, () => fetch(url, { headers }));
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`Pexels ${r.status}: ${data.error || 'error'}`);
-  const list = (data.photos || []).filter((p) => p.src?.large);
+  if (!r.ok) throw new Error(`${label} ${r.status}: ${data.error || data.errors?.[0] || 'error'}`);
+  return data;
+}
+
+export async function searchPhotos(query) {
+  const site = photoSite();
+  let list = [];
+  if (site === 'Unsplash') {
+    const data = await getJSON(`사진 검색 Unsplash (${query})`,
+      `${UNSPLASH}/search/photos?${new URLSearchParams({ query, per_page: '30', content_filter: 'high' })}`,
+      { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`, 'Accept-Version': 'v1' });
+    list = (data.results || []).filter((p) => p.urls?.regular).map((p) => ({
+      src: p.urls.regular, w: p.width, h: p.height, alt: p.alt_description || '',
+      by: p.user?.name || '', link: p.links?.html || '',
+      track: p.links?.download_location || '', // Unsplash 규칙: 사진을 쓰면 '다운로드'로 알려줘야 함
+    }));
+  } else if (site === 'Pixabay') {
+    const data = await getJSON(`사진 검색 Pixabay (${query})`,
+      `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '30', safesearch: 'true' })}`);
+    list = (data.hits || []).filter((p) => p.largeImageURL).map((p) => ({
+      src: p.largeImageURL, w: p.imageWidth, h: p.imageHeight, alt: p.tags || '',
+      by: p.user || '', link: p.pageURL || '',
+    }));
+  } else if (site === 'Pexels') {
+    const data = await getJSON(`사진 검색 Pexels (${query})`,
+      `${PEXELS}/search?${new URLSearchParams({ query, per_page: '30' })}`,
+      { Authorization: process.env.PEXELS_API_KEY });
+    list = (data.photos || []).filter((p) => p.src?.large).map((p) => ({
+      src: p.src.large, w: p.width, h: p.height, alt: p.alt || '',
+      by: p.photographer || '', link: p.url || '',
+    }));
+  }
   const top = list.slice(0, 18);
   for (let i = top.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [top[i], top[j]] = [top[j], top[i]];
   }
-  return top.slice(0, PHOTO_COUNT).map((p) => ({
-    src: p.src.large,
-    w: p.width,
-    h: p.height,
-    alt: p.alt || '',
-    by: p.photographer || '',
-    link: p.url || '',
-  }));
+  return top.slice(0, PHOTO_COUNT).map((p) => ({ ...p, site }));
+}
+
+// Unsplash: 관람객이 사진을 고르면 '다운로드했다'고 알려줌 (Unsplash 이용 규칙)
+export async function trackPhoto(url) {
+  if (!process.env.UNSPLASH_ACCESS_KEY || !url.startsWith(`${UNSPLASH}/photos/`)) return;
+  await fetch(url, { headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` } }).catch(() => {});
 }

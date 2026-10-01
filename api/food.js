@@ -1,7 +1,8 @@
 // ⓐ 음식인지 확인 + ⓪ 음식 사진 10장
-//   PEXELS_API_KEY가 있으면: 글 AI가 음식인지 확인하고 영어 검색어를 정함 → Pexels에서 실제 사진 10장 검색
+//   사진 사이트 키(UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY)가 있으면:
+//     글 AI가 음식인지 확인하고 영어 검색어를 정함 → 사진 사이트에서 실제 사진 10장 검색
 //   없으면 (예전 방식): 글 AI가 이미지 10장을 계획 → 이미지 AI가 그림. 프롬프트 원문: prompts/0-food-images.md
-import { handler, send, askJSON, prompt, S, searchPhotos } from './_lib.js';
+import { handler, send, askJSON, prompt, S, searchPhotos, photoSite } from './_lib.js';
 
 // 실제 사진 모드: 음식인지 확인 + 검색어만 정함 (빠르게)
 const PHOTO_SCHEMA = S.obj({
@@ -44,7 +45,7 @@ export default handler(async (req, res, body) => {
   const word = String(body.word || '').trim().slice(0, 30);
   if (!word) return send(res, 400, { error: 'empty' });
 
-  if (process.env.PEXELS_API_KEY) {
+  if (photoSite()) {
     const out = await askJSON({
       instructions: PHOTO_INSTRUCTIONS,
       text: `입력 단어: ${word}`,

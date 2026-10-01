@@ -1,14 +1,20 @@
-// Pexels 사진을 우리 주소로 전달
+// 사진 사이트(Unsplash·Pixabay·Pexels)의 사진을 우리 주소로 전달
 // (브라우저에서 배경을 지우려면 사진 픽셀을 읽어야 하는데, 다른 사이트 사진은 막힐 수 있어서)
-// GET ?u=https://images.pexels.com/...
-import { send } from './_lib.js';
+// GET  ?u=사진 주소
+// POST { track } → 관람객이 고른 사진을 Unsplash에 알려줌 (Unsplash 이용 규칙)
+import { send, readJSON, PHOTO_HOSTS, trackPhoto } from './_lib.js';
 
 export default async function photo(req, res) {
   try {
+    if (req.method === 'POST') {
+      const { track } = await readJSON(req);
+      if (typeof track === 'string') await trackPhoto(track);
+      return send(res, 200, { ok: true });
+    }
     const u = new URL(req.url, 'http://x').searchParams.get('u') || '';
     let target;
     try { target = new URL(u); } catch { return send(res, 400, { error: 'url' }); }
-    if (target.protocol !== 'https:' || target.hostname !== 'images.pexels.com') return send(res, 400, { error: 'url' });
+    if (target.protocol !== 'https:' || !PHOTO_HOSTS.includes(target.hostname)) return send(res, 400, { error: 'url' });
     const r = await fetch(target);
     if (!r.ok) return send(res, 502, { error: `photo ${r.status}` });
     const type = r.headers.get('content-type') || 'image/jpeg';

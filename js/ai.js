@@ -5,9 +5,9 @@
    - 접근 코드: ACCESS_CODE를 설정했다면 주소 끝에 ?code=코드 를 붙여 한 번 열면 그 기기에 기억됨
 
    AI 단계
-   ⓐ checkFood   입력한 단어 → 음식인지 확인 + 실제 사진 10장 검색 (GPT-6 Astra + Pexels)
+   ⓐ checkFood   입력한 단어 → 음식인지 확인 + 실제 사진 10장 검색 (GPT-6 Astra + Unsplash/Pixabay/Pexels)
    ⓪ foodImages  사진 10장 → 배경 지우기 (브라우저, js/cutout.js)
-                 (Pexels 키가 없으면 예전처럼 AI가 이미지 10장을 그림)
+                 (사진 사이트 키가 없으면 예전처럼 AI가 이미지 10장을 그림)
    ① analyze     고른 이미지 2장 → 특징 분석                      (GPT-6 Astra)
    ② tasteForms  분석 → 조형 6개 계획 → 조형 이미지 6장           (GPT-6 Astra + OpenAI 이미지, 고화질)
    ③ toModel     고른 조형 이미지 → 3D 모델                       (Meshy)
@@ -197,7 +197,7 @@ export function foodImages(food) {
     job.meta = { photos: true };
     plan.photos.forEach((p, i) => {
       const src = `api/photo?u=${encodeURIComponent(p.src)}`;
-      const base = { w: p.w, h: p.h, alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link };
+      const base = { w: p.w, h: p.h, alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
       job.put(i, { ...base, src, cut: false });
       cutout(src)
         .then((c) => { if (!job.cancelled) job.update(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true }); })
@@ -226,6 +226,12 @@ export function foodImages(food) {
   const job = createJob(demo.length);
   demo.forEach((img, i) => wait(rand(500, 2600)).then(() => job.put(i, img)));
   return job;
+}
+
+// 관람객이 고른 사진을 사진 사이트에 알려줌 (Unsplash 이용 규칙. 실패해도 상관없음)
+export function trackPhoto(item) {
+  if (!live || !item?.track) return;
+  call('api/photo', { body: { track: item.track }, timeout: 15000, retries: 0 }).catch(() => {});
 }
 
 /* ---------- ① 특징 분석 ---------- */

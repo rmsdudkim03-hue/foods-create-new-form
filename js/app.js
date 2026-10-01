@@ -380,7 +380,8 @@ const picker = (() => {
         pickSub.textContent = cut < total
           ? `${food} 사진의 배경을 지우고 있어요 (${cut}/${total})`
           : `좌우로 넘기며 ${food} 사진을 고르세요`;
-        pickNote.textContent = sel?.by ? `사진: ${sel.by} / Pexels · 배경은 AI가 지웠어요` : '사진: Pexels · 배경은 AI가 지웠어요';
+        const site = sel?.site || '사진 사이트';
+        pickNote.textContent = sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
       } else {
         pickSub.textContent = job.ready < total
           ? `AI가 ${food} 이미지를 만들고 있어요 (${job.ready}/${total})`
@@ -412,6 +413,7 @@ const picker = (() => {
     if (!sel || sel.cut === false) return;
     const side = active;
     state.picks[side] = sel;
+    ai.trackPhoto(sel);
     setThumb(side);
     sync();
     if (state.picks.A && state.picks.B) {
