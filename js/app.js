@@ -6,6 +6,10 @@ import { FOODS, FRAGMENTS, FORMS, GALLERY_SEED, IDLE_RESET_MS } from './data.js'
 import * as ai from './ai.js';
 import { contour } from './contour.js';
 import { formParticles } from './particles.js';
+import { cutoutInfo } from './cutout.js';
+
+// 주소 끝에 ?debug를 붙이면 확인용 정보가 화면에 보임
+const DEBUG = new URLSearchParams(location.search).has('debug');
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -382,6 +386,7 @@ const picker = (() => {
           : `좌우로 넘기며 ${food} 사진을 고르세요`;
         const site = sel?.site || '사진 사이트';
         pickNote.textContent = sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
+        if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}]`;
       } else {
         pickSub.textContent = job.ready < total
           ? `AI가 ${food} 이미지를 만들고 있어요 (${job.ready}/${total})`
