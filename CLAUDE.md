@@ -23,7 +23,7 @@
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
-음식 확인 + 영어 검색어(GPT-6 Astra) → 실제 사진 10장(Unsplash / Pixabay / Pexels 중 키 있는 곳, 키가 없으면 Wikimedia Commons) → 배경 지우기(브라우저) → 특징 분석(Astra)
+음식 확인 + 영어 검색어(GPT-6 Astra) → 사진 후보 24장 검색(Pixabay는 음식 카테고리. Unsplash / Pexels / 키 없으면 Wikimedia Commons) → Astra가 미리보기를 보고 특징이 잘 드러나는 최대 10장 고름 → 배경 지우기(브라우저) → 특징 분석(Astra)
 → 조형 6개 계획(Astra) → 조형 이미지(gpt-image-2.5-flare) → 3D 변환(Meshy, 텍스처 없이)
 - `PHOTOS=0`이면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.
 - 이미지 AI는 한 번에 한 장만 그리므로, 여러 장을 조율하는 조건은 글 AI가 먼저 계획하고 이미지 AI는 한 장씩 그린다.
