@@ -25,7 +25,7 @@
 ## AI 단계
 | 단계 | 서버 | 서비스 |
 |---|---|---|
-| 음식인지 확인 + 사진 검색 | `api/food.js` | GPT-6 Astra + Unsplash / Pixabay / Pexels |
+| 음식인지 확인 + 사진 검색 | `api/food.js` | GPT-6 Astra + Unsplash / Pixabay / Pexels (키 없으면 Wikimedia Commons) |
 | 사진 전달 (배경 지우기용) | `api/photo.js` | 사진 사이트 |
 | 배경 지우기 | `js/cutout.js` | 브라우저 (RMBG-1.4) |
 | (Pexels 키가 없을 때) 음식 이미지 그리기 | `api/image.js` | OpenAI 이미지 (저가 모델) |
@@ -52,9 +52,10 @@ AI가 만든 계획에는 서버가 도장(서명)을 찍어서, 도장이 맞�
 |---|---|---|
 | `OPENAI_API_KEY` | 필수 | OpenAI API 키 |
 | `MESHY_API_KEY` | 필수 | Meshy API 키 |
-| `UNSPLASH_ACCESS_KEY` | 셋 중 하나 | 실제 음식 사진 검색 (추천). https://unsplash.com/developers 에서 앱 만들고 Access Key 복사. 무료는 한 시간 50번 검색 (관람객 1명당 2번) |
-| `PIXABAY_API_KEY` | 셋 중 하나 | https://pixabay.com/api/docs/ 에서 로그인하면 키가 보임 |
-| `PEXELS_API_KEY` | 셋 중 하나 | 2026-10 현재 신규 발급 중단. 키가 하나도 없으면 AI가 음식 이미지를 그리는 예전 방식 |
+| `UNSPLASH_ACCESS_KEY` | 선택 | 실제 음식 사진 검색 (추천). https://unsplash.com/developers 에서 앱 만들고 Access Key 복사. 무료는 한 시간 50번 검색 (관람객 1명당 2번) |
+| `PIXABAY_API_KEY` | 선택 | https://pixabay.com/api/docs/ 에서 로그인하면 키가 보임 |
+| `PEXELS_API_KEY` | 선택 | 2026-10 현재 신규 발급 중단. 사진 키가 하나도 없으면 키가 필요 없는 Wikimedia Commons에서 찾음 |
+| `PHOTOS` | 선택 | `0`이면 실제 사진 대신 AI가 음식 이미지를 그리는 예전 방식 |
 | `ACCESS_CODE` | 선택 | 설정하면 이 코드를 가진 기기에서만 실제 AI 사용 (주소 끝에 `?code=코드`를 붙여 한 번 열면 기억됨). 나머지는 데모 모드 |
 | `TEXT_MODEL` | 선택 | 기본 `gpt-6-astra` |
 | `IMAGE_MODEL_FOOD` / `IMAGE_QUALITY_FOOD` | 선택 | 기본 `gpt-image-1-mini` / `medium` |

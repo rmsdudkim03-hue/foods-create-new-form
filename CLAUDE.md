@@ -23,9 +23,9 @@
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
-음식 확인 + 영어 검색어(GPT-6 Astra) → 실제 사진 10장(Unsplash / Pixabay / Pexels 중 키 있는 곳) → 배경 지우기(브라우저) → 특징 분석(Astra)
+음식 확인 + 영어 검색어(GPT-6 Astra) → 실제 사진 10장(Unsplash / Pixabay / Pexels 중 키 있는 곳, 키가 없으면 Wikimedia Commons) → 배경 지우기(브라우저) → 특징 분석(Astra)
 → 조형 6개 계획(Astra) → 조형 이미지(gpt-image-2.5-flare) → 3D 변환(Meshy, 텍스처 없이)
-- 사진 사이트 키가 하나도 없으면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.
+- `PHOTOS=0`이면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.
 - 이미지 AI는 한 번에 한 장만 그리므로, 여러 장을 조율하는 조건은 글 AI가 먼저 계획하고 이미지 AI는 한 장씩 그린다.
 - 조형 이미지 AI에는 음식 사진을 주지 않는다 (음식 외형을 따라 그리지 않게).
 - 단계별 소요 시간은 서버에서 `[시간] ...`으로 Vercel 로그에 남긴다.
@@ -38,13 +38,13 @@
 
 ## 배포
 - `main`에 푸시하면 Vercel이 자동 배포 (https://foods-create-new-form.vercel.app).
-- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, 사진 사이트 키(`UNSPLASH_ACCESS_KEY` 또는 `PIXABAY_API_KEY`. Pexels는 2026-10 신규 키 발급 중단), `ACCESS_CODE`. 선택: README 참고.
+- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, 사진 사이트 키는 선택(`UNSPLASH_ACCESS_KEY` 또는 `PIXABAY_API_KEY`. 없으면 키 필요 없는 Wikimedia Commons. Pexels는 2026-10 신규 키 발급 중단), `ACCESS_CODE`. 선택: README 참고.
 - `ACCESS_CODE`가 있으면 주소에 `?code=...`를 붙여 연 기기에서만 실제 AI, 나머지는 데모 모드.
 - 브랜치로 푸시하면 Preview 배포가 되는데, 환경 변수가 Production에만 있어서 AI가 안 된다.
 
 ## 테스트
 - 실제 AI 호출은 요금이 든다 (관람객 1명당 대략 $1~3).
-- 로컬 테스트: `OPENAI_BASE`, `MESHY_BASE`, `UNSPLASH_BASE`, `PIXABAY_BASE`, `PEXELS_BASE` 환경 변수로 가짜 서버 주소를 지정하면 `api/`를 요금 없이 돌려볼 수 있다.
+- 로컬 테스트: `OPENAI_BASE`, `MESHY_BASE`, `UNSPLASH_BASE`, `PIXABAY_BASE`, `PEXELS_BASE`, `COMMONS_BASE` 환경 변수로 가짜 서버 주소를 지정하면 `api/`를 요금 없이 돌려볼 수 있다.
 - 정적 서버로 `index.html`만 열면 데모 모드로 전체 흐름 확인 가능.
 
 ## 남은 일

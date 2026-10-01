@@ -251,26 +251,33 @@ export function checkPlan(plan) {
 }
 
 /* ---------- 실제 음식 사진 검색 ----------
-   무료 사진 사이트 세 곳 중 키가 있는 곳을 씀 (우선순위: Unsplash → Pixabay → Pexels)
+   무료 사진 사이트 중 키가 있는 곳을 씀 (우선순위: Unsplash → Pixabay → Pexels)
      UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY
+   키가 하나도 없으면 Wikimedia Commons(위키백과 사진 저장소)에서 찾음 → 키 없이 바로 동작
+   끄려면 PHOTOS=0 (그러면 예전처럼 AI가 음식 이미지를 그림)
    검색 결과 앞쪽 18장 중 10장을 무작위로 골라서 관람객마다 조금씩 다르게.
    배경은 화면(브라우저)에서 AI가 지움 */
 export const PHOTO_COUNT = 10;
 const UNSPLASH = process.env.UNSPLASH_BASE || 'https://api.unsplash.com';
 const PIXABAY = process.env.PIXABAY_BASE || 'https://pixabay.com/api';
+const COMMONS = process.env.COMMONS_BASE || 'https://commons.wikimedia.org/w/api.php';
+// Wikimedia는 누가 요청하는지 이름을 밝히도록 요구함
+const UA = 'FoodsCreateNewForm/1.0 (graduation exhibition; https://foods-create-new-form.vercel.app)';
 
 // 사진을 가져와도 되는 주소 (api/photo.js가 이 주소의 사진만 전달)
-export const PHOTO_HOSTS = ['images.unsplash.com', 'pixabay.com', 'cdn.pixabay.com', 'images.pexels.com'];
+export const PHOTO_HOSTS = ['images.unsplash.com', 'pixabay.com', 'cdn.pixabay.com', 'images.pexels.com', 'upload.wikimedia.org'];
+export const PHOTO_UA = UA;
 
 export function photoSite() {
   if (process.env.UNSPLASH_ACCESS_KEY) return 'Unsplash';
   if (process.env.PIXABAY_API_KEY) return 'Pixabay';
   if (process.env.PEXELS_API_KEY) return 'Pexels';
-  return null;
+  if (process.env.PHOTOS === '0') return null;
+  return 'Wikimedia Commons';
 }
 
 async function getJSON(label, url, headers = {}) {
-  const r = await timed(label, () => fetch(url, { headers }));
+  const r = await timed(label, () => fetch(url, { headers: { 'User-Agent': UA, ...headers } }));
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`${label} ${r.status}: ${data.error || data.errors?.[0] || 'error'}`);
   return data;
@@ -303,6 +310,21 @@ export async function searchPhotos(query) {
       src: p.src.large, w: p.width, h: p.height, alt: p.alt || '',
       by: p.photographer || '', link: p.url || '',
     }));
+  } else if (site === 'Wikimedia Commons') {
+    const data = await getJSON(`사진 검색 Wikimedia (${query})`, `${COMMONS}?${new URLSearchParams({
+      action: 'query', format: 'json', generator: 'search', gsrnamespace: '6', gsrlimit: '40',
+      gsrsearch: `${query} filetype:bitmap`, prop: 'imageinfo', iiprop: 'url|size|mime|extmetadata', iiurlwidth: '1000',
+    })}`);
+    const strip = (h) => String(h || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    list = Object.values(data.query?.pages || {})
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0)) // 검색 순위대로
+      .map((p) => ({ p, ii: p.imageinfo?.[0] }))
+      .filter(({ ii }) => ii?.thumburl && /jpe?g|png/.test(ii.mime || '') && ii.width >= 500 && ii.height >= 400)
+      .map(({ p, ii }) => ({
+        src: ii.thumburl, w: ii.thumbwidth, h: ii.thumbheight,
+        alt: strip(ii.extmetadata?.ImageDescription?.value) || p.title.replace(/^File:|\.[a-z]+$/gi, ''),
+        by: strip(ii.extmetadata?.Artist?.value) || 'Wikimedia', link: ii.descriptionurl || '',
+      }));
   }
   const top = list.slice(0, 18);
   for (let i = top.length - 1; i > 0; i--) {
