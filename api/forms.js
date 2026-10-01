@@ -4,8 +4,22 @@ import { handler, send, askJSON, prompt, S, store, timed, signPlan } from './_li
 import { isImage } from './analyze.js';
 import { recentWorks, ratings } from './works.js';
 
-const MEMORY_GOOD = 6; // 참고할 '좋아요' 조형 수 (최근 것부터)
-const MEMORY_BAD = 4;  // 참고할 '별로예요' 조형 수
+/* 하나의 조형으로 몰리지 않게 하는 장치
+   - 관람객마다 평가 기록 중 몇 개만 무작위로 뽑아서 줌 → 관람객마다 다른 예시를 봄
+   - 이미 평가 기록을 이어받아 만든 조형은 '좋아요' 예시에서 뺌 → 따라 한 것을 또 따라 하는 반복을 끊음 */
+const MEMORY_GOOD = 3;  // 한 번에 보여줄 '좋아요' 조형 수 (무작위)
+const MEMORY_BAD = 3;   // 한 번에 보여줄 '별로예요' 조형 수 (무작위)
+const MEMORY_POOL = 30; // 무작위로 뽑을 범위: 최근 평가 몇 개 안에서
+
+// 배열에서 n개를 무작위로 뽑기
+function sample(list, n) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, n);
+}
 
 const FORM = S.obj({
   type: { type: 'string', enum: ['기본 조합', '조형적 재해석'] },
@@ -32,23 +46,23 @@ const INSTRUCTIONS = `너는 웹 전시 작품의 한 단계를 맡는다. 아�
 
 /* ---------- 관람객 평가 (학습 기록) ----------
    관람객이 3D 결과 화면에서 '좋아요'/'별로예요'를 누른 조형만 글 AI에게 참고로 줌.
-   좋아요 → 이어받을 경향, 별로예요 → 피할 경향. 평가 안 한 조형은 안 씀.
+   좋아요 → 이어받을 경향(6개 중 1개에만), 별로예요 → 피할 경향. 평가 안 한 조형은 안 씀.
    음식 이름은 빼고 조형 묘사만 줌. 실패해도 조형 만들기는 그대로 진행.
    끄려면 환경 변수 MEMORY=0 */
 async function memoryText() {
   if (process.env.MEMORY === '0' || !store.enabled) return '';
   try {
-    const [works, rated] = await timed('관람객 평가 기록 읽기', () => Promise.all([recentWorks(60), ratings()]));
-    const pick = (r, n) => works.filter((w) => rated[w.id] === r && w.plan?.prompt).slice(0, n).map((w) => w.plan);
-    const good = pick('good', MEMORY_GOOD);
-    const bad = pick('bad', MEMORY_BAD);
+    const [works, rated] = await timed('관람객 평가 기록 읽기', () => Promise.all([recentWorks(100), ratings()]));
+    const pool = (r) => works.filter((w) => rated[w.id] === r && w.plan?.prompt).slice(0, MEMORY_POOL).map((w) => w.plan);
+    const good = sample(pool('good').filter((p) => !p.reference), MEMORY_GOOD); // 이어받아 만든 조형은 제외
+    const bad = sample(pool('bad'), MEMORY_BAD);
     if (!good.length && !bad.length) return '';
     const lines = (plans) => plans.length
       ? plans.map((p, i) => `${i + 1}. [${p.type}] ${p.method}\n   근거: ${p.rationale}\n   묘사: ${p.prompt}`).join('\n')
       : '(아직 없음)';
     return `\n\n[관람객 평가 참고]\n${prompt('2-forms-memory.md')}`
-      + `\n\n[관람객이 좋다고 평가한 조형] (최신순)\n${lines(good)}`
-      + `\n\n[관람객이 별로라고 평가한 조형] (최신순)\n${lines(bad)}`;
+      + `\n\n[관람객이 좋다고 평가한 조형] (무작위 ${good.length}개)\n${lines(good)}`
+      + `\n\n[관람객이 별로라고 평가한 조형] (무작위 ${bad.length}개)\n${lines(bad)}`;
   } catch (err) {
     console.error('[알림] 이전 관람객 기록을 못 읽음', err);
     return '';
