@@ -9,12 +9,14 @@ const PHOTO_SCHEMA = S.obj({
   is_food: S.bool('입력된 단어가 음식이면 true'),
   name: S.str('정리된 음식 이름 (한국어, 짧게). 음식이 아니면 빈 문자열'),
   message: S.str('음식이 아닐 때 관람객에게 보여줄 한 문장 (한국어). 음식이면 빈 문자열'),
-  query: S.str('사진 사이트에서 이 음식 사진을 찾을 영어 검색어 (1~3단어, 예: broccoli, gummy bears, tteokbokki). 음식이 아니면 빈 문자열'),
+  queries: S.arr(S.str('영어 검색어 (1~3단어)'), '사진 사이트에서 이 음식의 서로 다른 모습을 찾을 영어 검색어 3개. 첫째는 음식 이름 그대로 (예: broccoli / broccoli floret / broccoli cross section). 음식이 아니면 빈 배열'),
 });
 const PHOTO_INSTRUCTIONS = `관람객이 입력한 단어가 음식인지 판단한다.
 음식이 아니면 is_food를 false로 하고, message에 "○○은(는) 음식이 아니에요. 다른 음식을 입력해 주세요"처럼 한 문장을 쓴다.
-음식이면 name에 정리된 이름을, query에 그 음식 사진을 찾을 짧은 영어 검색어를 쓴다.
-검색어는 음식 자체가 잘 보이는 사진이 나오도록 음식 이름 위주로 쓴다.`;
+음식이면 name에 정리된 이름을, queries에 그 음식 사진을 찾을 짧은 영어 검색어 3개를 쓴다.
+- 첫째: 음식 이름 그대로 (사진 사이트에서 흔히 쓰는 영어 이름)
+- 둘째, 셋째: 같은 음식의 다른 모습 (자른 단면, 조각, 여러 개, 다른 품종 등) 중 그 음식에 어울리는 것
+- 다른 음식이 섞여 나오기 쉬운 단어(요리, 레시피, 식탁 등)는 넣지 않는다.`;
 
 const SCHEMA = S.obj({
   is_food: S.bool('입력된 단어가 음식이면 true'),
@@ -56,7 +58,7 @@ export default handler(async (req, res, body) => {
     if (!out.is_food) {
       return send(res, 200, { ok: false, message: out.message || `${word}은(는) 음식이 아니에요. 다른 음식을 입력해 주세요` });
     }
-    const photos = await searchPhotos(out.query || word, out.name || word);
+    const photos = await searchPhotos(out.queries?.length ? out.queries : [word], out.name || word);
     if (!photos.length) return send(res, 200, { ok: false, message: `${out.name || word} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
     return send(res, 200, { ok: true, name: out.name || word, interpretation: '', photos });
   }

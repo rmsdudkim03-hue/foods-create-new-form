@@ -194,6 +194,7 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .pill { transition: opacity .4s var(--ease); }
 .pill:not(.is-active):not(.is-picked) { opacity: .4; }
 .pill.is-picked:not(.is-active) { opacity: .75; cursor: pointer; }
+#foodForm.is-typing .pill { opacity: 1; } /* 입력 단계에선 두 칸 다 진하게 */
 .pill-thumb {
   position: absolute;
   right: calc(7 * var(--u));
@@ -275,9 +276,19 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 
 /* ---------- 화면 5: 요리하기 (js/cook.js) ---------- */
 .cook-fx { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; outline: none; }
+.cook-all {
+  padding: calc(8 * var(--u)) calc(20 * var(--u));
+  border: 1px solid var(--pill);
+  border-radius: 999px;
+  font-weight: 700;
+  z-index: 3;
+  transition: background .25s var(--ease), color .25s var(--ease), opacity .3s var(--ease);
+}
+.cook-all[hidden] { display: block !important; opacity: 0; pointer-events: none; }
+@media (hover: hover) { .cook-all:hover { background: var(--pill); color: var(--on-pill); } }
 .bowl.bump { animation: bump .45s var(--ease); }
 .bowl.cooking { animation: cook .9s ease-in-out 2; }
-@keyframes bump { 40% { translate: 0 calc(8 * var(--u)); scale: 1.01 .98; } }
+@keyframes bump { 40% { translate: 0 calc(2 * var(--u)); } } /* 조각이 떨어질 때 그릇이 아주 살짝 눌림 (조각 위치와 어긋나지 않게 작게) */
 @keyframes cook {
   25% { rotate: -1.2deg; }
   75% { rotate: 1.2deg; }
@@ -292,7 +303,6 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .taste-cell:not(.is-ready) .taste-form { opacity: 0; }
 .taste-form { transition: translate .5s var(--ease), scale .5s var(--ease), opacity .9s var(--ease); }
 .taste-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-.taste-cell:not(.is-ready) .bowl { animation: breathe 1.6s ease-in-out infinite; }
 .taste-hit:disabled { cursor: default; }
 @media (hover: hover) {
   .taste-cell:has(.taste-hit:hover) .taste-form { translate: 0 calc(-16 * var(--u)); scale: 1.04; }
@@ -364,6 +374,8 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .g-no { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
 .g-name { font-weight: 800; color: var(--ink); }
 .g-date { font-weight: 400; color: var(--ink); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+/* 크게 보기에서는 오른쪽 접시 줄을 숨김 (모아보기에서 고르니까) */
+#gPlates { display: none; }
 .g-plate {
   position: absolute;
   left: 0; top: 0;

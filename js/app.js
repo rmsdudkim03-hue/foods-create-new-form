@@ -185,10 +185,22 @@ const carousel = (() => {
     if (!it) { el.setAttribute('aria-label', '이미지 준비 중'); return; }
     el.setAttribute('aria-label', it.alt || '음식 이미지');
     el.classList.toggle('is-raw', it.cut === false); // 아직 배경을 지우는 중
+    fitSize(img, it);
     if (img.getAttribute('src') === it.src) return;
     img.onload = () => el.classList.add('is-ready');
     img.src = it.src;
   }
+  // 사진 크기 맞추기: 가로로 긴 사진, 세로로 긴 사진이 화면에서 비슷한 면적을 차지하도록
+  // (비율은 그대로, 칸 넓이의 AREA만큼. 칸을 넘으면 줄임)
+  const AREA = 0.5;
+  function fitSize(img, it) {
+    const a = it.w && it.h ? it.w / it.h : 1;
+    let w = Math.sqrt(AREA * a), h = Math.sqrt(AREA / a);
+    const over = Math.max(w / 0.96, h / 0.96, 1);
+    w /= over; h /= over;
+    img.style.cssText = `left:${(1 - w) * 50}%;top:${(1 - h) * 50}%;width:${w * 100}%;height:${h * 100}%`;
+  }
+
   // AI가 i번째 이미지를 보내오면 해당 자리를 채움
   function fill(i) {
     for (const el of els.values()) if (+el.dataset.idx === i) fillEl(el, items[i]);
@@ -262,9 +274,9 @@ const carousel = (() => {
 })();
 
 /* ---------- 음식 고르기: 입력 + 사진 선택 ----------
-   A 입력(Enter) → AI가 음식인지 확인하고 사진을 찾음 → 아래 캐러셀에 사진이 뜸
-   → 고르면 A 칸에 작게 들어가고 B로 넘어감 → B까지 고르면 분석 시작
-   입력 칸을 다시 누르면 그쪽 사진을 다시 고를 수 있음 */
+   순서: A 입력 → B 입력 → A 사진 고르기 → B 사진 고르기 → 분석 시작
+   입력하는 동안 뒤에서 미리 사진을 찾아 둠. 고른 사진은 입력 칸에 작게 들어감
+   고른 칸을 다시 누르면 그쪽 사진을 다시 고를 수 있음 */
 const pickSub = $('#pickSub');
 const pickBtn = $('#pickBtn');
 const pickNote = $('#pickNote');
@@ -291,6 +303,27 @@ const picker = (() => {
     const pick = state.picks[side];
     img.hidden = !pick;
     if (pick) img.src = pick.src;
+  }
+
+  // 두 음식이 다 확인됐으면 사진 고르기(A 먼저), 아니면 입력 단계
+  const ready = () => Boolean(okWord.A && okWord.B);
+  function decide() {
+    $('#foodForm').classList.toggle('is-typing', !ready());
+    if (!ready()) return showInput();
+    setActive(!state.picks.A ? 'A' : !state.picks.B ? 'B' : active);
+  }
+  function showInput() {
+    unsubPick?.();
+    unsubPick = null;
+    active = null;
+    sync();
+    carousel.set(Array(5).fill(null), 0, () => {});
+    const waiting = ['A', 'B'].filter((k) => pending[k]).map((k) => inputs[k].value.trim());
+    pickSub.textContent = waiting.length ? `${waiting.join(', ')}을(를) 확인하고 있어요`
+      : !okWord.A ? 'A에 섞고 싶은 음식을 입력하세요'
+        : 'B에 섞고 싶은 음식을 입력하세요';
+    pickBtn.disabled = true;
+    pickNote.textContent = '';
   }
 
   function setActive(side, { focus = false } = {}) {
@@ -334,21 +367,19 @@ const picker = (() => {
         invalidate(side);
         shake(pills[side]);
         toast(res.message);
-        if (side === active) show(side);
+        decide();
         return false;
       }
       okWord[side] = word;
       state.foods[side] = res.name;
       state.jobs[side]?.cancel();
       state.jobs[side] = ai.foodImages(res.name);
-      if (side === active) {
-        show(side);
-        if (document.activeElement === inputs[side]) inputs[side].blur(); // 휴대폰 키보드 내리기
-      }
+      if (ready() && document.activeElement?.matches?.('.pill-input')) document.activeElement.blur(); // 휴대폰 키보드 내리기
+      decide();
       return true;
     })();
     pending[side] = { word, promise };
-    if (side === active) show(side);
+    if (!ready()) showInput();
     return promise;
   }
 
@@ -423,30 +454,39 @@ const picker = (() => {
       timers.pickGo = setTimeout(() => current === 'pick' && go('analyze'), 700);
       return;
     }
-    setActive(other(side), { focus: true });
+    decide();
   }
 
   for (const side of ['A', 'B']) {
     const inp = inputs[side];
     inp.addEventListener('input', () => {
       if (okWord[side] !== inp.value.trim()) {
+        const was = okWord[side];
         invalidate(side);
-        if (side === active) show(side);
+        if (was) decide(); // 확인됐던 음식을 고치면 다시 입력 단계로
       }
       sync();
     });
-    inp.addEventListener('focus', () => { if (active !== side) setActive(side); });
     // Enter 없이 다른 칸으로 넘어가도 사진 찾기 시작
     inp.addEventListener('blur', () => { if (current === 'pick') commit(side); });
     inp.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' || e.isComposing) return; // 한글 조합 중 Enter는 무시
       e.preventDefault();
       commit(side);
+      // A를 입력하면 B로, B를 입력했는데 A가 비어 있으면 A로
+      const next = other(side);
+      if (!inputs[next].value.trim()) inputs[next].focus();
     });
-    // 이미 고른 칸을 누르면 그쪽 사진을 다시 고를 수 있음
-    pills[side].addEventListener('click', () => { if (active !== side) setActive(side); });
+    // 두 음식이 다 확인된 뒤, 이미 고른 칸을 누르면 그쪽 사진을 다시 고를 수 있음
+    pills[side].addEventListener('click', () => {
+      if (ready() && state.picks[side] && active !== side) {
+        state.picks[side] = null;
+        setThumb(side);
+        setActive(side);
+      }
+    });
   }
-  $('#foodForm').addEventListener('submit', (e) => { e.preventDefault(); commit(active); });
+  $('#foodForm').addEventListener('submit', (e) => e.preventDefault());
   pickBtn.addEventListener('click', choose);
 
   function reset() {
@@ -458,11 +498,11 @@ const picker = (() => {
       pills[side].classList.remove('is-checking');
       setThumb(side);
     }
-    active = 'A';
+    active = null;
     sync();
   }
   function refresh() { setThumb('A'); setThumb('B'); sync(); }
-  return { reset, setActive, refresh };
+  return { reset, decide, refresh, focusFirst: () => !isTouch() && inputs[!inputs.A.value.trim() ? 'A' : 'B'].focus() };
 })();
 
 // A↔B 바꿀 때 캐러셀이 잠깐 사라졌다 나타남
@@ -478,7 +518,8 @@ function swapCarousel(fn) {
 
 enter.pick = () => {
   picker.refresh();
-  picker.setActive(state.picks.A ? 'B' : 'A', { focus: true });
+  picker.decide();
+  setTimeout(() => current === 'pick' && picker.focusFirst(), 450);
 };
 leave.pick = () => {
   clearTimeout(timers.pickGo);
@@ -550,16 +591,28 @@ function bumpBowl() {
 }
 enter.cook = () => {
   cookBowl.classList.remove('cooking', 'bump');
+  cookBowl.style.opacity = '';
   cookFx?.stop();
+  const sub = $('#cookSub');
+  const all = $('#cookAll');
+  sub.textContent = '음식을 드래그하여 그릇안으로 넣어주세요';
+  all.hidden = false;
   cookFx = startCook($('#cookFx'), {
     picks: state.picks,
     view: () => view,
+    bowlEl: cookBowl,
     onBump: bumpBowl,
-    onMelt: () => { cookBowl.classList.remove('bump'); cookBowl.classList.add('cooking'); },
-    onDone: () => { if (current === 'cook') timers.cook2 = setTimeout(() => go('taste'), 300); },
+    // 넣은 조각 수 표시, 다 넣으면 '모두 넣기' 숨김
+    onCount: (n, total) => {
+      sub.textContent = n < total ? `음식을 드래그하여 그릇안으로 넣어주세요 (${n}/${total})` : '조각들을 섞어볼게요';
+      all.hidden = n >= total;
+    },
+    onMix: () => cookBowl.classList.remove('bump'),
+    onDone: () => { if (current === 'cook') timers.cook2 = setTimeout(() => go('taste'), 200); },
   });
   if (!isTouch()) setTimeout(() => current === 'cook' && $('#cookFx').focus({ preventScroll: true }), 400);
 };
+$('#cookAll').addEventListener('click', () => cookFx?.dropAll());
 leave.cook = () => {
   clearTimeout(timers.cook2);
   const fx = cookFx;
@@ -580,19 +633,32 @@ function buildTaste() {
   const job = state.formsJob;
   tasteFx?.stop();
   tasteFx = formParticles($('#tasteFx'));
-  // 조형 이미지가 도착하면: 점이 모양대로 모인 뒤 이미지가 나타나고 고를 수 있게 됨
-  const show = (i, src) => {
-    const cell = layer.children[i];
-    if (!cell || !src) return;
-    const formImg = cell.querySelector('.taste-form');
+  // 조형 6개가 '다' 만들어질 때까지 점들이 맴돌며 기다리다가,
+  // 다 되면 6개가 한꺼번에 점에서 모여 나타남 (하나씩 따로 나오지 않게)
+  const sub = $('#tasteSub');
+  sub.textContent = '새로운 조형을 만들고 있어요';
+  sub.classList.add('is-waiting');
+  let revealed = false;
+  const revealAll = async () => {
+    if (revealed || !job.finished || !job.ready) return;
+    revealed = true;
     const fx = tasteFx;
-    formImg.onload = async () => {
+    // 이미지를 먼저 다 불러놓고 → 동시에 시작
+    const cells = job.items.map((src, i) => (src ? { i, src, cell: layer.children[i] } : null)).filter(Boolean);
+    await Promise.all(cells.map(({ cell, src }) => {
+      const img = cell.querySelector('.taste-form');
+      img.src = src;
+      return img.decode().catch(() => {});
+    }));
+    if (fx !== tasteFx) return;
+    sub.classList.remove('is-waiting');
+    sub.textContent = '맛보고 싶은 조형을 클릭하세요';
+    await Promise.all(cells.map(async ({ i, src, cell }) => {
       await fx.reveal(i, src);
       if (fx !== tasteFx) return;
       cell.classList.add('is-ready');
       cell.querySelector('.taste-hit').disabled = false;
-    };
-    formImg.src = src;
+    }));
   };
   const k = 280 / 463; // 휴대폰에서 그릇 크기 비율
   FORMS.forEach((f, i) => {
@@ -619,8 +685,8 @@ function buildTaste() {
     hit.addEventListener('click', () => chooseForm({ ...f, img: job.items[i], plan: job.meta?.forms?.[i] || null }, cell));
     layer.append(cell);
   });
-  job.items.forEach((src, i) => src && show(i, src));
   job.lost.forEach((i) => tasteFx.cancel(i));
+  revealAll();
   unsubTaste?.();
   const checkFailed = () => {
     if (job.finished && !job.ready) {
@@ -630,8 +696,8 @@ function buildTaste() {
   };
   checkFailed();
   unsubTaste = job.on((i, src) => {
-    if (!src) { tasteFx?.cancel(i); checkFailed(); return; }
-    show(i, src);
+    if (!src) { tasteFx?.cancel(i); checkFailed(); }
+    revealAll();
   });
 }
 function chooseForm(f, cell) {
