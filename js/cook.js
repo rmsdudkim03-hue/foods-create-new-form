@@ -75,34 +75,50 @@ function bowlGeom(portrait) {
   };
 }
 
-/* ---------- 탑뷰 그릇 그리기 (흰 무광, 직접 그려서 크게 해도 선명) ----------
-   e: 1이면 완전한 위에서 본 동그라미, 작으면 옆에서 본 납작한 타원 (카메라 기울기) */
-function drawTopBowl(ctx, cx, cy, R, e, alpha, k) {
+/* ---------- 탑뷰 그릇 그리기 ----------
+   옆모습 그릇(bowl.png)과 같은 그릇을 위에서 본 모습. 그 이미지의 색과 비율을 재서 맞춤:
+   - 테두리는 아주 얇음, 안쪽은 깊게 파인 그릇 (바닥 지름 ≈ 입구의 40%)
+   - 따뜻한 회색빛 흰색: 안쪽 가운데 rgb(240,238,237), 그늘진 벽 rgb(217,214,211)
+   - 빛은 오른쪽에서 → 안쪽 벽은 왼쪽이 어둡고 오른쪽이 밝음
+   e: 1이면 위에서 본 동그라미, 작으면 옆에서 본 납작한 타원 (카메라 기울기) */
+const BOWL_INNER = 0.975; // 안쪽 면 반지름 / 바깥 반지름 (테두리 두께)
+export function drawTopBowl(ctx, cx, cy, R, e, alpha, k) {
   if (alpha <= 0) return;
+  const r = R * k;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(cx * k, cy * k);
   ctx.scale(1, e);
-  const r = R * k;
-  // 바닥 그림자
-  ctx.shadowColor = 'rgba(0,0,0,0.10)';
-  ctx.shadowBlur = 40 * k;
-  ctx.shadowOffsetY = 18 * k * e;
+  // 아주 옅은 그림자 (그릇이 바닥에 놓인 느낌)
+  ctx.save();
+  ctx.shadowColor = 'rgba(60,50,40,0.10)';
+  ctx.shadowBlur = 28 * k;
+  ctx.shadowOffsetY = 10 * k;
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fillStyle = '#f3f2ef'; ctx.fill();
-  ctx.shadowColor = 'transparent';
-  // 테두리 (바깥 → 안쪽으로 살짝 밝아짐)
-  const rim = ctx.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.2, 0, 0, r);
-  rim.addColorStop(0, '#fbfaf8'); rim.addColorStop(0.85, '#f2f1ee'); rim.addColorStop(1, '#e4e2de');
+  ctx.fillStyle = '#f6f5f4'; ctx.fill();
+  ctx.restore();
+  // 얇은 테두리: 빛 받는 오른쪽이 밝음
+  const rim = ctx.createLinearGradient(-r, 0, r, 0);
+  rim.addColorStop(0, '#ebe9e6'); rim.addColorStop(0.5, '#f7f6f5'); rim.addColorStop(1, '#fbfaf9');
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fillStyle = rim; ctx.fill();
-  ctx.lineWidth = 1.2 * k; ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.stroke();
-  // 안쪽 우묵한 면: 빛이 왼쪽 위에서 와서 오른쪽 아래 안쪽이 밝고, 왼쪽 위 안쪽 벽은 살짝 그늘
-  const ri = r * 0.84;
+  ctx.lineWidth = 1 * k; ctx.strokeStyle = 'rgba(110,100,90,0.16)'; ctx.stroke();
+  // 안쪽 면: 가운데(바닥)는 밝고, 벽으로 갈수록 어두워짐. 밝은 중심을 오른쪽으로 살짝 옮겨서 왼쪽 벽이 더 어둡게
+  const ri = r * BOWL_INNER;
   ctx.beginPath(); ctx.arc(0, 0, ri, 0, Math.PI * 2);
-  const well = ctx.createRadialGradient(ri * 0.12, ri * 0.15, ri * 0.1, 0, 0, ri);
-  well.addColorStop(0, '#f8f7f5'); well.addColorStop(0.7, '#f1f0ed'); well.addColorStop(1, '#dedcd8');
+  const well = ctx.createRadialGradient(ri * 0.16, -ri * 0.06, ri * 0.05, 0, 0, ri);
+  well.addColorStop(0, 'rgb(242,240,239)');
+  well.addColorStop(0.4, 'rgb(240,238,237)');
+  well.addColorStop(0.75, 'rgb(232,230,228)');
+  well.addColorStop(0.93, 'rgb(221,218,215)');
+  well.addColorStop(1, 'rgb(214,211,208)');
   ctx.fillStyle = well; ctx.fill();
-  ctx.lineWidth = 1 * k; ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.stroke();
+  // 바닥과 벽이 만나는 부드러운 경계 (아주 옅게)
+  ctx.beginPath(); ctx.arc(ri * 0.05, 0, ri * 0.42, 0, Math.PI * 2);
+  ctx.lineWidth = 6 * k; ctx.strokeStyle = 'rgba(120,110,100,0.025)'; ctx.stroke();
+  // 테두리 안쪽 가장자리의 밝은 선 (옆모습 그릇의 테두리 하이라이트와 같은 느낌)
+  ctx.beginPath(); ctx.arc(0, 0, ri, 0, Math.PI * 2);
+  ctx.lineWidth = 1.5 * k; ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.stroke();
   ctx.restore();
 }
 
@@ -313,7 +329,7 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
 
   // 탑뷰 그릇: 옆모습 그릇의 입구 타원에서 시작해 위에서 본 동그라미로 바뀜
   const topEnd = portrait ? SETTINGS.top.p : SETTINGS.top.d;
-  const topStart = { cx: bowl.cx, cy: (bowl.rimY + bowl.lipY) / 2, R: 330 * bowl.k / 0.84, e: 0.05 };
+  const topStart = { cx: bowl.cx, cy: (bowl.rimY + bowl.lipY) / 2, R: 334 * bowl.k, e: 0.048 };
 
   /* ---------- 놓기: 그릇 위로 옮긴 뒤 떨어뜨림 ---------- */
   let dropped = 0;
@@ -461,7 +477,8 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
       R: topStart.R + (topEnd.R - topStart.R) * tilt,
       e: topStart.e + (1 - topStart.e) * tilt,
     };
-    if (bowlEl && mt > 0) bowlEl.style.opacity = String(1 - ease(mt / (SETTINGS.tilt * 0.45))); // 옆모습 그릇은 사라짐
+    // 옆모습 그릇 이미지는 캔버스가 이어서 그림 (같은 이미지라 이질감 없음)
+    if (bowlEl && mt > 0) bowlEl.style.opacity = '0';
 
     // 4) 조각 위치 정하기
     for (const p of pieces) {
@@ -508,13 +525,24 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
 
     // 5) 그리기
     const topMode = phase === 'tilt' || phase === 'stir' || phase === 'done';
-    if (topMode) drawTopBowl(ctx, top.cx, top.cy, top.R, top.e, ease(mt / (SETTINGS.tilt * 0.35)), k);
+    if (topMode && bowlEl?.complete && tilt < 1) {
+      // 카메라가 올라가는 느낌: 원래 그릇 이미지의 옆면이 점점 납작해지며 사라지고, 입구는 탑뷰 그릇으로 열림
+      const sx = top.R / topStart.R;
+      const sy = sx * (1 - tilt);
+      ctx.save();
+      ctx.globalAlpha = 1 - ease(tilt * 1.25);
+      ctx.translate(top.cx * k, top.cy * k);
+      ctx.scale(sx * bowl.k * k, Math.max(0.001, sy) * bowl.k * k);
+      ctx.drawImage(bowlEl, -LIP.cx, -LIP.cy, BOWL_IMG.w, BOWL_IMG.h);
+      ctx.restore();
+    }
+    if (topMode) drawTopBowl(ctx, top.cx, top.cy, top.R, top.e, ease(mt / 0.3), k);
     ctx.save();
     const clip = new Path2D();
     clip.rect(0, 0, canvas.width, canvas.height);
     if (topMode) {
       // 그릇 안쪽 타원의 아래쪽 반 밖(= 앞쪽 벽)은 그리지 않음. 탑뷰가 되면 동그라미 밖
-      const ri = top.R * 0.84;
+      const ri = top.R * BOWL_INNER;
       for (let i = 0; i <= 36; i++) {
         const a = (i / 36) * Math.PI;
         const x = top.cx + Math.cos(a) * ri, y = top.cy + Math.sin(a) * ri * top.e;
