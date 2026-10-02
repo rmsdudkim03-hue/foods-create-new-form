@@ -124,8 +124,32 @@ async function saveModel(res, { id, model }) {
   send(res, 200, { model: saved });
 }
 
+// 진단: 브라우저 주소창에 api/works?diag=1&code=접근코드 를 열면 저장 상태를 보여줌 (비밀 값은 안 보여줌)
+async function diag(req, res) {
+  const q = new URL(req.url, 'http://x').searchParams;
+  const code = process.env.ACCESS_CODE;
+  if (code && q.get('code') !== code && req.headers['x-access-code'] !== code) return send(res, 401, { error: 'access_code' });
+  const out = {
+    설정: { 저장소: store.enabled, MESHY_API_KEY: Boolean(process.env.MESHY_API_KEY), OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY), ACCESS_CODE: Boolean(code) },
+  };
+  try {
+    const [list, glb, task] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);
+    out.저장소 = { 작품: list.length, '3D 파일': Object.keys(glb).length, '3D 변환 기록': Object.keys(task).length };
+    out.최근작품 = list.slice(0, 8).map((w) => ({ no: w.no, 저장시각: w.createdAt, '3D 파일': Boolean(glb[w.id]), '3D 변환 기록': task[w.id] || null }));
+  } catch (err) { out.저장소오류 = String(err.message || err).slice(0, 300); }
+  try {
+    const r = await meshy('/image-to-3d?page_num=1&page_size=8&sort_by=-created_at');
+    const arr = Array.isArray(r) ? r : r.result || r.data || [];
+    out.Meshy최근변환 = arr.map((t) => ({ 시작: t.created_at ? new Date(Number(t.created_at)).toISOString() : null, 상태: t.status, glb: Boolean(t.model_urls?.glb) }));
+  } catch (err) { out.Meshy오류 = String(err.message || err).slice(0, 300); }
+  // 저장소에 실제로 써지는지 시험 (작은 파일 하나)
+  try { await store.put('diag/test.txt', new Date().toISOString(), 'text/plain', true); out.저장소쓰기 = 'OK'; } catch (err) { out.저장소쓰기 = String(err.message || err).slice(0, 300); }
+  send(res, 200, out);
+}
+
 export default async function works(req, res) {
   try {
+    if (req.method === 'GET' && new URL(req.url, 'http://x').searchParams.has('diag')) return diag(req, res);
     if (req.method === 'GET') {
       if (!store.enabled) return send(res, 200, { enabled: false, works: [] });
       const [list, glb, task] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);

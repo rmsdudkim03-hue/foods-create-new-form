@@ -812,7 +812,10 @@ enter.result = async () => {
       if (run === state.run && current === 'result') sub.textContent = `선택한 조형을 3D로 바꾸는 중이에요 (${p}%)`;
     }, (taskId) => {
       // 변환 시작 기록 (작품 저장이 끝난 뒤)
-      Promise.resolve(state.saving).then((id) => ai.noteTask(id, taskId)).catch((err) => console.error('3D 변환 기록 실패', err));
+      Promise.resolve(state.saving).then((id) => ai.noteTask(id, taskId)).catch((err) => {
+        console.error('3D 변환 기록 실패', err);
+        if (DEBUG) toast(`3D 변환 기록 실패: ${err.message}`);
+      });
     });
     viewerMod ??= await import('./viewer3d.js');
     viewer ??= viewerMod.createViewer($('#viewer'));
@@ -1178,8 +1181,10 @@ async function saveCreationNow(f) {
       gallery.refresh();
       return r.id;
     }
+    if (DEBUG) toast('작품 저장 안 됨 (실제 AI 모드인지 확인)');
   } catch (err) {
     console.error('공유 갤러리 저장 실패', err);
+    if (DEBUG) toast(`작품 저장 실패: ${err.message}`);
   }
   return null;
 }

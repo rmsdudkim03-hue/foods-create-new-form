@@ -192,7 +192,7 @@ export const store = {
   get enabled() { return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_LOCAL_DIR); },
 
   // 파일 하나 저장 → 주소 반환
-  async put(pathname, body, contentType) {
+  async put(pathname, body, contentType, overwrite = false) {
     const dir = process.env.BLOB_LOCAL_DIR;
     if (dir) {
       const file = path.join(dir, pathname);
@@ -201,7 +201,7 @@ export const store = {
       return `file://${file}`;
     }
     const { put } = await import('@vercel/blob');
-    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false });
+    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false, allowOverwrite: overwrite });
     return r.url;
   },
 
