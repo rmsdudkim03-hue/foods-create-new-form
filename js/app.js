@@ -154,8 +154,16 @@ const carousel = (() => {
     build();
   }
 
+  // 그릴 자리 범위: 사진이 적으면 같은 사진이 양옆에 반복되지 않게 사진 수만큼만
+  function span() {
+    const count = Math.min(2 * R + 1, items.length);
+    const lo = v - Math.floor((count - 1) / 2);
+    return [lo, lo + count - 1];
+  }
+
   function build() {
-    for (let k = v - R; k <= v + R; k++) ensure(k);
+    const [lo, hi] = span();
+    for (let k = lo; k <= hi; k++) ensure(k);
     update();
   }
 
@@ -201,17 +209,19 @@ const carousel = (() => {
     img.style.cssText = `left:${(1 - w) * 50}%;top:${(1 - h) * 50}%;width:${w * 100}%;height:${h * 100}%`;
   }
 
-  // AI가 i번째 이미지를 보내오면 해당 자리를 채움
-  function fill(i) {
+  // i번째 자리에 이미지가 도착하면 채움
+  function fill(i, it) {
+    if (it !== undefined) items[i] = it;
     for (const el of els.values()) if (+el.dataset.idx === i) fillEl(el, items[i]);
     onChange();
   }
 
   function update() {
     if (!items.length) return;
-    for (let k = v - R; k <= v + R; k++) ensure(k);
+    const [lo, hi] = span();
+    for (let k = lo; k <= hi; k++) ensure(k);
     for (const [k, el] of els) {
-      if (k < v - R || k > v + R) { el.remove(); els.delete(k); }
+      if (k < lo || k > hi) { el.remove(); els.delete(k); }
       else place(el, k);
     }
   }
@@ -450,23 +460,34 @@ const picker = (() => {
         pickNote.textContent = 'AI가 생성한 참고 이미지예요';
       }
     };
-    const onDone = () => {
-      if (!job.finished || !job.failed) return;
-      if (!job.ready) {
-        toast('사진을 불러오지 못했어요. 다른 음식을 입력해 주세요');
-        invalidate(side);
-        show(side);
-        return;
-      }
-      // 실패한 자리는 빼고 다시 배치
-      carousel.set(job.items.filter(Boolean), 0, update);
+    // 캐러셀에 놓인 자리 = 실패하지 않은 job 번호들 (아직 준비 중인 자리는 빈 접시로 둠)
+    let order = [];
+    const place = (keep) => {
+      order = job.items.map((_, i) => i).filter((i) => !job.lost.has(i));
+      const pos = keep ? Math.max(0, order.indexOf(job.items.indexOf(keep))) : 0;
+      carousel.set(order.map((i) => job.items[i]), pos, update);
     };
     const prevSel = state.picks[side];
+    order = job.items.map((_, i) => i);
     const start = Math.max(0, job.items.indexOf(prevSel));
-    carousel.set(job.items, prevSel ? start : FOODS[state.foods[side]]?.start ?? 0, update);
-    unsubPick = job.on((i) => { carousel.fill(i); onDone(); });
+    carousel.set(job.items.slice(), prevSel ? start : FOODS[state.foods[side]]?.start ?? 0, update);
+    unsubPick = job.on((i, item) => {
+      if (!item) {
+        // 실패한 자리는 빼고 다시 배치 (보고 있던 사진은 그대로)
+        if (job.finished && !job.ready) {
+          toast('사진을 불러오지 못했어요. 다른 음식을 입력해 주세요');
+          invalidate(side);
+          show(side);
+          return;
+        }
+        place(carousel.selected());
+        return;
+      }
+      const p = order.indexOf(i);
+      if (p >= 0) carousel.fill(p, item);
+    });
     update();
-    onDone();
+    if (job.lost.size) place(prevSel);
   }
 
   function choose() {
@@ -789,6 +810,9 @@ enter.result = async () => {
   try {
     const urls = await ai.toModel(f.img, f, (p) => {
       if (run === state.run && current === 'result') sub.textContent = `선택한 조형을 3D로 바꾸는 중이에요 (${p}%)`;
+    }, (taskId) => {
+      // 변환 시작 기록 (작품 저장이 끝난 뒤)
+      Promise.resolve(state.saving).then((id) => ai.noteTask(id, taskId)).catch((err) => console.error('3D 변환 기록 실패', err));
     });
     viewerMod ??= await import('./viewer3d.js');
     viewer ??= viewerMod.createViewer($('#viewer'));
@@ -972,8 +996,8 @@ const gallery = (() => {
       cell.className = 'g-cell abs';
       const col = k % cols, row = Math.floor(k / cols);
       cell.style.cssText = `--x:${gx + col * size + size * 0.06};--y:${gy + row * size * 1.12};width:calc(${size * 0.88} * var(--u));font-size:calc(${Math.max(11, size * 0.075)} * var(--u));--d:${Math.min(k * 0.04, 1.2)}s;--f:${-(k % 7) * 0.9}s`;
-      cell.innerHTML = `<span class="g-cell-plate"><img src="assets/img/plate-top.png" alt=""><img class="g-thumb" src="${it.thumb}" alt="">${it.model ? '<span class="g-cell-3d">3D</span>' : ''}</span><span class="g-cell-no">${it.no}</span>`;
-      cell.setAttribute('aria-label', `${it.no} ${it.name}${it.model ? ', 3D로 볼 수 있음' : ''}`);
+      cell.innerHTML = `<span class="g-cell-plate"><img src="assets/img/plate-top.png" alt=""><img class="g-thumb" src="${it.thumb}" alt="">${it.model || it.task ? '<span class="g-cell-3d">3D</span>' : ''}</span><span class="g-cell-no">${it.no}</span>`;
+      cell.setAttribute('aria-label', `${it.no} ${it.name}${it.model || it.task ? ', 3D로 볼 수 있음' : ''}`);
       cell.addEventListener('click', () => openDetail(i));
       grid.append(cell);
     });
@@ -989,7 +1013,7 @@ const gallery = (() => {
     shown = null;
     render(true);
     section.classList.remove('is-grid');
-    if (items[i]?.model) show3d(true); // 3D 파일이 있으면 바로 3D로
+    if (items[i]?.model || items[i]?.task) show3d(true); // 3D 파일이 있으면 바로 3D로
   }
   const isGrid = () => section.classList.contains('is-grid');
   $('#gBack').addEventListener('click', openGrid);
@@ -1000,6 +1024,21 @@ const gallery = (() => {
   let on3d = false;
   async function show3d(on) {
     const it = items[cur];
+    // 3D 변환 기록만 있으면 먼저 3D 파일을 가져와 보관
+    if (on && it && !it.model && it.task) {
+      g3d.hidden = false;
+      g3d.disabled = true;
+      g3d.textContent = '3D 파일 가져오는 중…';
+      try {
+        const r = await ai.fetchModel(it.id);
+        if (r?.model) it.model = r.model;
+      } catch (err) {
+        console.error('3D 파일 가져오기 실패', err);
+      }
+      it.task = null; // 실패해도 다시 시도하지 않음
+      if (items[cur] !== it) return;
+      if (isGrid()) buildGrid();
+    }
     g3d.hidden = !it;
     g3d.disabled = !it?.model;
     on3d = Boolean(on && it?.model);
@@ -1035,8 +1074,8 @@ const gallery = (() => {
   }
 
   // 공유 갤러리에서 최신 작품 목록을 받아와 다시 그림
-  async function sync() {
-    const res = await ai.loadWorks();
+  async function sync(fresh = false) {
+    const res = await ai.loadWorks(fresh);
     if (!res.enabled) return;
     shared = true;
     const keep = items[cur];
@@ -1048,7 +1087,16 @@ const gallery = (() => {
     shown = null;
     build();
     if (isGrid()) buildGrid();
+    // 실제 AI 모드: 3D 기록이 없는 예전 작품은 Meshy 작업 목록에서 찾아 연결 (한 번만)
+    if (!triedBackfill && res.works.some((w) => !w.model && !w.task) && (await ai.mode()) === 'live') {
+      triedBackfill = true;
+      try {
+        const r = await ai.backfillModels();
+        if (r?.matched) sync(true);
+      } catch (err) { console.error('예전 작품 3D 복구 실패', err); }
+    }
   }
+  let triedBackfill = false;
   // 방금 만든 작품의 3D 파일이 보관되면 연결
   function setModel(url) {
     const it = mine[mine.length - 1];

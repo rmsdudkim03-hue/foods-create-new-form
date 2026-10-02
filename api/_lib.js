@@ -346,6 +346,8 @@ async function searchOne(site, query, page = 1) {
 export const PHOTO_ENOUGH = 5;
 export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {}) {
   const qs = [...new Set((Array.isArray(queries) ? queries : [queries]).map((q) => String(q || '').trim()).filter(Boolean))].slice(0, 3);
+  // 배경이 단순한 사진(배경 지우기가 잘 됨)을 찾으려고 '단독으로 찍은' 검색어를 하나 더
+  if (qs[0]) qs.unshift(`${qs[0]} isolated`);
   const seen = new Set(exclude);
   const gather = async (site) => {
     const lists = await Promise.all(qs.map((q) => searchOne(site, q, page).catch((err) => { console.error(err); return []; })));
@@ -395,11 +397,13 @@ const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보
   (그 음식이 원래 요리라면 그 요리 자체로 본다)
 - 실제 사진이다. 그림, 일러스트, 3D 렌더, 장난감, 모형은 고르지 않는다.
 - 음식이 화면에서 충분히 크고, 형태가 잘리거나 흐리지 않다.
+- 음식 전체 윤곽이 사진 안에 다 들어와 있다. 음식이 화면 가장자리에서 잘리거나 화면을 꽉 채운 확대 사진은 고르지 않는다.
+  (배경을 지워서 음식 모양만 남기므로, 음식과 배경이 분명히 구분되어야 한다)
 - 사람, 손, 포장지, 글자, 로고, 식기가 음식보다 눈에 띄지 않는다.
 
 [좋은 사진]
 - 그 음식의 고유한 형태, 윤곽, 단면, 표면 결이 잘 드러난다.
-- 배경이 단순할수록 좋다.
+- 배경이 단순할수록 좋다 (흰 배경·단색 배경에 음식만 있는 사진이 가장 좋다).
 
 [다양성]
 - 고른 사진들이 서로 다른 모습이 되게 한다: 통째, 자른 단면, 작은 조각, 여러 개 모인 모습, 다른 품종이나 색, 다른 시점.
