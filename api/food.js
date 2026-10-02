@@ -4,7 +4,7 @@
 //   없으면 (예전 방식): 글 AI가 이미지 10장을 계획 → 이미지 AI가 그림. 프롬프트 원문: prompts/0-food-images.md
 import { handler, send, askJSON, prompt, S, searchPhotos, photoSite } from './_lib.js';
 
-const MIN_IMAGES = 10; // 사진이 이보다 적으면 모자란 만큼 AI가 음식 이미지를 그림 (화면에는 10장)
+const AI_SHOTS = 6; // 실제 사진이 모자라거나 배경을 못 지웠을 때 화면에서 채울 AI 이미지 묘사 수 (화면에는 합쳐 6장)
 
 // 실제 사진 모드: 음식인지 확인 + 검색어만 정함 (빠르게)
 const PHOTO_SCHEMA = S.obj({
@@ -82,19 +82,11 @@ export default handler(async (req, res, body) => {
       name = out.name || word;
       queries = out.queries?.length ? out.queries : [word];
     }
-    const found = await searchPhotos(queries, name, { page, exclude });
+    // 사진 찾기와 'AI 이미지 계획'을 동시에 (실제 사진 + AI 이미지 섞어 보여줌. 몇 장을 그릴지는 화면에서 정함)
+    const planning = planShots(name).catch((err) => { console.error('[알림] AI 이미지 계획 실패', err); return { shots: [] }; });
+    const [found, plan] = await Promise.all([searchPhotos(queries, name, { page, exclude }), planning]);
     const photos = found.photos;
-    // 맞는 사진이 모자라면 (예: 메론빵처럼 사진 사이트에 거의 없는 음식) 모자란 만큼 AI가 그림
-    let shots = [];
-    if (photos.length < MIN_IMAGES) {
-      console.log(`[알림] ${name} 사진 ${photos.length}장뿐 → AI 이미지 ${MIN_IMAGES - photos.length}장으로 채움`);
-      try {
-        const plan = await planShots(name);
-        shots = plan.shots.slice(0, MIN_IMAGES - photos.length);
-      } catch (err) {
-        console.error('[알림] AI 이미지 계획 실패', err);
-      }
-    }
+    const shots = plan.shots.slice(0, AI_SHOTS);
     if (!photos.length && !shots.length) return send(res, 200, { ok: false, message: `${name} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
     return send(res, 200, { ok: true, name, interpretation: '', queries, page: found.page, photos, shots });
   }

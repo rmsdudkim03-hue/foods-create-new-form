@@ -111,8 +111,10 @@ async function cutoutNow(src) {
   let canvas = null;
   try {
     canvas = await modelCutout(img, src, 'fast');
-    if (!usable(maskStats(canvas)) && fastBad < 2) {
-      // 빠른 모델 결과가 이상하면 안정 모드로 한 번 더
+    const st = maskStats(canvas);
+    // 빠른 모델이 고장 난 것처럼 보일 때만(거의 다 남기거나 거의 다 지움) 안정 모드로 한 번 더
+    // (그냥 배경이 남은 사진은 다시 해도 비슷해서 시간만 걸림 → 바로 뺌)
+    if ((st.cover > 0.97 || st.cover < 0.01) && fastBad < 2) {
       const safe = await modelCutout(img, src, 'safe').catch(() => null);
       if (safe && usable(maskStats(safe))) { fastBad++; canvas = safe; }
     }
@@ -226,6 +228,19 @@ function trimAlpha(canvas, pad = 0.04) {
   out.height = Math.round(ch * s);
   out.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, out.width, out.height);
   return { src: out.toDataURL('image/png'), w: out.width, h: out.height };
+}
+
+// AI가 투명 배경으로 그린 이미지: 투명한 여백만 잘라냄 (배경 지우기 필요 없음)
+// 배경이 거의 다 채워져 있으면(투명 배경이 안 됐으면) 실패로 봄
+export async function trimImage(src) {
+  const img = await loadImage(src);
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  c.getContext('2d').drawImage(img, 0, 0);
+  const st = maskStats(c);
+  if (st.cover > 0.97) throw new Error('투명 배경이 아님');
+  return trimAlpha(c);
 }
 
 // AI 분석에 보낼 때: 투명 배경을 흰색으로 채운 JPEG (용량 줄이기)

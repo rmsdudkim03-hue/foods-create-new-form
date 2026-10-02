@@ -13,7 +13,7 @@
    ③ toModel     고른 조형 이미지 → 3D 모델                       (Meshy)
    ========================================================= */
 import { FOODS, FORMS, SAMPLE_MODEL, ANALYZE_MS } from './data.js';
-import { cutout, onWhite, warmup } from './cutout.js';
+import { cutout, onWhite, warmup, trimImage } from './cutout.js';
 
 export const FOOD_IMAGE_COUNT = 10;
 
@@ -192,34 +192,52 @@ export async function checkFood(word) {
 export function foodImages(food) {
   const plan = foodPlans.get(food);
   if (live && plan) {
-    // 실제 사진 + (사진이 모자라면) AI가 그린 이미지를 한 줄에 같이 보여줌
+    /* 실제 사진 + AI 이미지를 섞어서 SHOW장
+       - 실제 사진: 배경을 잘 지운 것만 (못 지운 사진은 뺌)
+       - AI 이미지: 처음부터 투명 배경으로 그림. 실제 사진이 모자랄 것 같으면 바로 시작하고,
+         사진 배경 지우기가 실패할 때마다 모자란 만큼 더 그림 (안 쓰는 묘사는 그리지 않음) */
+    const SHOW = 6;
     const photos = plan.photos || [];
     const shots = plan.shots || [];
     const job = createJob(photos.length + shots.length);
     job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, shots };
-    // 실제 사진: 배경을 다 지운 사진만 보여줌 (그 전에는 빈 접시). 서버는 여유 있게 더 보내므로 10장이 되면 나머지는 건너뜀
-    const SHOW = 10;
     const enough = () => job.cancelled || job.ready >= SHOW;
+    let photosLeft = photos.length; // 아직 배경 지우는 중인 사진
+    let aiNext = 0;                 // 다음에 그릴 묘사 번호
+    let aiBusy = 0;                 // 지금 그리는 중인 AI 이미지
+    const drawShot = async (j) => {
+      const i = photos.length + j;
+      aiBusy++;
+      try {
+        const { image } = await call('api/image', { body: { prompt: shots[j].prompt, kind: 'food' }, timeout: 120000 });
+        if (job.cancelled) return;
+        const t = await trimImage(image).catch(() => trimSafe(image));
+        if (enough()) job.fail(i);
+        else job.put(i, { src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${j + 1}, ${shots[j].view}`, ai: true });
+      } catch (err) {
+        console.error(err);
+        job.fail(i);
+      } finally {
+        aiBusy--;
+        topUp();
+      }
+    };
+    // 지금 보이는 것 + 그리는 중 + 아직 처리 중인 사진의 절반(배경을 못 지울 수 있으니)이 SHOW보다 적으면 더 그림
+    function topUp() {
+      if (job.cancelled) return;
+      while (aiNext < shots.length && job.ready + aiBusy + Math.ceil(photosLeft / 2) < SHOW) drawShot(aiNext++);
+      // 더 필요 없거나 다 끝났으면 남은 묘사 자리는 비움 (작업이 끝나도록)
+      if (enough() || (!photosLeft && !aiBusy)) while (aiNext < shots.length) job.fail(photos.length + aiNext++);
+    }
     photos.forEach((p, i) => {
       const src = `api/photo?u=${encodeURIComponent(p.src)}`;
       const base = { alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
       cutout(src, enough)
         .then((c) => (enough() ? job.fail(i) : job.put(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true })))
-        .catch((err) => { if (err.message !== 'skip') console.warn(err.message); job.fail(i); });
+        .catch((err) => { if (err.message !== 'skip') console.warn(err.message); job.fail(i); })
+        .finally(() => { photosLeft--; topUp(); });
     });
-    // AI 이미지: 흰 배경으로 그려서 배경 지우기는 필요 없음
-    pool(shots.map((sh, j) => async () => {
-      const i = photos.length + j;
-      if (job.cancelled) return;
-      try {
-        const { image } = await call('api/image', { body: { prompt: sh.prompt, kind: 'food' } });
-        const t = await trimSafe(image);
-        job.put(i, { src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${j + 1}, ${sh.view}`, ai: true });
-      } catch (err) {
-        console.error(err);
-        job.fail(i);
-      }
-    }), 3);
+    topUp();
     return job;
   }
   // 데모
