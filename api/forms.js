@@ -50,7 +50,7 @@ const INSTRUCTIONS = `너는 웹 전시 작품의 한 단계를 맡는다. 아�
    음식 이름은 빼고 조형 묘사만 줌. 실패해도 조형 만들기는 그대로 진행.
    끄려면 환경 변수 MEMORY=0 */
 async function memoryText() {
-  if (process.env.MEMORY === '0' || !store.enabled) return '';
+  if (process.env.MEMORY === '0' || !(await store.ready())) return '';
   try {
     const [works, rated] = await timed('관람객 평가 기록 읽기', () => Promise.all([recentWorks(100), ratings()]));
     const pool = (r) => works.filter((w) => rated[w.id] === r && w.plan?.prompt).slice(0, MEMORY_POOL).map((w) => w.plan);

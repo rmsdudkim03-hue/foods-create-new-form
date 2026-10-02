@@ -186,10 +186,37 @@ export const S = {
 
 /* ---------- 공유 저장소 (Vercel Blob) ----------
    갤러리 작품과 "이전 관람객이 고른 조형" 기록을 모든 기기가 같이 보도록 저장.
-   Vercel에서 Blob 저장소(Public)를 프로젝트에 연결하면 BLOB_READ_WRITE_TOKEN이 자동으로 생겨.
+   Vercel에서 Blob 저장소(Public)를 프로젝트에 연결하면 BLOB_READ_WRITE_TOKEN(또는 '이름_READ_WRITE_TOKEN')이 자동으로 생겨.
    로컬 테스트: BLOB_LOCAL_DIR=폴더 를 주면 그 폴더에 파일로 저장 (요금 없음) */
+let readyPromise = null;
 export const store = {
-  get enabled() { return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_LOCAL_DIR); },
+  // 저장소 열쇠: 보통 BLOB_READ_WRITE_TOKEN인데, 연결할 때 이름 앞부분(prefix)을 바꾸면 '이름_READ_WRITE_TOKEN'이 됨
+  get token() {
+    const env = process.env;
+    if (env.BLOB_READ_WRITE_TOKEN) return env.BLOB_READ_WRITE_TOKEN;
+    const key = Object.keys(env).find((k) => /_READ_WRITE_TOKEN$/.test(k) && String(env[k]).startsWith('vercel_blob_'));
+    return key ? env[key] : '';
+  },
+  // 열쇠가 없어도 Vercel이 저장소 연결 정보(BLOB_STORE_ID 등)를 넣어 주면 그걸로 접속됨
+  get enabled() {
+    return Boolean(store.token || process.env.BLOB_LOCAL_DIR || Object.keys(process.env).some((k) => /^BLOB_/.test(k)));
+  },
+  // 실제로 저장소를 쓸 수 있는지 (연결 정보 이름이 달라도, 한 번 접속해 보고 되면 씀. 결과는 기억)
+  async ready() {
+    if (store.enabled) return true;
+    readyPromise ??= (async () => {
+      try {
+        const { list } = await import('@vercel/blob');
+        await list({ prefix: 'works/', limit: 1 });
+        console.log('[알림] 저장소 연결 확인 (연결 정보 이름이 기본과 다름)');
+        return true;
+      } catch { return false; }
+    })();
+    return readyPromise;
+  },
+  // 저장소 연결 정보 이름들 (값은 안 보여줌, 진단용)
+  get envNames() { return Object.keys(process.env).filter((k) => /BLOB|_READ_WRITE_TOKEN$/.test(k)); },
+  get auth() { return store.token ? { token: store.token } : {}; },
 
   // 파일 하나 저장 → 주소 반환
   async put(pathname, body, contentType, overwrite = false) {
@@ -201,7 +228,7 @@ export const store = {
       return `file://${file}`;
     }
     const { put } = await import('@vercel/blob');
-    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false, allowOverwrite: overwrite });
+    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false, allowOverwrite: overwrite, ...store.auth });
     return r.url;
   },
 
@@ -216,7 +243,7 @@ export const store = {
         .map((p) => ({ pathname: p, url: `file://${path.join(dir, p)}` }));
     }
     const { list } = await import('@vercel/blob');
-    const r = await list({ prefix, limit });
+    const r = await list({ prefix, limit, ...store.auth });
     return r.blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
   },
 
