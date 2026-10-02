@@ -473,20 +473,23 @@ const picker = (() => {
       order = job.items.map((_, i) => i).filter((i) => !job.lost.has(i));
       const pos = keep ? Math.max(0, order.indexOf(job.items.indexOf(keep))) : 0;
       carousel.set(order.map((i) => job.items[i]), pos, update);
+      update(); // 문구·버튼도 바로 다시 (자리가 줄어든 걸 반영)
     };
     const prevSel = state.picks[side];
     order = job.items.map((_, i) => i);
     const start = Math.max(0, job.items.indexOf(prevSel));
     carousel.set(job.items.slice(), prevSel ? start : FOODS[state.foods[side]]?.start ?? 0, update);
+    // 사진이 하나도 없이 끝났으면 (이 쪽을 열기 전에 끝났어도) 다시 입력하게
+    const nothing = () => {
+      toast(`${food} 사진을 불러오지 못했어요. 다시 입력해 주세요`);
+      invalidate(side);
+      show(side);
+    };
+    if (job.finished && !job.ready) return nothing();
     unsubPick = job.on((i, item) => {
       if (!item) {
         // 실패한 자리는 빼고 다시 배치 (보고 있던 사진은 그대로)
-        if (job.finished && !job.ready) {
-          toast('사진을 불러오지 못했어요. 다른 음식을 입력해 주세요');
-          invalidate(side);
-          show(side);
-          return;
-        }
+        if (job.finished && !job.ready) return nothing();
         place(carousel.selected());
         return;
       }
