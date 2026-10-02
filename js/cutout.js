@@ -230,19 +230,6 @@ function trimAlpha(canvas, pad = 0.04) {
   return { src: out.toDataURL('image/png'), w: out.width, h: out.height };
 }
 
-// AI가 투명 배경으로 그린 이미지: 투명한 여백만 잘라냄 (배경 지우기 필요 없음)
-// 배경이 거의 다 채워져 있으면(투명 배경이 안 됐으면) 실패로 봄
-export async function trimImage(src) {
-  const img = await loadImage(src);
-  const c = document.createElement('canvas');
-  c.width = img.naturalWidth;
-  c.height = img.naturalHeight;
-  c.getContext('2d').drawImage(img, 0, 0);
-  const st = maskStats(c);
-  if (st.cover > 0.97) throw new Error('투명 배경이 아님');
-  return trimAlpha(c);
-}
-
 // AI 분석에 보낼 때: 투명 배경을 흰색으로 채운 JPEG (용량 줄이기)
 export async function onWhite(src) {
   if (!src?.startsWith('data:image/png')) return src;

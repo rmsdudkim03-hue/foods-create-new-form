@@ -43,7 +43,7 @@ export async function timed(label, fn) {
 export const IMAGE_RULES = {
   food: [
     '음식 자체가 중심인 사실적인 사진.',
-    '배경 없이 음식만 (투명 배경). 그림자·접시·받침 없이 형태를 읽을 수 있는 조명.', // ← "단순한 배경"을 투명 배경으로 구체화 (배경 지우기가 필요 없게)
+    '순수한 흰색 단색 배경. 그림자·접시·받침 없이 음식만, 형태를 읽을 수 있는 조명.', // ← "단순한 배경"을 흰 배경으로 구체화 (화면에서 배경을 깨끗이 지우게)
     '패키지, 로고, 광고 문구, 일러스트, 손, 조리 도구, 장식용 소품 제외.',
     '음식의 주요 윤곽이 프레임 안에 들어오도록 한다.',
     '문자, 번호, 설명문을 이미지 안에 넣지 않는다.',
@@ -151,10 +151,10 @@ export async function drawImage({ prompt: p, kind }) {
       prompt: `${p}\n\n[이미지 조건]\n${isFood ? IMAGE_RULES.food : IMAGE_RULES.form}`,
       size: '1024x1024',
       quality: isFood ? MODELS.qualityFood : MODELS.qualityForm,
-      // 음식 이미지는 처음부터 투명 배경으로 (배경 지우기 필요 없음), 조형은 흰 배경
-      background: isFood ? 'transparent' : 'opaque',
-      output_format: isFood ? 'webp' : 'jpeg',
-      output_compression: isFood ? 90 : 88,
+      // 흰 배경으로 그림 (투명 배경을 요청하면 모델에 따라 검은 배경이 나와서). 음식 이미지는 화면에서 배경을 지움
+      background: 'opaque',
+      output_format: 'jpeg',
+      output_compression: 88,
       n: 1,
     }),
   }));
@@ -162,7 +162,7 @@ export async function drawImage({ prompt: p, kind }) {
   if (!r.ok) throw new Error(`OpenAI image ${r.status}: ${data.error?.message || 'error'}`);
   const b64 = data.data?.[0]?.b64_json;
   if (!b64) throw new Error('OpenAI image: 빈 응답');
-  return `data:image/${isFood ? 'webp' : 'jpeg'};base64,${b64}`;
+  return `data:image/jpeg;base64,${b64}`;
 }
 
 /* ---------- Meshy: 3D 변환 ---------- */
