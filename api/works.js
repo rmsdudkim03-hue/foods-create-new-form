@@ -130,7 +130,7 @@ async function diag(req, res) {
   const code = process.env.ACCESS_CODE;
   if (code && q.get('code') !== code && req.headers['x-access-code'] !== code) return send(res, 401, { error: 'access_code' });
   const out = {
-    설정: { 저장소: store.enabled, MESHY_API_KEY: Boolean(process.env.MESHY_API_KEY), OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY), ACCESS_CODE: Boolean(code) },
+    설정: { 저장소: await store.ready(), 저장소연결정보: store.envNames, MESHY_API_KEY: Boolean(process.env.MESHY_API_KEY), OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY), ACCESS_CODE: Boolean(code) },
   };
   try {
     const [list, glb, task] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);
@@ -151,7 +151,7 @@ export default async function works(req, res) {
   try {
     if (req.method === 'GET' && new URL(req.url, 'http://x').searchParams.has('diag')) return diag(req, res);
     if (req.method === 'GET') {
-      if (!store.enabled) return send(res, 200, { enabled: false, works: [] });
+      if (!(await store.ready())) return send(res, 200, { enabled: false, works: [] });
       const [list, glb, task] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -165,7 +165,7 @@ export default async function works(req, res) {
     }
 
     if (req.method === 'POST') {
-      if (!store.enabled) return send(res, 503, { error: 'no_store' });
+      if (!(await store.ready())) return send(res, 503, { error: 'no_store' });
       if (!process.env.OPENAI_API_KEY) return send(res, 503, { error: 'no_key' });
       const body = await readJSON(req);
       // 갤러리에서 3D 기록만 있는 작품을 열면 3D 파일을 가져와 보관 (기록된 작업만 쓰니 접근 코드 없이도 됨)

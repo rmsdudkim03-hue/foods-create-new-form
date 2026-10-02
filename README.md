@@ -62,7 +62,7 @@ AI가 만든 계획에는 서버가 도장(서명)을 찍어서, 도장이 맞�
 | `IMAGE_MODEL_FOOD` / `IMAGE_QUALITY_FOOD` | 선택 | 기본 `gpt-image-1-mini` / `medium` |
 | `IMAGE_MODEL_FORM` / `IMAGE_QUALITY_FORM` | 선택 | 기본 `gpt-image-2` / `high` |
 | `MESHY_POLYCOUNT` | 선택 | 3D 면 개수, 기본 60000 |
-| `BLOB_READ_WRITE_TOKEN` | 선택 | Vercel → Storage에서 Blob 저장소(**Public**)를 만들어 프로젝트에 연결하면 자동으로 생김. 없으면 갤러리는 각 기기에만 저장 |
+| `BLOB_READ_WRITE_TOKEN` | 선택 | Vercel → Storage에서 Blob 저장소(**Public**)를 만들어 프로젝트에 연결하면 자동으로 생김 (이름이 달라도 됨. `api/works?diag=1`로 연결 확인). 없으면 갤러리는 각 기기에만 저장 |
 | `MEMORY` | 선택 | `0`이면 관람객 평가 참고를 끔 |
 
 ## 좌표 규칙
