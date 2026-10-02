@@ -335,8 +335,10 @@ async function searchOne(site, query, page = 1) {
       `${PIXABAY}/?${new URLSearchParams({ key: process.env.PIXABAY_API_KEY, q: query, image_type: 'photo', per_page: '20', page: String(page), safesearch: 'true', ...extra })}`);
     let data = await search({ category: 'food' });
     if ((data.hits || []).length < 8) data = await search({});
+    // 원본(1280px) 대신 960px 사진을 씀 → 받기·배경 지우기가 빨라짐 (화면에는 충분한 크기)
     list = (data.hits || []).filter((p) => p.largeImageURL).map((p) => ({
-      src: p.largeImageURL, w: p.imageWidth, h: p.imageHeight, alt: p.tags || '',
+      src: p.webformatURL?.includes('_640') ? p.webformatURL.replace('_640', '_960') : p.largeImageURL,
+      w: p.imageWidth, h: p.imageHeight, alt: p.tags || '',
       by: p.user || '', link: p.pageURL || '',
       thumb: p.webformatURL?.replace('_640', '_340') || p.previewURL,
     }));
@@ -400,18 +402,16 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
   };
   const site = photoSite();
   if (!site) return { photos: [], page };
-  let photos = await gather(site, page);
-  let last = page;
-  if (photos.length < PICK_MAX) {
-    // 다음 묶음 + (많이 모자라면) Wikimedia를 동시에 찾음
-    const more = [gather(site, page + 1)];
-    if (photos.length < PHOTO_COUNT && site !== 'Wikimedia Commons') more.push(gather('Wikimedia Commons', page));
-    console.log(`[알림] ${site}에서 맞는 사진 ${photos.length}장 → 다음 묶음${more.length > 1 ? ' + Wikimedia Commons' : ''}에서 보충`);
-    const [next, wiki = []] = await Promise.all(more);
-    photos = [...photos, ...next, ...wiki];
-    last = page + 1;
-  }
-  return { photos: photos.slice(0, PICK_MAX), page: last };
+  // 시간을 줄이려고 이번 묶음 + 다음 묶음 (+ Wikimedia)을 한꺼번에 찾고 고름 (차례로 하면 2~3배 걸림)
+  // 같은 사진이 겹치지 않게 후보 목록은 차례로 만들고, AI가 고르는 단계만 동시에
+  const rounds = [gather(site, page), gather(site, page + 1)];
+  if (site !== 'Wikimedia Commons') rounds.push(gather('Wikimedia Commons', page));
+  const [first, next, wiki = []] = await Promise.all(rounds);
+  // 사진 사이트 사진을 먼저, Wikimedia는 모자랄 때만
+  let photos = [...first, ...next];
+  if (photos.length < PHOTO_COUNT) photos = [...photos, ...wiki];
+  console.log(`[알림] 사진 고름: ${site} ${first.length}+${next.length}장, Wikimedia ${wiki.length}장 → ${Math.min(photos.length, PICK_MAX)}장 보냄`);
+  return { photos: photos.slice(0, PICK_MAX), page: page + 1 };
 }
 
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------

@@ -111,8 +111,10 @@ async function cutoutNow(src) {
   let canvas = null;
   try {
     canvas = await modelCutout(img, src, 'fast');
-    if (!usable(maskStats(canvas)) && fastBad < 2) {
-      // 빠른 모델 결과가 이상하면 안정 모드로 한 번 더
+    const st = maskStats(canvas);
+    // 빠른 모델이 고장 난 것처럼 보일 때만(거의 다 남기거나 거의 다 지움) 안정 모드로 한 번 더
+    // (그냥 배경이 남은 사진은 다시 해도 비슷해서 시간만 걸림 → 바로 뺌)
+    if ((st.cover > 0.97 || st.cover < 0.01) && fastBad < 2) {
       const safe = await modelCutout(img, src, 'safe').catch(() => null);
       if (safe && usable(maskStats(safe))) { fastBad++; canvas = safe; }
     }

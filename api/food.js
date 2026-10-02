@@ -82,18 +82,15 @@ export default handler(async (req, res, body) => {
       name = out.name || word;
       queries = out.queries?.length ? out.queries : [word];
     }
+    // 사진 찾기와 'AI 이미지 계획'을 동시에 시작 (사진이 모자랄 때 기다리지 않게. 사진이 충분하면 계획은 버림)
+    const planning = planShots(name).catch((err) => { console.error('[알림] AI 이미지 계획 실패', err); return { shots: [] }; });
     const found = await searchPhotos(queries, name, { page, exclude });
     const photos = found.photos;
     // 맞는 사진이 모자라면 (예: 메론빵처럼 사진 사이트에 거의 없는 음식) 모자란 만큼 AI가 그림
     let shots = [];
     if (photos.length < MIN_IMAGES) {
       console.log(`[알림] ${name} 사진 ${photos.length}장뿐 → AI 이미지 ${MIN_IMAGES - photos.length}장으로 채움`);
-      try {
-        const plan = await planShots(name);
-        shots = plan.shots.slice(0, MIN_IMAGES - photos.length);
-      } catch (err) {
-        console.error('[알림] AI 이미지 계획 실패', err);
-      }
+      shots = (await planning).shots.slice(0, MIN_IMAGES - photos.length);
     }
     if (!photos.length && !shots.length) return send(res, 200, { ok: false, message: `${name} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
     return send(res, 200, { ok: true, name, interpretation: '', queries, page: found.page, photos, shots });
