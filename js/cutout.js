@@ -138,12 +138,11 @@ async function cutoutNow(src) {
     canvas = simpleCutout(img);
   }
   const st = maskStats(canvas);
-  // 배경을 제대로 못 지운 사진은 보여주지 않음 (음식 모양이 드러나지 않아서)
-  if (!usable(st)) {
-    cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
-    throw new Error(`배경 제거 결과가 이상해서 뺌 (음식 ${Math.round(st.cover * 100)}%, 테두리 ${Math.round(st.edge * 100)}%)`);
-  }
-  return trimAlpha(canvas);
+  // 결과는 항상 돌려주고, 배경이 잘 지워졌는지(good)를 같이 알려줌
+  // (잘 안 지워진 사진은 화면에서 '다른 사진이 다 모자랄 때만' 씀 → 빈 화면이 생기지 않게)
+  const good = usable(st);
+  if (!good) cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
+  return { ...trimAlpha(canvas), good, score: st.edge + Math.abs(st.cover - 0.4) };
 }
 
 async function modelCutout(img, src, kind) {

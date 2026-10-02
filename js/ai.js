@@ -229,8 +229,9 @@ export function foodImages(food) {
       try {
         const { image } = await call('api/image', { body: { prompt: shots[j].prompt, kind: 'food' }, timeout: 120000 });
         if (enough()) return;
-        // 흰 배경 지우기 (줄 맨 앞에서. 실패하면 흰 배경 그대로: 화면도 흰색이라 티가 안 남)
-        const t = await cutout(image, enough, { first: true }).catch(() => (enough() ? null : trimSafe(image)));
+        // 흰 배경 지우기 (줄 맨 앞에서. 잘 안 지워지면 흰 배경 그대로: 화면도 흰색이라 티가 안 남)
+        const c = await cutout(image, enough, { first: true }).catch(() => null);
+        const t = enough() ? null : c?.good ? c : await trimSafe(image);
         if (t) add({ src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${j + 1}, ${shots[j].view}`, ai: true });
       } catch (err) {
         console.error(err);
@@ -240,20 +241,38 @@ export function foodImages(food) {
       }
     };
     // 채운 자리 + 그리는 중 + 아직 처리 중인 사진의 절반(배경을 못 지울 수 있으니)이 SHOW보다 적으면 더 그림
+    const backups = [];             // 배경이 덜 지워진 사진 (다른 게 다 모자랄 때만 씀)
+    let fallbackTried = false;
     function topUp() {
       if (job.cancelled || closed) return;
       while (aiNext < shots.length && filled + aiBusy + Math.ceil(photosLeft / 2) < SHOW) drawShot(aiNext++);
-      // 다 끝났는데 못 채운 자리는 비움 (작업이 끝나도록)
-      if (!photosLeft && !aiBusy && (enough() || (shotsReady && aiNext >= shots.length))) {
-        closed = true;
-        for (let i = filled; i < SHOW; i++) job.fail(i);
+      if (photosLeft || aiBusy || !(enough() || (shotsReady && aiNext >= shots.length))) return;
+      // 할 수 있는 건 다 했는데 자리가 남음
+      if (!enough() && !fallbackTried) {
+        // ① AI 묘사를 못 받았거나 다 썼으면: 검색어로 간단한 묘사를 만들어 더 그림
+        fallbackTried = true;
+        const qs = plan.queries?.length ? plan.queries : [food];
+        const extra = Array.from({ length: SHOW - filled }, (_, k) => ({
+          view: 'simple',
+          prompt: `${qs[k % qs.length]} (${food}), ${['whole', 'cut in half', 'a few pieces', 'top view'][k % 4]}, realistic food photo, single subject on a pure white background`,
+        }));
+        shots = [...shots, ...extra];
+        shotsReady = true;
+        return topUp();
       }
+      // ② 그래도 남으면 배경이 덜 지워진 사진으로 채움 (빈 화면보다 나음)
+      backups.sort((x, y) => x.score - y.score).forEach((b) => add(b.item));
+      closed = true;
+      for (let i = filled; i < SHOW; i++) job.fail(i);
     }
     photos.forEach((p, i) => {
       const src = `api/photo?u=${encodeURIComponent(p.src)}`;
       const base = { alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
       cutout(src, enough)
-        .then((c) => add({ ...base, src: c.src, w: c.w, h: c.h, cut: true }))
+        .then((c) => {
+          const item = { ...base, src: c.src, w: c.w, h: c.h, cut: true };
+          if (c.good) add(item); else backups.push({ item, score: c.score });
+        })
         .catch((err) => { if (err.message !== 'skip') console.warn(err.message); })
         .finally(() => { photosLeft--; topUp(); });
     });

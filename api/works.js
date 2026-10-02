@@ -10,7 +10,7 @@
 // POST { backfill: true } → 3D 기록이 없는 예전 작품을 Meshy 작업 목록에서 시간으로 짝지어 기록 (예전 작품 복구용)
 // POST { id, rating: 'good' | 'bad' } → 관람객 평가 저장 (작품 하나에 한 번만)
 //   평가는 ratings/작품id.good 처럼 파일 이름에 담아서, 내용을 읽지 않고 목록만으로 알 수 있게 함
-import { send, readJSON, allowed, store, newKey, checkPlan, meshy, timed } from './_lib.js';
+import { send, readJSON, allowed, store, newKey, checkPlan, meshy, timed, drawImage, searchPhotos, photoSite } from './_lib.js';
 
 export const GALLERY_LIMIT = 60;   // 갤러리에 보여줄 최근 작품 수
 const FIRST_NO = 6;                // 기본 작품(04, 05) 다음 번호부터
@@ -142,6 +142,20 @@ async function diag(req, res) {
     const arr = Array.isArray(r) ? r : r.result || r.data || [];
     out.Meshy최근변환 = arr.map((t) => ({ 시작: t.created_at ? new Date(Number(t.created_at)).toISOString() : null, 상태: t.status, glb: Boolean(t.model_urls?.glb) }));
   } catch (err) { out.Meshy오류 = String(err.message || err).slice(0, 300); }
+  // &food=음식이름(영어 권장): 사진 검색 + AI 음식 이미지 한 장을 실제로 시험 (이미지 1장 요금이 듦)
+  const food = q.get('food');
+  if (food) {
+    const t0 = Date.now();
+    try {
+      const r = await searchPhotos([food], food);
+      out.사진검색 = { 사이트: photoSite(), 고른사진: r.photos.length, 걸린초: Math.round((Date.now() - t0) / 1000) };
+    } catch (err) { out.사진검색 = String(err.message || err).slice(0, 300); }
+    const t1 = Date.now();
+    try {
+      const img = await drawImage({ prompt: `${food}, realistic food photo, single subject`, kind: 'food' });
+      out.AI이미지 = { 결과: 'OK', 크기KB: Math.round(img.length * 0.75 / 1024), 걸린초: Math.round((Date.now() - t1) / 1000) };
+    } catch (err) { out.AI이미지 = String(err.message || err).slice(0, 300); }
+  }
   // 저장소에 실제로 써지는지 시험 (작은 파일 하나)
   try { await store.put('diag/test.txt', new Date().toISOString(), 'text/plain', true); out.저장소쓰기 = 'OK'; } catch (err) { out.저장소쓰기 = String(err.message || err).slice(0, 300); }
   send(res, 200, out);
