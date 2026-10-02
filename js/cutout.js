@@ -74,14 +74,16 @@ function loadImage(src) {
 // 한 장 끝날 때마다 잠깐 쉬어서 화면·컴퓨터가 멈춘 것처럼 느려지지 않게 함
 const REST_MS = 120;
 let chain = Promise.resolve();
-export function cutout(src) {
-  const job = chain.then(() => cutoutNow(src));
+// skip(): 차례가 됐을 때 true면 건너뜀 (이미 사진이 충분하거나 화면을 떠났을 때)
+export function cutout(src, skip = () => false) {
+  const job = chain.then(() => (skip() ? Promise.reject(new Error('skip')) : cutoutNow(src)));
   chain = job.catch(() => {}).then(() => new Promise((r) => setTimeout(r, REST_MS)));
   return job;
 }
 
-// 사진에서 음식(불투명한 부분)이 차지하는 비율
-function coverage(canvas) {
+// 사진에서 음식(불투명한 부분)이 차지하는 비율 + 사진 테두리에 남은 부분의 비율
+// 음식만 남았으면 테두리는 거의 투명함. 테두리가 많이 남아 있으면 식탁·접시·배경이 안 지워진 것
+function maskStats(canvas) {
   const k = Math.min(1, 96 / Math.max(canvas.width, canvas.height));
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(canvas.width * k));
@@ -89,31 +91,41 @@ function coverage(canvas) {
   const g = c.getContext('2d', { willReadFrequently: true });
   g.drawImage(canvas, 0, 0, c.width, c.height);
   const a = g.getImageData(0, 0, c.width, c.height).data;
-  let n = 0;
-  for (let i = 3; i < a.length; i += 4) if (a[i] > 128) n++;
-  return n / (c.width * c.height);
+  const W = c.width, H = c.height;
+  let n = 0, edge = 0, edgeN = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const on = a[(y * W + x) * 4 + 3] > 128;
+      if (on) n++;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) { edgeN++; if (on) edge++; }
+    }
+  }
+  return { cover: n / (W * H), edge: edge / edgeN };
 }
-// 배경이 거의 안 지워졌거나(음식이 화면을 꽉 채움) 거의 다 지워졌으면 쓸 수 없는 결과
-const MAX_COVER = 0.88, MIN_COVER = 0.03;
-const usable = (cv) => cv >= MIN_COVER && cv <= MAX_COVER;
+// 쓸 수 없는 결과: 거의 안 지워짐(화면을 꽉 채움) / 거의 다 지워짐 / 테두리에 배경이 많이 남음
+const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.15;
+const usable = (s) => s.cover >= MIN_COVER && s.cover <= MAX_COVER && s.edge <= MAX_EDGE;
 
 async function cutoutNow(src) {
   const img = await loadImage(src);
   let canvas = null;
   try {
     canvas = await modelCutout(img, src, 'fast');
-    if (!usable(coverage(canvas)) && fastBad < 2) {
+    if (!usable(maskStats(canvas)) && fastBad < 2) {
       // 빠른 모델 결과가 이상하면 안정 모드로 한 번 더
       const safe = await modelCutout(img, src, 'safe').catch(() => null);
-      if (safe && usable(coverage(safe))) { fastBad++; canvas = safe; }
+      if (safe && usable(maskStats(safe))) { fastBad++; canvas = safe; }
     }
   } catch (err) {
     if (cutoutInfo.method.startsWith('AI 모델')) console.warn('[배경 제거] 이 사진은 모델 실패 → 간단한 방식', err);
     canvas = simpleCutout(img);
   }
-  const cv = coverage(canvas);
+  const st = maskStats(canvas);
   // 배경을 제대로 못 지운 사진은 보여주지 않음 (음식 모양이 드러나지 않아서)
-  if (!usable(cv)) throw new Error(`배경 제거 결과가 이상해서 뺌 (음식 비율 ${Math.round(cv * 100)}%)`);
+  if (!usable(st)) {
+    cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
+    throw new Error(`배경 제거 결과가 이상해서 뺌 (음식 ${Math.round(st.cover * 100)}%, 테두리 ${Math.round(st.edge * 100)}%)`);
+  }
   return trimAlpha(canvas);
 }
 

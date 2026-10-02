@@ -442,7 +442,7 @@ const picker = (() => {
     const update = () => {
       const sel = carousel.selected();
       pickBtn.disabled = !sel || sel.cut === false;
-      const total = job.items.length - job.failed;
+      const total = Math.min(10, job.items.length - job.failed); // 화면에는 최대 10장
       const cut = job.items.filter((it) => it && it.cut !== false).length;
       if (photos) {
         pickSub.textContent = cut < total
@@ -452,7 +452,7 @@ const picker = (() => {
         // 사진이 모자라서 AI가 그린 이미지가 섞여 있으면 그 이미지에는 AI 안내 문구
         pickNote.textContent = sel?.ai ? 'AI가 생성한 참고 이미지예요'
           : sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
-        if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}]`;
+        if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}${cutoutInfo.rejected ? `, 못 지워서 뺀 사진 ${cutoutInfo.rejected}장` : ''}]`;
       } else {
         pickSub.textContent = job.ready < total
           ? `AI가 ${food} 이미지를 만들고 있어요 (${job.ready}/${total})`
