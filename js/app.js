@@ -452,7 +452,14 @@ const picker = (() => {
         // 사진이 모자라서 AI가 그린 이미지가 섞여 있으면 그 이미지에는 AI 안내 문구
         pickNote.textContent = sel?.ai ? 'AI가 생성한 참고 이미지예요'
           : sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
-        if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}${cutoutInfo.rejected ? `, 못 지워서 뺀 사진 ${cutoutInfo.rejected}장` : ''}]`;
+        if (DEBUG) {
+          // 입력 후 첫 사진·마지막 사진까지 걸린 시간 (초)
+          const t0 = job.meta?.t0;
+          if (t0 && cut >= 1 && !job.tFirst) job.tFirst = (performance.now() - t0) / 1000;
+          if (t0 && cut >= total && !job.tAll) job.tAll = (performance.now() - t0) / 1000;
+          const times = job.tFirst ? `, 첫 사진 ${job.tFirst.toFixed(0)}초${job.tAll ? ` · 다 준비 ${job.tAll.toFixed(0)}초` : ''}` : '';
+          pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}${cutoutInfo.rejected ? `, 못 지워서 뺀 사진 ${cutoutInfo.rejected}장` : ''}${times}]`;
+        }
       } else {
         pickSub.textContent = job.ready < total
           ? `AI가 ${food} 이미지를 만들고 있어요 (${job.ready}/${total})`

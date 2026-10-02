@@ -41,6 +41,8 @@ export function mode() {
         const s = await r.json();
         live = Boolean(s.live && s.codeOk);
       }
+      // 실제 모드면 배경 제거 모델(약 88MB)을 처음부터 받아 둠 (음식을 입력하는 동안 준비되게)
+      if (live) warmup();
     } catch { live = false; }
     console.info(`[AI] ${live ? '실제 모드' : '데모 모드'}`);
     return live ? 'live' : 'demo';
@@ -175,8 +177,12 @@ const foodPlans = new Map();
 export async function checkFood(word) {
   const w = word.trim();
   if ((await mode()) === 'live') {
+    const t0 = performance.now(); // ?debug에서 걸린 시간 표시용
     const r = await call('api/food', { body: { word: w }, timeout: 120000 });
+    r.t0 = t0;
     if (!r.ok) return { ok: false, message: r.message };
+    // AI 참고 이미지 묘사는 따로 동시에 부름 (사진 찾기를 기다리지 않게)
+    r.shotsPromise = shotsFor(r.name);
     foodPlans.set(r.name, r);
     if (r.photos) warmup(); // 배경 제거 모델을 미리 받아 둠
     return { ok: true, name: r.name, interpretation: r.interpretation };
@@ -188,7 +194,14 @@ export async function checkFood(word) {
   return { ok: false, message: `미리보기에서는 ${Object.keys(FOODS).join(', ')}만 입력할 수 있어요` };
 }
 
-/* ---------- ⓪ 음식 이미지 10장 ---------- */
+// AI 참고 이미지 묘사 (실제 사진이 모자랄 때 쓸 것)
+function shotsFor(name) {
+  return call('api/food', { body: { word: name, shotsOnly: true }, timeout: 120000 })
+    .then((r) => r.shots || [])
+    .catch((err) => { console.error('AI 이미지 묘사 실패', err); return []; });
+}
+
+/* ---------- ⓪ 음식 이미지 ---------- */
 export function foodImages(food) {
   const plan = foodPlans.get(food);
   if (live && plan) {
@@ -198,9 +211,12 @@ export function foodImages(food) {
          실제 사진이 모자랄 것 같으면 바로 시작하고, 사진이 빠질 때마다 모자란 만큼 더 그림 (안 쓰는 묘사는 안 그림) */
     const SHOW = 6;
     const photos = plan.photos || [];
-    const shots = plan.shots || [];
+    // AI 묘사: 서버가 같이 준 것(사진 없는 모드) 또는 따로 부른 것 (도착하면 topUp)
+    let shots = plan.shots?.length ? plan.shots : [];
+    let shotsReady = !plan.shotsPromise || shots.length > 0;
     const job = createJob(SHOW);
-    job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, shots };
+    job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, t0: plan.t0 || performance.now() };
+    if (!shotsReady) plan.shotsPromise.then((s) => { shots = s; shotsReady = true; topUp(); });
     let filled = 0;                 // 채운 자리 수
     const enough = () => job.cancelled || filled >= SHOW;
     const add = (item) => { if (!enough()) job.put(filled++, item); };
@@ -213,8 +229,8 @@ export function foodImages(food) {
       try {
         const { image } = await call('api/image', { body: { prompt: shots[j].prompt, kind: 'food' }, timeout: 120000 });
         if (enough()) return;
-        // 흰 배경 지우기 (실패하면 흰 배경 그대로: 화면도 흰색이라 티가 안 남)
-        const t = await cutout(image, enough).catch(() => (enough() ? null : trimSafe(image)));
+        // 흰 배경 지우기 (줄 맨 앞에서. 실패하면 흰 배경 그대로: 화면도 흰색이라 티가 안 남)
+        const t = await cutout(image, enough, { first: true }).catch(() => (enough() ? null : trimSafe(image)));
         if (t) add({ src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${j + 1}, ${shots[j].view}`, ai: true });
       } catch (err) {
         console.error(err);
@@ -228,7 +244,7 @@ export function foodImages(food) {
       if (job.cancelled || closed) return;
       while (aiNext < shots.length && filled + aiBusy + Math.ceil(photosLeft / 2) < SHOW) drawShot(aiNext++);
       // 다 끝났는데 못 채운 자리는 비움 (작업이 끝나도록)
-      if (!photosLeft && !aiBusy && (enough() || aiNext >= shots.length)) {
+      if (!photosLeft && !aiBusy && (enough() || (shotsReady && aiNext >= shots.length))) {
         closed = true;
         for (let i = filled; i < SHOW; i++) job.fail(i);
       }
@@ -262,7 +278,7 @@ export async function moreImages(food) {
     timeout: 120000,
   });
   if (!r.ok) throw new Error(r.message || '사진을 더 찾지 못했어요');
-  foodPlans.set(food, { ...r, name: food, seen: [...seen] });
+  foodPlans.set(food, { ...r, name: food, seen: [...seen], shotsPromise: shotsFor(food) }); // AI 묘사도 새로
   return foodImages(food);
 }
 
