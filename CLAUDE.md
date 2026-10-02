@@ -25,7 +25,7 @@
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
-음식 확인 + 영어 검색어(GPT-6 Astra) → 동시에: ① 사진 후보 검색(Pixabay는 음식 카테고리. Unsplash / Pexels / 키 없으면 Wikimedia Commons, 검색어: 음식 이름 + 'isolated' + 다른 모습 2개) → Astra가 미리보기를 보고 정확하고 서로 다른 모습으로 최대 8장 고름 (6장이 안 되면 Wikimedia 사진도 보탬) ② AI 참고 이미지 묘사 6개 계획(prompts/0-food-images.md)
+음식 확인 + 영어 검색어(GPT-6 Astra) → 동시에: ① 사진 후보 검색(Pixabay는 음식 카테고리. Unsplash / Pexels / 키 없으면 Wikimedia Commons, 검색어: 음식 이름 + 'isolated' + 다른 모습 2개) → Astra가 미리보기를 보고 정확하고 서로 다른 모습으로 최대 8장 고름 (6장이 안 되면 Wikimedia 사진도 보탬) ② AI 참고 이미지 묘사 6개 계획(prompts/0-food-images.md, 화면에서 `shotsOnly`로 따로 동시에 부름 → 사진은 기다리지 않고 바로 옴)
 → 화면에는 **실제 사진 + AI 이미지 섞어 6장**: 실제 사진은 브라우저에서 배경을 지워 잘 지워진 것만 (배경이 남거나 이상한 사진은 뺌), 모자랄 것 같은 만큼 AI 이미지를 흰 배경으로 그리고 배경을 지워 채움(gpt-image-1-mini. 투명 배경 요청은 검은 배경이 나와서 안 씀. 자리 6개를 도착 순서대로 채움. 화면에 "AI가 생성한 참고 이미지예요") → "다른 사진 보기"는 다음 검색 결과(페이지)에서 본 적 없는 사진으로 다시 고름 → 특징 분석(Astra)
 → 조형 6개 계획(Astra) → 조형 이미지(gpt-image-2.5-flare, 동시에 3장씩, 실패하면 최대 3번 다시) → 3D 변환(Meshy, 텍스처 없이)
 - `PHOTOS=0`이면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.

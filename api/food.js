@@ -63,6 +63,12 @@ export default handler(async (req, res, body) => {
   const word = String(body.word || '').trim().slice(0, 30);
   if (!word) return send(res, 400, { error: 'empty' });
 
+  // AI 참고 이미지 묘사만 따로 (사진 찾기를 기다리지 않게 화면에서 동시에 부름)
+  if (body.shotsOnly) {
+    const plan = await planShots(word);
+    return send(res, 200, { ok: true, shots: plan.shots.slice(0, AI_SHOTS) });
+  }
+
   if (photoSite()) {
     // '다른 사진 보기': 이미 확인된 음식이면 검색어를 그대로 받아서 다음 묶음만 찾음 (음식 확인 생략)
     const given = Array.isArray(body.queries) ? body.queries.map((q) => String(q).slice(0, 40)).filter(Boolean).slice(0, 3) : [];
@@ -82,11 +88,10 @@ export default handler(async (req, res, body) => {
       name = out.name || word;
       queries = out.queries?.length ? out.queries : [word];
     }
-    // 사진 찾기와 'AI 이미지 계획'을 동시에 (실제 사진 + AI 이미지 섞어 보여줌. 몇 장을 그릴지는 화면에서 정함)
-    const planning = planShots(name).catch((err) => { console.error('[알림] AI 이미지 계획 실패', err); return { shots: [] }; });
-    const [found, plan] = await Promise.all([searchPhotos(queries, name, { page, exclude }), planning]);
+    // 사진만 찾아서 바로 돌려줌. AI 이미지 묘사는 화면에서 따로 동시에 부름 (shotsOnly)
+    const found = await searchPhotos(queries, name, { page, exclude });
     const photos = found.photos;
-    const shots = plan.shots.slice(0, AI_SHOTS);
+    const shots = [];
     if (!photos.length && !shots.length) return send(res, 200, { ok: false, message: `${name} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
     return send(res, 200, { ok: true, name, interpretation: '', queries, page: found.page, photos, shots });
   }

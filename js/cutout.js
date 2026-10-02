@@ -73,12 +73,27 @@ function loadImage(src) {
 // 차례대로 처리 (동시에 여러 장 돌리면 오히려 느려짐)
 // 한 장 끝날 때마다 잠깐 쉬어서 화면·컴퓨터가 멈춘 것처럼 느려지지 않게 함
 const REST_MS = 120;
-let chain = Promise.resolve();
+// 차례 기다리는 줄. first: 줄 맨 앞에 끼움 (AI 이미지는 흰 배경이라 금방 끝나서 먼저)
+const queue = [];
+let running = false;
 // skip(): 차례가 됐을 때 true면 건너뜀 (이미 사진이 충분하거나 화면을 떠났을 때)
-export function cutout(src, skip = () => false) {
-  const job = chain.then(() => (skip() ? Promise.reject(new Error('skip')) : cutoutNow(src)));
-  chain = job.catch(() => {}).then(() => new Promise((r) => setTimeout(r, REST_MS)));
-  return job;
+export function cutout(src, skip = () => false, { first = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const task = { src, skip, resolve, reject };
+    if (first) queue.unshift(task); else queue.push(task);
+    pump();
+  });
+}
+async function pump() {
+  if (running) return;
+  running = true;
+  while (queue.length) {
+    const t = queue.shift();
+    if (t.skip()) { t.reject(new Error('skip')); continue; }
+    try { t.resolve(await cutoutNow(t.src)); } catch (err) { t.reject(err); }
+    await new Promise((r) => setTimeout(r, REST_MS));
+  }
+  running = false;
 }
 
 // 사진에서 음식(불투명한 부분)이 차지하는 비율 + 사진 테두리에 남은 부분의 비율
