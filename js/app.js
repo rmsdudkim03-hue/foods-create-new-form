@@ -442,7 +442,7 @@ const picker = (() => {
     const update = () => {
       const sel = carousel.selected();
       pickBtn.disabled = !sel || sel.cut === false;
-      const total = job.items.length - job.failed;
+      const total = Math.min(10, job.items.length - job.failed); // 화면에는 최대 10장
       const cut = job.items.filter((it) => it && it.cut !== false).length;
       if (photos) {
         pickSub.textContent = cut < total
@@ -452,7 +452,7 @@ const picker = (() => {
         // 사진이 모자라서 AI가 그린 이미지가 섞여 있으면 그 이미지에는 AI 안내 문구
         pickNote.textContent = sel?.ai ? 'AI가 생성한 참고 이미지예요'
           : sel?.by ? `사진: ${sel.by} / ${site} · 배경은 AI가 지웠어요` : `사진: ${site} · 배경은 AI가 지웠어요`;
-        if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}]`;
+        if (DEBUG) pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}${cutoutInfo.rejected ? `, 못 지워서 뺀 사진 ${cutoutInfo.rejected}장` : ''}]`;
       } else {
         pickSub.textContent = job.ready < total
           ? `AI가 ${food} 이미지를 만들고 있어요 (${job.ready}/${total})`
@@ -812,7 +812,10 @@ enter.result = async () => {
       if (run === state.run && current === 'result') sub.textContent = `선택한 조형을 3D로 바꾸는 중이에요 (${p}%)`;
     }, (taskId) => {
       // 변환 시작 기록 (작품 저장이 끝난 뒤)
-      Promise.resolve(state.saving).then((id) => ai.noteTask(id, taskId)).catch((err) => console.error('3D 변환 기록 실패', err));
+      Promise.resolve(state.saving).then((id) => ai.noteTask(id, taskId)).catch((err) => {
+        console.error('3D 변환 기록 실패', err);
+        if (DEBUG) toast(`3D 변환 기록 실패: ${err.message}`);
+      });
     });
     viewerMod ??= await import('./viewer3d.js');
     viewer ??= viewerMod.createViewer($('#viewer'));
@@ -1178,8 +1181,10 @@ async function saveCreationNow(f) {
       gallery.refresh();
       return r.id;
     }
+    if (DEBUG) toast('작품 저장 안 됨 (실제 AI 모드인지 확인)');
   } catch (err) {
     console.error('공유 갤러리 저장 실패', err);
+    if (DEBUG) toast(`작품 저장 실패: ${err.message}`);
   }
   return null;
 }

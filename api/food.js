@@ -4,7 +4,7 @@
 //   없으면 (예전 방식): 글 AI가 이미지 10장을 계획 → 이미지 AI가 그림. 프롬프트 원문: prompts/0-food-images.md
 import { handler, send, askJSON, prompt, S, searchPhotos, photoSite } from './_lib.js';
 
-const MIN_IMAGES = 6; // 사진이 이보다 적으면 모자란 만큼 AI가 음식 이미지를 그림
+const MIN_IMAGES = 10; // 사진이 이보다 적으면 모자란 만큼 AI가 음식 이미지를 그림 (화면에는 10장)
 
 // 실제 사진 모드: 음식인지 확인 + 검색어만 정함 (빠르게)
 const PHOTO_SCHEMA = S.obj({
@@ -82,7 +82,8 @@ export default handler(async (req, res, body) => {
       name = out.name || word;
       queries = out.queries?.length ? out.queries : [word];
     }
-    const photos = await searchPhotos(queries, name, { page, exclude });
+    const found = await searchPhotos(queries, name, { page, exclude });
+    const photos = found.photos;
     // 맞는 사진이 모자라면 (예: 메론빵처럼 사진 사이트에 거의 없는 음식) 모자란 만큼 AI가 그림
     let shots = [];
     if (photos.length < MIN_IMAGES) {
@@ -95,7 +96,7 @@ export default handler(async (req, res, body) => {
       }
     }
     if (!photos.length && !shots.length) return send(res, 200, { ok: false, message: `${name} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
-    return send(res, 200, { ok: true, name, interpretation: '', queries, page, photos, shots });
+    return send(res, 200, { ok: true, name, interpretation: '', queries, page: found.page, photos, shots });
   }
 
   const out = await planShots(word);

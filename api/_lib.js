@@ -192,7 +192,7 @@ export const store = {
   get enabled() { return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_LOCAL_DIR); },
 
   // 파일 하나 저장 → 주소 반환
-  async put(pathname, body, contentType) {
+  async put(pathname, body, contentType, overwrite = false) {
     const dir = process.env.BLOB_LOCAL_DIR;
     if (dir) {
       const file = path.join(dir, pathname);
@@ -201,7 +201,7 @@ export const store = {
       return `file://${file}`;
     }
     const { put } = await import('@vercel/blob');
-    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false });
+    const r = await put(pathname, body, { access: 'public', contentType, addRandomSuffix: false, allowOverwrite: overwrite });
     return r.url;
   },
 
@@ -262,6 +262,8 @@ export function checkPlan(plan) {
    검색 결과 앞쪽 18장 중 10장을 무작위로 골라서 관람객마다 조금씩 다르게.
    배경은 화면(브라우저)에서 AI가 지움 */
 export const PHOTO_COUNT = 10;
+// 브라우저에서 배경을 못 지운 사진은 빠지므로, 여유 있게 더 골라서 보냄 (화면에는 10장만)
+export const PICK_MAX = 15;
 const UNSPLASH = process.env.UNSPLASH_BASE || 'https://api.unsplash.com';
 const PIXABAY = process.env.PIXABAY_BASE || 'https://pixabay.com/api';
 const COMMONS = process.env.COMMONS_BASE || 'https://commons.wikimedia.org/w/api.php';
@@ -341,16 +343,17 @@ async function searchOne(site, query, page = 1) {
 }
 
 // 검색어 여러 개(같은 음식의 다른 모습)로 찾아서 섞음 → 글 AI가 보고 고름
-// 맞는 사진이 적으면(PHOTO_ENOUGH장 미만) Wikimedia Commons에서 한 번 더 찾아 보충
+// 고른 사진이 PICK_MAX장보다 적으면 다음 검색 결과 묶음에서 한 번 더,
+// 그래도 PHOTO_COUNT장보다 적으면 Wikimedia Commons에서도 찾아 보충
 // page: 몇 번째 검색 결과 묶음인지 ('다른 사진 보기'를 누를 때마다 다음 묶음), exclude: 이미 보여준 사진 주소
-export const PHOTO_ENOUGH = 5;
+// 돌려주는 값: { photos, page: 마지막으로 쓴 묶음 번호 }
 export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {}) {
   const qs = [...new Set((Array.isArray(queries) ? queries : [queries]).map((q) => String(q || '').trim()).filter(Boolean))].slice(0, 3);
   // 배경이 단순한 사진(배경 지우기가 잘 됨)을 찾으려고 '단독으로 찍은' 검색어를 하나 더
   if (qs[0]) qs.unshift(`${qs[0]} isolated`);
   const seen = new Set(exclude);
-  const gather = async (site) => {
-    const lists = await Promise.all(qs.map((q) => searchOne(site, q, page).catch((err) => { console.error(err); return []; })));
+  const gather = async (site, pg) => {
+    const lists = await Promise.all(qs.map((q) => searchOne(site, q, pg).catch((err) => { console.error(err); return []; })));
     // 검색어마다 앞쪽부터 번갈아 섞기 (한 검색어 결과만 몰리지 않게), 같은 사진·이미 보여준 사진은 빼기
     const list = [];
     for (let i = 0; list.length < CANDIDATES && lists.some((l) => i < l.length); i++) {
@@ -369,12 +372,19 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
     return picked.map(({ thumb, ...p }) => ({ ...p, site }));
   };
   const site = photoSite();
-  let photos = site ? await gather(site) : [];
-  if (photos.length < PHOTO_ENOUGH && site && site !== 'Wikimedia Commons') {
-    console.log(`[알림] ${site}에서 맞는 사진 ${photos.length}장 → Wikimedia Commons에서 보충`);
-    photos = [...photos, ...(await gather('Wikimedia Commons'))].slice(0, PHOTO_COUNT);
+  if (!site) return { photos: [], page };
+  let photos = await gather(site, page);
+  let last = page;
+  if (photos.length < PICK_MAX) {
+    // 다음 묶음 + (많이 모자라면) Wikimedia를 동시에 찾음
+    const more = [gather(site, page + 1)];
+    if (photos.length < PHOTO_COUNT && site !== 'Wikimedia Commons') more.push(gather('Wikimedia Commons', page));
+    console.log(`[알림] ${site}에서 맞는 사진 ${photos.length}장 → 다음 묶음${more.length > 1 ? ' + Wikimedia Commons' : ''}에서 보충`);
+    const [next, wiki = []] = await Promise.all(more);
+    photos = [...photos, ...next, ...wiki];
+    last = page + 1;
   }
-  return photos;
+  return { photos: photos.slice(0, PICK_MAX), page: last };
 }
 
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------
@@ -419,16 +429,16 @@ async function pickPhotos(candidates, name, query) {
   if (!usable.length) return [];
   const out = await askJSON({
     instructions: PICK_INSTRUCTIONS,
-    text: `음식: ${name} (검색어: ${query})\n후보 사진 ${usable.length}장이 0번부터 순서대로 첨부되어 있다. 최대 ${PHOTO_COUNT}장을 고른다.`,
+    text: `음식: ${name} (검색어: ${query})\n후보 사진 ${usable.length}장이 0번부터 순서대로 첨부되어 있다. 최대 ${PICK_MAX}장을 고른다.`,
     images: usable.map((x) => ({ url: x.img, detail: 'low' })),
     name: 'photo_pick',
-    schema: S.obj({ picks: S.arr({ type: 'integer' }, `고른 사진 번호 (좋은 순서, 최대 ${PHOTO_COUNT}개)`) }),
+    schema: S.obj({ picks: S.arr({ type: 'integer' }, `고른 사진 번호 (좋은 순서, 최대 ${PICK_MAX}개)`) }),
     effort: 'low',
   });
   const seen = new Set();
   const picked = (out.picks || [])
     .filter((i) => Number.isInteger(i) && i >= 0 && i < usable.length && !seen.has(i) && seen.add(i))
-    .slice(0, PHOTO_COUNT)
+    .slice(0, PICK_MAX)
     .map((i) => usable[i].c);
   console.log(`[알림] 사진 ${usable.length}장 중 ${picked.length}장 고름 (${name})`);
   // 맞는 사진이 적어도 엉뚱한 사진으로 채우지 않음 (부족하면 다른 곳에서 보충하거나 AI가 그림)

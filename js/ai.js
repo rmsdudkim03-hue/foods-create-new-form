@@ -197,13 +197,15 @@ export function foodImages(food) {
     const shots = plan.shots || [];
     const job = createJob(photos.length + shots.length);
     job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, shots };
-    // 실제 사진: 배경을 다 지운 사진만 보여줌 (그 전에는 빈 접시)
+    // 실제 사진: 배경을 다 지운 사진만 보여줌 (그 전에는 빈 접시). 서버는 여유 있게 더 보내므로 10장이 되면 나머지는 건너뜀
+    const SHOW = 10;
+    const enough = () => job.cancelled || job.ready >= SHOW;
     photos.forEach((p, i) => {
       const src = `api/photo?u=${encodeURIComponent(p.src)}`;
       const base = { alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
-      cutout(src)
-        .then((c) => job.put(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true }))
-        .catch((err) => { console.error(err); job.fail(i); });
+      cutout(src, enough)
+        .then((c) => (enough() ? job.fail(i) : job.put(i, { ...base, src: c.src, w: c.w, h: c.h, cut: true })))
+        .catch((err) => { if (err.message !== 'skip') console.warn(err.message); job.fail(i); });
     });
     // AI 이미지: 흰 배경으로 그려서 배경 지우기는 필요 없음
     pool(shots.map((sh, j) => async () => {
