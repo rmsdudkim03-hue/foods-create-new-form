@@ -43,7 +43,7 @@ export async function timed(label, fn) {
 export const IMAGE_RULES = {
   food: [
     '음식 자체가 중심인 사실적인 사진.',
-    '흰색 또는 아주 밝은 단색 배경과 형태를 읽을 수 있는 조명.', // ← "단순한 배경"을 흰 배경으로 구체화
+    '배경 없이 음식만 (투명 배경). 그림자·접시·받침 없이 형태를 읽을 수 있는 조명.', // ← "단순한 배경"을 투명 배경으로 구체화 (배경 지우기가 필요 없게)
     '패키지, 로고, 광고 문구, 일러스트, 손, 조리 도구, 장식용 소품 제외.',
     '음식의 주요 윤곽이 프레임 안에 들어오도록 한다.',
     '문자, 번호, 설명문을 이미지 안에 넣지 않는다.',
@@ -151,9 +151,10 @@ export async function drawImage({ prompt: p, kind }) {
       prompt: `${p}\n\n[이미지 조건]\n${isFood ? IMAGE_RULES.food : IMAGE_RULES.form}`,
       size: '1024x1024',
       quality: isFood ? MODELS.qualityFood : MODELS.qualityForm,
-      background: 'opaque',
-      output_format: 'jpeg',
-      output_compression: 88,
+      // 음식 이미지는 처음부터 투명 배경으로 (배경 지우기 필요 없음), 조형은 흰 배경
+      background: isFood ? 'transparent' : 'opaque',
+      output_format: isFood ? 'webp' : 'jpeg',
+      output_compression: isFood ? 90 : 88,
       n: 1,
     }),
   }));
@@ -161,7 +162,7 @@ export async function drawImage({ prompt: p, kind }) {
   if (!r.ok) throw new Error(`OpenAI image ${r.status}: ${data.error?.message || 'error'}`);
   const b64 = data.data?.[0]?.b64_json;
   if (!b64) throw new Error('OpenAI image: 빈 응답');
-  return `data:image/jpeg;base64,${b64}`;
+  return `data:image/${isFood ? 'webp' : 'jpeg'};base64,${b64}`;
 }
 
 /* ---------- Meshy: 3D 변환 ---------- */
@@ -288,9 +289,9 @@ export function checkPlan(plan) {
    끄려면 PHOTOS=0 (그러면 예전처럼 AI가 음식 이미지를 그림)
    검색 결과 앞쪽 18장 중 10장을 무작위로 골라서 관람객마다 조금씩 다르게.
    배경은 화면(브라우저)에서 AI가 지움 */
-export const PHOTO_COUNT = 10;
-// 브라우저에서 배경을 못 지운 사진은 빠지므로, 여유 있게 더 골라서 보냄 (화면에는 10장만)
-export const PICK_MAX = 15;
+export const PHOTO_COUNT = 6;
+// 브라우저에서 배경을 못 지운 사진은 빠지므로, 여유 있게 더 골라서 보냄 (화면에는 실제 사진 + AI 이미지 합쳐 6장)
+export const PICK_MAX = 8;
 const UNSPLASH = process.env.UNSPLASH_BASE || 'https://api.unsplash.com';
 const PIXABAY = process.env.PIXABAY_BASE || 'https://pixabay.com/api';
 const COMMONS = process.env.COMMONS_BASE || 'https://commons.wikimedia.org/w/api.php';
@@ -372,8 +373,7 @@ async function searchOne(site, query, page = 1) {
 }
 
 // 검색어 여러 개(같은 음식의 다른 모습)로 찾아서 섞음 → 글 AI가 보고 고름
-// 고른 사진이 PICK_MAX장보다 적으면 다음 검색 결과 묶음에서 한 번 더,
-// 그래도 PHOTO_COUNT장보다 적으면 Wikimedia Commons에서도 찾아 보충
+// 고른 사진이 PHOTO_COUNT장보다 적으면 Wikimedia Commons 사진도 보탬 (동시에 찾음)
 // page: 몇 번째 검색 결과 묶음인지 ('다른 사진 보기'를 누를 때마다 다음 묶음), exclude: 이미 보여준 사진 주소
 // 돌려주는 값: { photos, page: 마지막으로 쓴 묶음 번호 }
 export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {}) {
@@ -402,16 +402,15 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
   };
   const site = photoSite();
   if (!site) return { photos: [], page };
-  // 시간을 줄이려고 이번 묶음 + 다음 묶음 (+ Wikimedia)을 한꺼번에 찾고 고름 (차례로 하면 2~3배 걸림)
-  // 같은 사진이 겹치지 않게 후보 목록은 차례로 만들고, AI가 고르는 단계만 동시에
-  const rounds = [gather(site, page), gather(site, page + 1)];
+  // 시간을 줄이려고 사진 사이트 + Wikimedia를 한꺼번에 찾고 고름 (모자란 자리는 화면에서 AI 이미지로 채움)
+  const rounds = [gather(site, page)];
   if (site !== 'Wikimedia Commons') rounds.push(gather('Wikimedia Commons', page));
-  const [first, next, wiki = []] = await Promise.all(rounds);
+  const [first, wiki = []] = await Promise.all(rounds);
   // 사진 사이트 사진을 먼저, Wikimedia는 모자랄 때만
-  let photos = [...first, ...next];
+  let photos = first;
   if (photos.length < PHOTO_COUNT) photos = [...photos, ...wiki];
-  console.log(`[알림] 사진 고름: ${site} ${first.length}+${next.length}장, Wikimedia ${wiki.length}장 → ${Math.min(photos.length, PICK_MAX)}장 보냄`);
-  return { photos: photos.slice(0, PICK_MAX), page: page + 1 };
+  console.log(`[알림] 사진 고름: ${site} ${first.length}장, Wikimedia ${wiki.length}장 → ${Math.min(photos.length, PICK_MAX)}장 보냄`);
+  return { photos: photos.slice(0, PICK_MAX), page };
 }
 
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------

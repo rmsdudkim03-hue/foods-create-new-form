@@ -442,7 +442,7 @@ const picker = (() => {
     const update = () => {
       const sel = carousel.selected();
       pickBtn.disabled = !sel || sel.cut === false;
-      const total = Math.min(10, job.items.length - job.failed); // 화면에는 최대 10장
+      const total = Math.min(6, job.items.length - job.failed); // 화면에는 최대 6장
       const cut = job.items.filter((it) => it && it.cut !== false).length;
       if (photos) {
         pickSub.textContent = cut < total
