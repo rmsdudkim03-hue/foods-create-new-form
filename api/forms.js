@@ -76,7 +76,8 @@ export default handler(async (req, res, body) => {
   const out = await askJSON({
     instructions: INSTRUCTIONS,
     text: `[프롬프트]\n${prompt('2-forms.md')}\n\nA 음식: ${A.name}\nB 음식: ${B.name}\n\n[분석된 특징]\n${JSON.stringify(analysis, null, 1)}${memory}`,
-    images: [A.image, B.image],
+    // 특징 분석은 이미 끝났으니 사진은 작게만 보여줌 (토큰 절약)
+    images: [{ url: A.image, detail: 'low' }, { url: B.image, detail: 'low' }],
     name: 'form_plans',
     schema: SCHEMA,
     effort: 'medium',

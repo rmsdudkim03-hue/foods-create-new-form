@@ -11,6 +11,35 @@ const MAX = 768;                 // 결과 이미지 최대 크기 (px)
 // 배경 제거를 어떤 방식으로 했는지 (주소에 ?debug를 붙이면 화면 아래에 보임)
 export const cutoutInfo = { method: '준비 중' };
 
+/* 서버에서 지우기 (FAL_KEY가 있을 때. 빠르고 깨끗함) → 실패하면 아래 브라우저 방식으로 대신
+   headers: 접근 코드를 같이 보내기 위한 함수 (ai.js가 넘겨줌) */
+let server = null;
+export function useServerCutout(headers) { server = { headers }; cutoutInfo.method = '서버 AI'; }
+async function serverCutout(img) {
+  // 1024px 이하로 줄여서 보냄 (빠르고, 서버 용량 제한에 안 걸림)
+  const k = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(img.naturalWidth * k));
+  c.height = Math.max(1, Math.round(img.naturalHeight * k));
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(img, 0, 0, c.width, c.height);
+  const r = await fetch('api/cutout', {
+    method: 'POST',
+    headers: server.headers(),
+    body: JSON.stringify({ image: c.toDataURL('image/jpeg', 0.9) }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !data.image) throw new Error(data.error || `서버 배경 제거 ${r.status}`);
+  const out = await loadImage(data.image);
+  const oc = document.createElement('canvas');
+  oc.width = out.naturalWidth;
+  oc.height = out.naturalHeight;
+  oc.getContext('2d').drawImage(out, 0, 0);
+  return oc;
+}
+
 /* RMBG-1.4 공식 사용법: 모델에 1024×1024 사진을 넣으면 '음식일 확률' 지도(마스크)가 나옴
    (범용 'background-removal' 방식으로 부르면 이 모델을 잘못 읽어서 배경이 이상하게 지워짐) */
 /* 모델 두 가지
@@ -73,9 +102,10 @@ function loadImage(src) {
 // 차례대로 처리 (동시에 여러 장 돌리면 오히려 느려짐)
 // 한 장 끝날 때마다 잠깐 쉬어서 화면·컴퓨터가 멈춘 것처럼 느려지지 않게 함
 const REST_MS = 120;
-// 차례 기다리는 줄. first: 줄 맨 앞에 끼움 (AI 이미지는 흰 배경이라 금방 끝나서 먼저)
+// 차례 기다리는 줄. first: 줄 맨 앞에 끼움
+// 서버에서 지우면 4장씩 동시에, 브라우저에서 지우면 한 장씩 (동시에 하면 오히려 느려짐)
 const queue = [];
-let running = false;
+let running = 0;
 // skip(): 차례가 됐을 때 true면 건너뜀 (이미 사진이 충분하거나 화면을 떠났을 때)
 export function cutout(src, skip = () => false, { first = false } = {}) {
   return new Promise((resolve, reject) => {
@@ -85,15 +115,15 @@ export function cutout(src, skip = () => false, { first = false } = {}) {
   });
 }
 async function pump() {
-  if (running) return;
-  running = true;
+  if (running >= (server ? 4 : 1)) return;
+  running++;
   while (queue.length) {
     const t = queue.shift();
     if (t.skip()) { t.reject(new Error('skip')); continue; }
     try { t.resolve(await cutoutNow(t.src)); } catch (err) { t.reject(err); }
-    await new Promise((r) => setTimeout(r, REST_MS));
+    if (!server) await new Promise((r) => setTimeout(r, REST_MS));
   }
-  running = false;
+  running--;
 }
 
 // 사진에서 음식(불투명한 부분)이 차지하는 비율 + 사진 테두리에 남은 부분의 비율
@@ -124,7 +154,13 @@ const usable = (s) => s.cover >= MIN_COVER && s.cover <= MAX_COVER && s.edge <= 
 async function cutoutNow(src) {
   const img = await loadImage(src);
   let canvas = null;
-  try {
+  if (server) {
+    try { canvas = await serverCutout(img); } catch (err) {
+      console.warn('[배경 제거] 서버 실패 → 브라우저에서', err.message);
+      cutoutInfo.serverFail = (cutoutInfo.serverFail || 0) + 1;
+    }
+  }
+  if (!canvas) try {
     canvas = await modelCutout(img, src, 'fast');
     const st = maskStats(canvas);
     // 빠른 모델이 고장 난 것처럼 보일 때만(거의 다 남기거나 거의 다 지움) 안정 모드로 한 번 더

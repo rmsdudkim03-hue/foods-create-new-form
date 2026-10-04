@@ -18,17 +18,18 @@
 ## 구조
 - `index.html` 화면 7개 (메인 → 음식 고르기(입력+사진 선택 한 화면) → 분석 → 요리 → 맛보기 → 3D 결과 → 갤러리) / `style.css` 토큰과 스타일 / `js/app.js` 흐름과 인터랙션
 - `js/ai.js` 화면에서 서버(AI)를 부르는 부분. 서버를 못 쓰면 데모 모드(젤리·브로콜리만)
-- `js/cutout.js` 사진 배경 지우기 (브라우저에서 RMBG-1.4 모델, 못 쓰면 간단한 방식) / `js/contour.js` 분석 화면에서 사진이 윤곽선(등고선)으로 분해되는 효과
+- `js/cutout.js` 사진 배경 지우기 (서버 `api/cutout`(fal BiRefNet) → 안 되면 브라우저 RMBG-1.4 모델 → 못 쓰면 간단한 방식) / `js/contour.js` 분석 화면에서 사진이 윤곽선(등고선)으로 분해되는 효과
 - `js/cook.js` 요리 화면: 사진이 원·삼각형·사각형·육각형 조각으로 분해 → 끌거나 눌러서 그릇에 떨어뜨림(matter.js 물리, 못 불러오면 물리 없이 쌓임) → 다 넣으면 그릇이 탑뷰로 바뀌고(입구 타원이 열리듯) 관람객이 커서(휴대폰은 손가락)로 저으면 근처 조각이 밀리고 휩쓸리며 섞임(조각끼리 부딪히고 벽에서 튕김). 충분히 저으면(또는 '다 섞었어요') 가운데로 모여 사라짐. 탑뷰 그릇은 캔버스에 직접 그림. '모두 넣기' 버튼 있음
 - `js/particles.js` 맛보기 조형 등장 효과 (점이 맴돌다가, 6개가 다 만들어지면 한꺼번에 조형 모양으로 모임) / `js/viewer3d.js` three.js 3D 뷰어
 - `api/` Vercel 서버 함수. AI 키는 여기서만 사용 (`_lib.js` 공통, `food` `photo` `image` `analyze` `forms` `model` `model-file` `status` `works`)
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
-음식 확인 + 영어 검색어(GPT-6 Astra) → 동시에: ① 사진 후보 검색(Pixabay는 음식 카테고리. Unsplash / Pexels / 키 없으면 Wikimedia Commons, 검색어: 음식 이름 + 'isolated' + 다른 모습 2개) → Astra가 미리보기를 보고 정확하고 서로 다른 모습으로 최대 8장 고름 (6장이 안 되면 Wikimedia 사진도 보탬) ② AI 참고 이미지 묘사 6개 계획(prompts/0-food-images.md, 화면에서 `shotsOnly`로 따로 동시에 부름 → 사진은 기다리지 않고 바로 옴)
-→ 화면에는 **실제 사진 + AI 이미지 섞어 6장**: 실제 사진은 브라우저에서 배경을 지워 잘 지워진 것만 (배경이 남거나 이상한 사진은 뺌), 모자랄 것 같은 만큼 AI 이미지를 흰 배경으로 그리고 배경을 지워 채움(gpt-image-1-mini. 투명 배경 요청은 검은 배경이 나와서 안 씀. 자리 6개를 도착 순서대로 채움. 화면에 "AI가 생성한 참고 이미지예요") → "다른 사진 보기"는 다음 검색 결과(페이지)에서 본 적 없는 사진으로 다시 고름 → 특징 분석(Astra)
+음식 확인 + 영어 검색어(GPT-6 Astra) → 사진 후보 검색(**네이버 → 카카오(다음) 이미지 검색** 우선: '음식명 누끼'·음식명·영어명. 키 없으면 Pixabay(음식 카테고리) / Unsplash / Pexels / Wikimedia Commons, 검색어: 음식 이름 + 'isolated' + 다른 모습 2개. 네이버 사진은 여러 사이트에 흩어져 있어 api/photo가 서버 도장(sig) 찍힌 주소만 전달, 원본이 막히면 네이버 미리보기) → Astra가 미리보기 20장을 보고 정확하고 서로 다른 모습으로 최대 8장 고름 (6장이 안 될 때만 Wikimedia에서도 고름)
+→ 화면에는 **실제 사진만 6장까지** (AI로 음식 이미지를 그리지 않음): 배경 지우기(FAL_KEY 있으면 **서버에서 fal.ai BiRefNet**으로 4장씩 동시에, `api/cutout.js` / 없거나 실패하면 브라우저 RMBG-1.4) → 잘 지워진 것 먼저, 자리가 남으면 덜 지워진 사진으로 채움. 그래도 모자라면 있는 만큼만 ('다른 사진 보기'로 다음 검색 결과) → 특징 분석(Astra)
 → 조형 6개 계획(Astra) → 조형 이미지(gpt-image-2.5-flare, 동시에 3장씩, 실패하면 최대 3번 다시) → 3D 변환(Meshy, 텍스처 없이)
-- `PHOTOS=0`이면 예전 방식(이미지 10장 계획 → gpt-image-1-mini로 그림)으로 동작.
+- `PHOTOS=0`이면 예전 방식(이미지 계획 → gpt-image-1-mini로 그림)으로 동작. 이때만 AI가 음식 이미지를 그림.
+- AI를 부를 때마다 쓴 토큰 수를 Vercel 로그에 `[토큰] ...`으로 남긴다 (글 AI는 이름·입력·출력·생각 토큰, 이미지 AI, Meshy 변환 횟수).
 - 이미지 AI는 한 번에 한 장만 그리므로, 여러 장을 조율하는 조건은 글 AI가 먼저 계획하고 이미지 AI는 한 장씩 그린다.
 - 조형 이미지 AI에는 음식 사진을 주지 않는다 (음식 외형을 따라 그리지 않게).
 - 단계별 소요 시간은 서버에서 `[시간] ...`으로 Vercel 로그에 남긴다.
@@ -43,7 +44,7 @@
 
 ## 배포
 - `main`에 푸시하면 Vercel이 자동 배포 (https://foods-create-new-form.vercel.app).
-- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, 사진 사이트 키는 선택(`UNSPLASH_ACCESS_KEY` 또는 `PIXABAY_API_KEY`. 없으면 키 필요 없는 Wikimedia Commons. Pexels는 2026-10 신규 키 발급 중단), `ACCESS_CODE`. 선택: README 참고.
+- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, 추천 `NAVER_CLIENT_ID`+`NAVER_CLIENT_SECRET`(네이버 이미지 검색) 또는 `KAKAO_REST_API_KEY`(카카오 이미지 검색), `FAL_KEY`(서버 배경 제거), 사진 사이트 키는 선택(`UNSPLASH_ACCESS_KEY` 또는 `PIXABAY_API_KEY`. 없으면 키 필요 없는 Wikimedia Commons. Pexels는 2026-10 신규 키 발급 중단), `ACCESS_CODE`. 선택: README 참고.
 - `ACCESS_CODE`가 있으면 주소에 `?code=...`를 붙여 연 기기에서만 실제 AI, 나머지는 데모 모드.
 - 브랜치로 푸시하면 Preview 배포가 되는데, 환경 변수가 Production에만 있어서 AI가 안 된다.
 

@@ -4,7 +4,6 @@
 //   없으면 (예전 방식): 글 AI가 이미지 10장을 계획 → 이미지 AI가 그림. 프롬프트 원문: prompts/0-food-images.md
 import { handler, send, askJSON, prompt, S, searchPhotos, photoSite } from './_lib.js';
 
-const AI_SHOTS = 6; // 실제 사진이 모자라거나 배경을 못 지웠을 때 화면에서 채울 AI 이미지 묘사 수 (화면에는 합쳐 6장)
 
 // 실제 사진 모드: 음식인지 확인 + 검색어만 정함 (빠르게)
 const PHOTO_SCHEMA = S.obj({
@@ -63,12 +62,6 @@ export default handler(async (req, res, body) => {
   const word = String(body.word || '').trim().slice(0, 30);
   if (!word) return send(res, 400, { error: 'empty' });
 
-  // AI 참고 이미지 묘사만 따로 (사진 찾기를 기다리지 않게 화면에서 동시에 부름)
-  if (body.shotsOnly) {
-    const plan = await planShots(word);
-    return send(res, 200, { ok: true, shots: plan.shots.slice(0, AI_SHOTS) });
-  }
-
   if (photoSite()) {
     // '다른 사진 보기': 이미 확인된 음식이면 검색어를 그대로 받아서 다음 묶음만 찾음 (음식 확인 생략)
     const given = Array.isArray(body.queries) ? body.queries.map((q) => String(q).slice(0, 40)).filter(Boolean).slice(0, 3) : [];
@@ -88,7 +81,7 @@ export default handler(async (req, res, body) => {
       name = out.name || word;
       queries = out.queries?.length ? out.queries : [word];
     }
-    // 사진만 찾아서 바로 돌려줌. AI 이미지 묘사는 화면에서 따로 동시에 부름 (shotsOnly)
+    // 사진만 찾아서 돌려줌 (사진 모드에서는 AI로 음식 이미지를 그리지 않음)
     const found = await searchPhotos(queries, name, { page, exclude });
     const photos = found.photos;
     const shots = [];

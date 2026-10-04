@@ -25,6 +25,7 @@ export default async function model(req, res) {
           origin_at: 'center',
         }),
       }));
+      console.log('[토큰] Meshy 3D 변환 1번 시작 (Meshy 크레딧 사용)');
       return send(res, 200, { taskId: data.result });
     }
     if (req.method === 'GET') {
