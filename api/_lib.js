@@ -299,7 +299,8 @@ export function checkPlan(plan) {
 }
 
 /* ---------- 실제 음식 사진 검색 ----------
-   무료 사진 사이트 중 키가 있는 곳을 씀 (우선순위: Unsplash → Pixabay → Pexels)
+   키가 있는 곳을 씀 (우선순위: 네이버 이미지 검색 → Unsplash → Pixabay → Pexels)
+     NAVER_CLIENT_ID + NAVER_CLIENT_SECRET (네이버 개발자센터 '검색' API, 한국 음식·생소한 음식에 강함)
      UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY
    키가 하나도 없으면 Wikimedia Commons(위키백과 사진 저장소)에서 찾음 → 키 없이 바로 동작
    끄려면 PHOTOS=0 (그러면 예전처럼 AI가 음식 이미지를 그림)
@@ -308,6 +309,8 @@ export function checkPlan(plan) {
 export const PHOTO_COUNT = 6;
 // 브라우저에서 배경을 못 지운 사진은 빠지므로, 여유 있게 더 골라서 보냄 (화면에는 실제 사진 + AI 이미지 합쳐 6장)
 export const PICK_MAX = 8;
+const NAVER = process.env.NAVER_BASE || 'https://openapi.naver.com/v1/search/image';
+export const NAVER_SITE = '네이버 검색';
 const UNSPLASH = process.env.UNSPLASH_BASE || 'https://api.unsplash.com';
 const PIXABAY = process.env.PIXABAY_BASE || 'https://pixabay.com/api';
 const COMMONS = process.env.COMMONS_BASE || 'https://commons.wikimedia.org/w/api.php';
@@ -318,7 +321,21 @@ const UA = 'FoodsCreateNewForm/1.0 (graduation exhibition; https://foods-create-
 export const PHOTO_HOSTS = ['images.unsplash.com', 'pixabay.com', 'cdn.pixabay.com', 'images.pexels.com', 'upload.wikimedia.org'];
 export const PHOTO_UA = UA;
 
+// 네이버 검색 사진은 여러 사이트(블로그 등)에 흩어져 있어서 주소 목록으로 막을 수 없음
+// → 우리 서버가 검색 결과로 준 주소에만 도장(sig)을 찍고, api/photo는 도장이 맞는 주소만 전달
+export function signPhoto(u, f = '') {
+  const key = process.env.MEMORY_SECRET || process.env.OPENAI_API_KEY || '';
+  return crypto.createHmac('sha256', key).update(`${u}|${f}`).digest('hex').slice(0, 24);
+}
+export function checkPhoto(u, f, sig) {
+  if (typeof sig !== 'string' || !u) return false;
+  const a = Buffer.from(sig);
+  const b = Buffer.from(signPhoto(u, f || ''));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 export function photoSite() {
+  if (process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET) return NAVER_SITE;
   if (process.env.UNSPLASH_ACCESS_KEY) return 'Unsplash';
   if (process.env.PIXABAY_API_KEY) return 'Pixabay';
   if (process.env.PEXELS_API_KEY) return 'Pexels';
@@ -368,6 +385,19 @@ async function searchOne(site, query, page = 1) {
       by: p.photographer || '', link: p.url || '',
       thumb: p.src.medium,
     }));
+  } else if (site === NAVER_SITE) {
+    const data = await getJSON(`사진 검색 네이버 (${query})`,
+      `${NAVER}?${new URLSearchParams({ query, display: '20', start: String((page - 1) * 20 + 1), sort: 'sim', filter: 'large' })}`,
+      { 'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID, 'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET });
+    const strip = (h) => String(h || '').replace(/<[^>]*>/g, '').replace(/&[a-z]+;/g, ' ').trim().slice(0, 60);
+    list = (data.items || [])
+      .filter((p) => /^https:\/\//.test(p.link || '') && p.thumbnail && Number(p.sizewidth) >= 300 && Number(p.sizeheight) >= 300)
+      .map((p) => {
+        let host = '';
+        try { host = new URL(p.link).hostname.replace(/^www\./, ''); } catch { /* 무시 */ }
+        // 원본 사진(블로그 등)이 막혀 있으면 네이버 미리보기 사진으로 대신 (fb)
+        return { src: p.link, fb: p.thumbnail, w: Number(p.sizewidth), h: Number(p.sizeheight), alt: strip(p.title), by: host, link: p.link, thumb: p.thumbnail };
+      });
   } else if (site === 'Wikimedia Commons') {
     const data = await getJSON(`사진 검색 Wikimedia (${query})`, `${COMMONS}?${new URLSearchParams({
       action: 'query', format: 'json', generator: 'search', gsrnamespace: '6', gsrlimit: '40', gsroffset: String((page - 1) * 40),
@@ -397,8 +427,11 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
   // 배경이 단순한 사진(배경 지우기가 잘 됨)을 찾으려고 '단독으로 찍은' 검색어를 하나 더
   if (qs[0]) qs.unshift(`${qs[0]} isolated`);
   const seen = new Set(exclude);
+  // 네이버는 한국어로 찾음: '누끼'(배경 없이 찍은 사진), 이름 그대로, 영어 이름
+  const naverQs = [...new Set([`${name} 누끼`, name, qs[1] || qs[0]].filter(Boolean))];
   const gather = async (site, pg) => {
-    const lists = await Promise.all(qs.map((q) => searchOne(site, q, pg).catch((err) => { console.error(err); return []; })));
+    const words = site === NAVER_SITE ? naverQs : qs;
+    const lists = await Promise.all(words.map((q) => searchOne(site, q, pg).catch((err) => { console.error(err); return []; })));
     // 검색어마다 앞쪽부터 번갈아 섞기 (한 검색어 결과만 몰리지 않게), 같은 사진·이미 보여준 사진은 빼기
     const list = [];
     for (let i = 0; list.length < CANDIDATES && lists.some((l) => i < l.length); i++) {
@@ -409,12 +442,13 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
     }
     let picked;
     try {
-      picked = await pickPhotos(list, name, qs.join(', '));
+      picked = await pickPhotos(list, name, words.join(', '));
     } catch (err) {
       console.error('[알림] 사진 고르기 실패 → 검색 순서대로 씀', err);
       picked = list.slice(0, PHOTO_COUNT);
     }
-    return picked.map(({ thumb, ...p }) => ({ ...p, site }));
+    // 네이버 사진은 api/photo가 전달해도 되는 주소라는 도장(sig)을 같이 줌
+    return picked.map(({ thumb, ...p }) => ({ ...p, site, ...(p.fb ? { sig: signPhoto(p.src, p.fb) } : {}) }));
   };
   const site = photoSite();
   if (!site) return { photos: [], page };

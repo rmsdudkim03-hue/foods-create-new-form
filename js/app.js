@@ -458,7 +458,7 @@ const picker = (() => {
           if (t0 && cut >= 1 && !job.tFirst) job.tFirst = (performance.now() - t0) / 1000;
           if (t0 && cut >= total && !job.tAll) job.tAll = (performance.now() - t0) / 1000;
           const times = job.tFirst ? `, 첫 사진 ${job.tFirst.toFixed(0)}초${job.tAll ? ` · 다 준비 ${job.tAll.toFixed(0)}초` : ''}` : '';
-          pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}${cutoutInfo.rejected ? `, 못 지워서 뺀 사진 ${cutoutInfo.rejected}장` : ''}${times}]`;
+          pickNote.textContent += ` [배경 제거: ${cutoutInfo.method}${cutoutInfo.serverFail ? `, 서버 실패 ${cutoutInfo.serverFail}번` : ''}${cutoutInfo.rejected ? `, 못 지워서 뺀 사진 ${cutoutInfo.rejected}장` : ''}${times}]`;
         }
       } else {
         pickSub.textContent = job.ready < total

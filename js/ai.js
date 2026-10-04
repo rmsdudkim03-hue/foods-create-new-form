@@ -13,7 +13,7 @@
    ③ toModel     고른 조형 이미지 → 3D 모델                       (Meshy)
    ========================================================= */
 import { FOODS, FORMS, SAMPLE_MODEL, ANALYZE_MS } from './data.js';
-import { cutout, onWhite, warmup } from './cutout.js';
+import { cutout, onWhite, warmup, useServerCutout } from './cutout.js';
 
 export const FOOD_IMAGE_COUNT = 10;
 
@@ -32,6 +32,7 @@ function accessCode() {
 const headers = () => ({ 'Content-Type': 'application/json', 'x-access-code': accessCode() });
 
 let live = false;
+let serverCutout = false;
 let modePromise = null;
 export function mode() {
   modePromise ??= (async () => {
@@ -40,9 +41,12 @@ export function mode() {
       if (r.ok) {
         const s = await r.json();
         live = Boolean(s.live && s.codeOk);
+        serverCutout = live && Boolean(s.cutout);
       }
-      // 실제 모드면 배경 제거 모델(약 88MB)을 처음부터 받아 둠 (음식을 입력하는 동안 준비되게)
-      if (live) warmup();
+      // 배경 제거: 서버에서 할 수 있으면 서버로 (빠르고 깨끗함)
+      // 아니면 브라우저 모델(약 88MB)을 처음부터 받아 둠 (음식을 입력하는 동안 준비되게)
+      if (serverCutout) useServerCutout(headers);
+      else if (live) warmup();
     } catch { live = false; }
     console.info(`[AI] ${live ? '실제 모드' : '데모 모드'}`);
     return live ? 'live' : 'demo';
@@ -183,7 +187,7 @@ export async function checkFood(word) {
     if (!r.ok) return { ok: false, message: r.message };
     // AI 참고 이미지 묘사는 따로 동시에 부름 (사진 찾기를 기다리지 않게)
     foodPlans.set(r.name, r);
-    if (r.photos) warmup(); // 배경 제거 모델을 미리 받아 둠
+    if (r.photos && !serverCutout) warmup(); // 배경 제거 모델을 미리 받아 둠
     return { ok: true, name: r.name, interpretation: r.interpretation };
   }
   await wait(rand(300, 700));
@@ -218,7 +222,8 @@ export function foodImages(food) {
       for (let i = filled; i < SHOW; i++) job.fail(i);
     };
     photos.forEach((p, i) => {
-      const src = `api/photo?u=${encodeURIComponent(p.src)}`;
+      // 네이버 검색 사진은 미리보기 주소(fb)와 서버 도장(sig)을 같이 보냄
+      const src = `api/photo?u=${encodeURIComponent(p.src)}${p.sig ? `&f=${encodeURIComponent(p.fb || '')}&s=${p.sig}` : ''}`;
       const base = { alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
       cutout(src, enough)
         .then((c) => {

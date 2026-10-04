@@ -6,5 +6,6 @@ export default function status(req, res) {
     live: Boolean(process.env.OPENAI_API_KEY && process.env.MESHY_API_KEY),
     needsCode: Boolean(process.env.ACCESS_CODE),
     codeOk: allowed(req),
+    cutout: Boolean(process.env.FAL_KEY), // 서버에서 배경 지우기 (없으면 브라우저에서)
   });
 }

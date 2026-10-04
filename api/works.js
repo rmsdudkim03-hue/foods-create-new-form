@@ -130,7 +130,7 @@ async function diag(req, res) {
   const code = process.env.ACCESS_CODE;
   if (code && q.get('code') !== code && req.headers['x-access-code'] !== code) return send(res, 401, { error: 'access_code' });
   const out = {
-    설정: { 저장소: await store.ready(), 저장소연결정보: store.envNames, MESHY_API_KEY: Boolean(process.env.MESHY_API_KEY), OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY), ACCESS_CODE: Boolean(code) },
+    설정: { 저장소: await store.ready(), 저장소연결정보: store.envNames, MESHY_API_KEY: Boolean(process.env.MESHY_API_KEY), 사진검색: photoSite(), 서버배경제거_FAL_KEY: Boolean(process.env.FAL_KEY), OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY), ACCESS_CODE: Boolean(code) },
   };
   try {
     const [list, glb, task] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);
