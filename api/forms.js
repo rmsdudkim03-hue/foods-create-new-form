@@ -28,6 +28,7 @@ const FORM = S.obj({
   rationale: S.str('선택한 특징이 윤곽, 볼륨 분포, 단면, 연결, 공간 구성에 어떻게 작용하는지 (한국어, 1~2문장)'),
   prompt: S.str('이미지 AI에 넣을 조형 묘사 (영어)'),
   reference: S.str('관람객 평가에서 이어받거나 피한 점 (한국어, 한 문장). 참고하지 않았으면 빈 문자열'),
+  visitor: S.bool('[관람객 조합]을 그대로 쓴 조형이면 true, 아니면 false'),
 });
 const SCHEMA = S.obj({
   intro: S.str('음식쌍과 특징 후보 짧은 안내 (한국어)'),
@@ -42,7 +43,26 @@ const INSTRUCTIONS = `너는 웹 전시 작품의 한 단계를 맡는다. 아�
 흰색, 배경, 시점, 조명 같은 공통 이미지 조건은 다음 단계에서 자동으로 붙는다.
 순서는 기본 조합 3개, 그다음 조형적 재해석 3개.
 [실행]의 짧은 안내는 intro에, 선택 특징과 해석의 기록은 features, method, rationale에 쓴다.
-[관람객 평가 참고]가 없으면 reference는 모두 빈 문자열로 둔다.`;
+[관람객 평가 참고]가 없으면 reference는 모두 빈 문자열로 둔다.
+[관람객 조합]이 있으면 그 조합을 쓴 조형 2개만 visitor를 true로, features에는 관람객이 고른 번호를 그대로 쓴다. 없으면 모두 false.`;
+
+/* ---------- 관람객 조합 ----------
+   '나만의 조합' 화면에서 관람객이 고른 특징 조합 2개. [[번호...], [번호...]]
+   첫 번째 → 기본 조합 하나, 두 번째 → 조형적 재해석 하나. 나머지 4개는 AI가 고름
+   조합마다 2~3개, A와 B에서 하나씩 이상. 규칙에 안 맞으면 무시하고 예전처럼 AI가 다 고름 */
+const COMBO_KINDS = ['기본 조합', '조형적 재해석'];
+function cleanCombos(combos, analysis) {
+  if (!Array.isArray(combos) || combos.length !== 2) return null;
+  const ids = new Set(['A', 'B'].flatMap((k) => [...(analysis?.[k]?.visual || []), ...(analysis?.[k]?.knowledge || [])].map((f) => f.id)));
+  const ok = combos.every((c) => Array.isArray(c) && c.length >= 2 && c.length <= 3 && new Set(c).size === c.length
+    && c.every((id) => ids.has(id)) && c.some((id) => id.startsWith('A')) && c.some((id) => id.startsWith('B')));
+  return ok ? combos.map((c) => [...c]) : null;
+}
+function comboText(combos, analysis) {
+  const all = ['A', 'B'].flatMap((k) => [...(analysis[k].visual || []), ...(analysis[k].knowledge || [])]);
+  const name = (id) => `${id} ${all.find((f) => f.id === id)?.title || ''}`.trim();
+  return `\n\n[관람객 조합]\n${combos.map((c, i) => `${i + 1}. ${c.map(name).join(' + ')} → ${COMBO_KINDS[i]}`).join('\n')}`;
+}
 
 /* ---------- 관람객 평가 (학습 기록) ----------
    관람객이 3D 결과 화면에서 '좋아요'/'별로예요'를 누른 조형만 글 AI에게 참고로 줌.
@@ -73,9 +93,10 @@ export default handler(async (req, res, body) => {
   const { A, B, analysis } = body;
   if (!A?.name || !B?.name || !isImage(A.image) || !isImage(B.image) || !analysis) return send(res, 400, { error: 'input' });
   const memory = await memoryText();
+  const combos = cleanCombos(body.combos, analysis);
   const out = await askJSON({
     instructions: INSTRUCTIONS,
-    text: `[프롬프트]\n${prompt('2-forms.md')}\n\nA 음식: ${A.name}\nB 음식: ${B.name}\n\n[분석된 특징]\n${JSON.stringify(analysis, null, 1)}${memory}`,
+    text: `[프롬프트]\n${prompt('2-forms.md')}\n\nA 음식: ${A.name}\nB 음식: ${B.name}\n\n[분석된 특징]\n${JSON.stringify(analysis, null, 1)}${combos ? comboText(combos, analysis) : ''}${memory}`,
     // 특징 분석은 이미 끝났으니 사진은 작게만 보여줌 (토큰 절약)
     images: [{ url: A.image, detail: 'low' }, { url: B.image, detail: 'low' }],
     name: 'form_plans',
@@ -85,6 +106,12 @@ export default handler(async (req, res, body) => {
   const order = { '기본 조합': 0, '조형적 재해석': 1 };
   const forms = (out.forms || []).filter((f) => f.prompt).sort((a, b) => order[a.type] - order[b.type]).slice(0, 6);
   if (forms.length < 6) throw new Error(`조형 계획이 ${forms.length}개뿐임`);
+  if (combos) {
+    // AI가 관람객 조합을 제대로 썼는지 로그로 확인 (틀려도 조형은 그대로 보여줌)
+    const same = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+    const used = combos.map((c, i) => forms.some((f) => f.type === COMBO_KINDS[i] && same(f.features || [], c)));
+    console.log(`[관람객 조합] ${combos.map((c) => c.join('+')).join(' / ')} → 반영 ${used.map((u) => (u ? 'O' : 'X')).join(' ')}`);
+  }
   // 도장 찍기: 관람객이 고른 뒤 저장할 때, AI가 만든 계획이 맞는지 확인용
   send(res, 200, { intro: out.intro, forms: forms.map((f) => ({ ...f, sig: signPlan(f) })), memory: Boolean(memory) });
 });

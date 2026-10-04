@@ -194,6 +194,15 @@ export default async function works(req, res) {
       if (body.model) return saveModel(res, body);
       if (body.task) return noteTask(res, body);
       if (body.backfill) return backfill(res);
+      // 맛보기 조형 6개 이미지 보관: { id, form: 0~5, image }
+      if (body.form !== undefined) {
+        const i = Number(body.form);
+        const image = String(body.image || '');
+        if (!ID.test(String(body.id)) || !Number.isInteger(i) || i < 0 || i > 5
+          || !image.startsWith('data:image/jpeg;base64,') || image.length > 900_000) return send(res, 400, { error: 'input' });
+        const url = await store.put(`works-forms/${body.id}-${i + 1}.jpg`, Buffer.from(image.split(',')[1], 'base64'), 'image/jpeg', true);
+        return send(res, 200, { ok: true, url });
+      }
       const image = String(body.image || '');
       if (!image.startsWith('data:image/jpeg;base64,') || image.length > 900_000) return send(res, 400, { error: 'input' });
       const name = String(body.name || '').slice(0, 40);
