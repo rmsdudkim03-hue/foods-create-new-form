@@ -182,7 +182,6 @@ export async function checkFood(word) {
     r.t0 = t0;
     if (!r.ok) return { ok: false, message: r.message };
     // AI 참고 이미지 묘사는 따로 동시에 부름 (사진 찾기를 기다리지 않게)
-    r.getShots = lazyShots(r.name); // 필요할 때만 부름 (토큰 절약)
     foodPlans.set(r.name, r);
     if (r.photos) warmup(); // 배경 제거 모델을 미리 받아 둠
     return { ok: true, name: r.name, interpretation: r.interpretation };
@@ -194,88 +193,30 @@ export async function checkFood(word) {
   return { ok: false, message: `미리보기에서는 ${Object.keys(FOODS).join(', ')}만 입력할 수 있어요` };
 }
 
-// AI 참고 이미지 묘사 (실제 사진이 모자랄 때 쓸 것). 처음 필요할 때 한 번만 부름
-function lazyShots(name) {
-  let p = null;
-  return () => (p ??= shotsFor(name));
-}
-function shotsFor(name) {
-  return call('api/food', { body: { word: name, shotsOnly: true }, timeout: 120000 })
-    .then((r) => r.shots || [])
-    .catch((err) => { console.error('AI 이미지 묘사 실패', err); return []; });
-}
-
 /* ---------- ⓪ 음식 이미지 ---------- */
 export function foodImages(food) {
   const plan = foodPlans.get(food);
   if (live && plan) {
-    /* 실제 사진 + AI 이미지를 섞어서 정확히 SHOW장 (자리 6개를 도착한 순서대로 채움)
-       - 실제 사진: 배경을 잘 지운 것만 (못 지운 사진은 뺌)
-       - AI 이미지: 흰 배경으로 그린 뒤 배경을 지움 (흰 배경이라 거의 항상 깨끗하게 지워짐)
-         실제 사진이 모자랄 것 같으면 바로 시작하고, 사진이 빠질 때마다 모자란 만큼 더 그림 (안 쓰는 묘사는 안 그림) */
+    /* 실제 사진만 SHOW장까지 (자리를 도착한 순서대로 채움. AI로 음식 이미지를 그리지 않음)
+       - 배경을 잘 지운 사진을 먼저 쓰고
+       - 다 해도 자리가 남으면 배경이 덜 지워진 사진으로 채움 (빈 화면보다 나음)
+       - 그래도 모자라면 있는 만큼만 보여줌 ('다른 사진 보기'로 더 찾을 수 있음)
+       (PHOTOS=0인 예전 모드에서만 AI가 그림: 서버가 묘사(shots)를 같이 줌) */
     const SHOW = 6;
     const photos = plan.photos || [];
-    // AI 묘사: 서버가 같이 준 것(사진 없는 모드) 또는 실제 사진이 모자랄 것 같을 때 따로 부른 것 (도착하면 topUp)
-    let shots = plan.shots?.length ? plan.shots : [];
-    let shotsReady = !plan.getShots || shots.length > 0;
-    let shotsAsked = shotsReady;
+    const shots = photos.length ? [] : (plan.shots || []);
     const job = createJob(SHOW);
     job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, t0: plan.t0 || performance.now() };
     let filled = 0;                 // 채운 자리 수
     const enough = () => job.cancelled || filled >= SHOW;
     const add = (item) => { if (!enough()) job.put(filled++, item); };
-    let photosLeft = photos.length; // 아직 배경 지우는 중인 사진
-    let aiNext = 0;                 // 다음에 그릴 묘사 번호
-    let aiBusy = 0;                 // 지금 그리는 중인 AI 이미지
-    let closed = false;
-    const drawShot = async (j) => {
-      aiBusy++;
-      try {
-        const { image } = await call('api/image', { body: { prompt: shots[j].prompt, kind: 'food' }, timeout: 120000 });
-        if (enough()) return;
-        // 흰 배경 지우기 (줄 맨 앞에서. 잘 안 지워지면 흰 배경 그대로: 화면도 흰색이라 티가 안 남)
-        const c = await cutout(image, enough, { first: true }).catch(() => null);
-        const t = enough() ? null : c?.good ? c : await trimSafe(image);
-        if (t) add({ src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${j + 1}, ${shots[j].view}`, ai: true });
-      } catch (err) {
-        console.error(err);
-      } finally {
-        aiBusy--;
-        topUp();
-      }
-    };
-    // 채운 자리 + 그리는 중 + 아직 처리 중인 사진의 3/4(일부는 배경을 못 지울 수 있으니)이 SHOW보다 적으면 AI가 더 그림
-    // (실제 사진이 충분하면 AI 묘사·이미지를 아예 안 불러서 토큰·요금 절약)
-    const need = () => filled + aiBusy + Math.ceil(photosLeft * 0.75) < SHOW;
+    let left = photos.length + Math.min(shots.length, SHOW); // 아직 처리 중인 것
     const backups = [];             // 배경이 덜 지워진 사진 (다른 게 다 모자랄 때만 씀)
-    let fallbackTried = false;
-    function topUp() {
-      if (job.cancelled || closed) return;
-      if (!shotsAsked && need()) {
-        shotsAsked = true;
-        plan.getShots().then((s) => { shots = [...shots, ...s]; shotsReady = true; topUp(); });
-      }
-      while (aiNext < shots.length && need()) drawShot(aiNext++);
-      if (photosLeft || aiBusy || (shotsAsked && !shotsReady)) return;
-      if (!(enough() || aiNext >= shots.length)) return;
-      // 할 수 있는 건 다 했는데 자리가 남음
-      if (!enough() && !fallbackTried) {
-        // ① AI 묘사를 못 받았거나 다 썼으면: 검색어로 간단한 묘사를 만들어 더 그림
-        fallbackTried = true;
-        const qs = plan.queries?.length ? plan.queries : [food];
-        const extra = Array.from({ length: SHOW - filled }, (_, k) => ({
-          view: 'simple',
-          prompt: `${qs[k % qs.length]} (${food}), ${['whole', 'cut in half', 'a few pieces', 'top view'][k % 4]}, realistic food photo, single subject on a pure white background`,
-        }));
-        shots = [...shots, ...extra];
-        shotsReady = true;
-        return topUp();
-      }
-      // ② 그래도 남으면 배경이 덜 지워진 사진으로 채움 (빈 화면보다 나음)
+    const settle = () => {
+      if (--left > 0 || job.cancelled) return;
       backups.sort((x, y) => x.score - y.score).forEach((b) => add(b.item));
-      closed = true;
       for (let i = filled; i < SHOW; i++) job.fail(i);
-    }
+    };
     photos.forEach((p, i) => {
       const src = `api/photo?u=${encodeURIComponent(p.src)}`;
       const base = { alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
@@ -285,9 +226,22 @@ export function foodImages(food) {
           if (c.good) add(item); else backups.push({ item, score: c.score });
         })
         .catch((err) => { if (err.message !== 'skip') console.warn(err.message); })
-        .finally(() => { photosLeft--; topUp(); });
+        .finally(settle);
     });
-    topUp();
+    // 예전 모드(PHOTOS=0): AI가 흰 배경으로 그림
+    pool(shots.slice(0, SHOW).map((sh, j) => async () => {
+      try {
+        const { image } = await call('api/image', { body: { prompt: sh.prompt, kind: 'food' }, timeout: 120000 });
+        if (enough()) return;
+        const t = await trimSafe(image);
+        add({ src: t.src, w: t.w, h: t.h, alt: `${food} 참고 이미지 ${j + 1}, ${sh.view}`, ai: true });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        settle();
+      }
+    }), 3);
+    if (!left) for (let i = 0; i < SHOW; i++) job.fail(i); // 처리할 게 하나도 없으면 바로 끝
     return job;
   }
   // 데모
@@ -308,7 +262,7 @@ export async function moreImages(food) {
     timeout: 120000,
   });
   if (!r.ok) throw new Error(r.message || '사진을 더 찾지 못했어요');
-  foodPlans.set(food, { ...r, name: food, seen: [...seen], getShots: lazyShots(food) }); // AI 묘사도 새로 (필요할 때만)
+  foodPlans.set(food, { ...r, name: food, seen: [...seen] });
   return foodImages(food);
 }
 

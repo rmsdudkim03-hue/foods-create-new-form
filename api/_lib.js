@@ -105,6 +105,20 @@ export function prompt(file) {
   return text.replace(/<!--[\s\S]*?-->/g, '').replace(/^# .*\n+/, '').trim();
 }
 
+/* ---------- 토큰 기록 ----------
+   AI를 부를 때마다 쓴 토큰 수를 Vercel 로그에 '[토큰] ...'으로 남김 (요금 확인용)
+   Vercel → 프로젝트 → Logs에서 '[토큰]'으로 검색하면 체험 한 번에 어디서 얼마나 썼는지 보임 */
+function logTokens(label, u, images = 0) {
+  if (!u) return console.log(`[토큰] ${label}: 기록 없음`);
+  const input = u.input_tokens ?? u.prompt_tokens ?? 0;
+  const output = u.output_tokens ?? u.completion_tokens ?? 0;
+  const cached = u.input_tokens_details?.cached_tokens;
+  const reasoning = u.output_tokens_details?.reasoning_tokens;
+  const imgTok = u.input_tokens_details?.image_tokens;
+  console.log(`[토큰] ${label}: 입력 ${input}${images ? ` (사진 ${images}장)` : ''}${imgTok ? ` (그중 이미지 ${imgTok})` : ''}${cached ? ` (재사용 ${cached})` : ''}`
+    + ` · 출력 ${output}${reasoning ? ` (그중 생각 ${reasoning})` : ''} · 합계 ${input + output}`);
+}
+
 /* ---------- OpenAI: 글 AI (GPT-6 Astra) ---------- */
 export async function askJSON({ instructions, text, images = [], name, schema, effort = 'medium' }) {
   const content = [{ type: 'input_text', text }];
@@ -134,6 +148,7 @@ export async function askJSON({ instructions, text, images = [], name, schema, e
     data = await r.json().catch(() => ({}));
   }
   if (!r.ok) throw new Error(`OpenAI ${r.status}: ${data.error?.message || 'error'}`);
+  logTokens(`글 AI ${name}`, data.usage, images.length);
   const msg = (data.output || []).find((o) => o.type === 'message');
   const out = msg?.content?.find((c) => c.type === 'output_text')?.text ?? data.output_text;
   if (!out) throw new Error('OpenAI: 빈 응답');
@@ -160,6 +175,7 @@ export async function drawImage({ prompt: p, kind }) {
   }));
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`OpenAI image ${r.status}: ${data.error?.message || 'error'}`);
+  logTokens(`이미지 AI ${kind}`, data.usage);
   const b64 = data.data?.[0]?.b64_json;
   if (!b64) throw new Error('OpenAI image: 빈 응답');
   return `data:image/jpeg;base64,${b64}`;
