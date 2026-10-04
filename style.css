@@ -284,8 +284,14 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 /* ---------- 화면 4-1: 나만의 조합 ---------- */
 /* 음식 사진 + 둘레의 도형 토큰 */
 .rc-food { z-index: 2; }
-.rc-photo { position: absolute; left: 32%; top: 32%; width: 36%; height: 36%; object-fit: contain; mix-blend-mode: multiply; pointer-events: none; }
-.rc-side-name { position: absolute; left: 50%; top: 70%; translate: -50% 0; font-size: calc(15 * var(--u)); font-weight: 700; color: var(--ink-faint); white-space: nowrap; }
+.rc-letter {
+  position: absolute; left: 50%; top: 47%; translate: -50% -50%;
+  font-size: calc(120 * var(--u)); font-weight: 800; line-height: 1; letter-spacing: -.04em;
+  pointer-events: none; transition: color .6s var(--ease);
+}
+.is-portrait .rc-letter { font-size: calc(78 * var(--u)); }
+.rc-side-name { position: absolute; left: 50%; top: 62%; translate: -50% 0; font-size: calc(15 * var(--u)); font-weight: 700; color: var(--ink-sub); white-space: nowrap; }
+.is-portrait .rc-side-name { font-size: calc(12 * var(--u)); }
 .rc-token {
   position: absolute;
   width: 27%; height: 27%;

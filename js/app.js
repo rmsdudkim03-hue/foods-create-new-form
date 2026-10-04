@@ -8,7 +8,7 @@ import { contour } from './contour.js';
 import { formParticles } from './particles.js';
 import { startCook, preloadCook } from './cook.js';
 import { cutoutInfo } from './cutout.js';
-import { glyphFor, glyphSVG, dominantColor, foodTexture } from './glyphs.js';
+import { glyphFor, glyphSVG, dominantColor, vivid } from './glyphs.js';
 
 // 주소 끝에 ?debug를 붙이면 확인용 정보가 화면에 보임
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -667,7 +667,7 @@ function recipeFeatures() {
   const out = {};
   for (const k of ['A', 'B']) {
     // 데모 특징에는 번호가 없어서 실제 분석과 같은 규칙으로 붙임 (A1~A3, AK1~AK2)
-    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, title: f.title, desc: f.desc, glyph: glyphFor(f) }));
+    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, title: f.title, desc: f.desc, glyph: glyphFor(f), known: type === 'knowledge' }));
     out[k] = [...list('visual', k), ...list('knowledge', `${k}K`)];
   }
   return out;
@@ -677,12 +677,12 @@ const recipe = {
   active: 0,
   feats: null,
   colors: { A: '#d9d6d2', B: '#d9d6d2' },
-  textures: { A: null, B: null }, // 음식 사진 질감 (도형을 이 질감으로 채움)
   valid(c) { return c.length >= 2 && c.length <= 3 && c.some((id) => id.startsWith('A')) && c.some((id) => id.startsWith('B')); },
   same() { const [a, b] = this.combos; return a.length === b.length && a.every((id) => b.includes(id)); },
   feat(id) { return [...this.feats.A, ...this.feats.B].find((f) => f.id === id); },
   side(id) { return id.startsWith('A') ? 'A' : 'B'; },
-  svg(id) { const f = this.feat(id); const k = this.side(id); return glyphSVG(f?.glyph, this.colors[k], id, this.textures[k]); },
+  // 질감: 사진에서 보이는 특징은 입자(grain), 알려진 성질은 망점(halftone)
+  svg(id) { const f = this.feat(id); return glyphSVG(f?.glyph, this.colors[this.side(id)], id, f?.known ? 'halftone' : 'grain'); },
   // 그릇 안 도형: 담긴 것만 다시 그림 (새로 담긴 것만 떨어지는 효과가 나도록 원래 것은 그대로 둠)
   drawMix(i) {
     const mix = $(`#recipeBowls .rc-bowl[data-slot="${i}"] .rc-mix`);
@@ -761,7 +761,6 @@ const recipe = {
 enter.recipe = () => {
   recipe.feats = recipeFeatures();
   recipe.colors = { A: '#d9d6d2', B: '#d9d6d2' };
-  recipe.textures = { A: null, B: null };
   recipe.combos = [[], []];
   recipe.active = 0;
   $$('#recipeBowls .rc-mix').forEach((m) => { m.innerHTML = ''; });
@@ -772,7 +771,8 @@ enter.recipe = () => {
       const box = $(`#recipe${k}`);
       const list = recipe.feats[k];
       // 토큰 5개를 사진 둘레에 원형으로 (위에서 시작)
-      box.innerHTML = `<img class="rc-photo" src="${esc(state.picks[k].src)}" alt=""><p class="rc-side-name">${k}</p>`
+      // 가운데: 사진 대신 큰 글자(A/B)와 음식 이름 (도형과 같은 색)
+      box.innerHTML = `<p class="rc-letter" style="color:${recipe.colors[k]}">${k}</p><p class="rc-side-name">${esc(state.foods[k])}</p>`
         + list.map((f, i) => {
           const a = -Math.PI / 2 + (i / list.length) * Math.PI * 2;
           const x = 50 + Math.cos(a) * 38;
@@ -784,11 +784,10 @@ enter.recipe = () => {
     recipe.render();
   };
   draw();
-  // 사진의 대표색과 질감을 구하면 도형을 그 질감으로 다시 그림
-  Promise.all(['A', 'B'].flatMap((k) => [dominantColor(state.picks[k].src), foodTexture(state.picks[k].src)])).then(([ca, ta, cb, tb]) => {
+  // 사진의 대표색을 구하면 선명하게 바꿔서 도형을 다시 칠함 (사진 자체는 안 씀)
+  Promise.all(['A', 'B'].map((k) => dominantColor(state.picks[k].src))).then(([ca, cb]) => {
     if (run !== state.run || current !== 'recipe') return;
-    recipe.colors = { A: ca, B: cb };
-    recipe.textures = { A: ta, B: tb };
+    recipe.colors = { A: vivid(ca), B: vivid(cb) };
     $$('#recipeBowls .rc-mix').forEach((m) => { m.innerHTML = ''; });
     draw();
   });
