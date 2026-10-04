@@ -5,7 +5,6 @@
 import { FOODS, FORMS, GALLERY_SEED, IDLE_RESET_MS, DEMO_FEATURES } from './data.js';
 import * as ai from './ai.js';
 import { contour } from './contour.js';
-import { formParticles } from './particles.js';
 import { startCook, preloadCook } from './cook.js';
 import { cutoutInfo } from './cutout.js';
 import { glyphFor, glyphSVG, dominantColor, vivid } from './glyphs.js';
@@ -969,71 +968,73 @@ leave.cook = () => {
    화면 6: 맛보기 조형 선택
    ========================================================= */
 let unsubTaste = null;
-let tasteFx = null;
+// 맛보기 조형 6개: 나만의 조합 화면과 같은 '위에서 본 그릇' 6개
+// 만들어지는 동안: 그릇마다 담았던 도형들이 천천히 돌며 섞이고, 테두리에 두 음식 색이 일렁임
+// 6개가 '다' 만들어지면: 도형이 가운데로 빨려 들어가며 사라지고 조형이 그 자리에서 차례로 떠오름
+const TASTE_POS = [[360, 400], [720, 400], [1080, 400], [360, 720], [720, 720], [1080, 720]]; // 그릇 가운데 (컴퓨터)
+const TASTE_PPOS = [[160, 330], [440, 330], [160, 580], [440, 580], [160, 830], [440, 830]]; // 휴대폰
 function buildTaste() {
   const layer = $('#tasteLayer');
   layer.innerHTML = '';
-  layer.classList.remove('has-choice');
+  layer.classList.remove('has-choice', 'is-revealing', 'is-done');
   $('#tasteConfirm').hidden = true;
   if (!state.formsJob) state.formsJob = ai.tasteForms(state.analysis, state.picks, state.foods, state.combos);
   const job = state.formsJob;
-  tasteFx?.stop();
-  tasteFx = formParticles($('#tasteFx'));
-  // 조형 6개가 '다' 만들어질 때까지 점들이 맴돌며 기다리다가,
-  // 다 되면 6개가 한꺼번에 점에서 모여 나타남 (하나씩 따로 나오지 않게)
+  const run = {}; // 이번 화면 표시 (화면을 떠나면 바뀜)
+  tasteRun = run;
+  layer.style.setProperty('--ca', recipe.colors.A);
+  layer.style.setProperty('--cb', recipe.colors.B);
   const sub = $('#tasteSub');
   sub.textContent = '새로운 조형을 만들고 있어요';
   sub.classList.add('is-waiting');
+  // 그릇 안에서 돌 도형: 관람객이 담았던 조합 (없으면 특징 중 몇 개)
+  const all = recipe.feats ? [...recipe.feats.A, ...recipe.feats.B].map((f) => f.id) : [];
+  const mixFor = (i) => {
+    const c = state.combos?.[i % 2];
+    if (c?.length) return c;
+    if (!all.length) return [];
+    return [all[(i * 3) % all.length], all[(i * 3 + 5) % all.length]];
+  };
+  FORMS.forEach((f, i) => {
+    const [cx, cy] = TASTE_POS[i];
+    const [pcx, pcy] = TASTE_PPOS[i];
+    const cell = document.createElement('div');
+    cell.className = 'taste-cell abs box';
+    cell.style.cssText = `--x:${cx - 130};--y:${cy - 130};--w:260;--h:260;--px:${pcx - 112};--py:${pcy - 112};--pw:224;--ph:224;--d:${i * 0.12}s`;
+    const swirl = mixFor(i).map((id, k) => recipe.svg(id).replace('<svg ', `<svg style="--r0:${(k * 137 + i * 40) % 360}deg;--t:${16 + k * 6}s" `)).join('');
+    cell.innerHTML = `<button class="taste-hit tb-bowl" type="button" aria-label="맛보기 조형 ${f.id} 선택" disabled>
+        <span class="tb-dish"><span class="tb-mix">${swirl}</span><img class="taste-form" alt=""></span>
+      </button>`;
+    cell.querySelector('.taste-hit').addEventListener('click', () => chooseForm({ ...f, img: job.items[i], plan: job.meta?.forms?.[i] || null }, cell));
+    layer.append(cell);
+  });
+  const markLost = () => job.lost.forEach((i) => layer.children[i]?.classList.add('is-lost'));
+  markLost();
   let revealed = false;
   const revealAll = async () => {
     if (revealed || !job.finished || !job.ready) return;
     revealed = true;
-    const fx = tasteFx;
     // 이미지를 먼저 다 불러놓고 → 동시에 시작
-    const cells = job.items.map((src, i) => (src ? { i, src, cell: layer.children[i] } : null)).filter(Boolean);
+    const cells = job.items.map((src, i) => (src ? { src, cell: layer.children[i] } : null)).filter(Boolean);
     await Promise.all(cells.map(({ cell, src }) => {
       const img = cell.querySelector('.taste-form');
       img.src = src;
       return img.decode().catch(() => {});
     }));
-    if (fx !== tasteFx) return;
+    if (tasteRun !== run) return;
     sub.classList.remove('is-waiting');
-    await Promise.all(cells.map(async ({ i, src, cell }) => {
-      await fx.reveal(i, src);
-      if (fx !== tasteFx) return;
-      cell.classList.add('is-ready');
-    }));
-    if (fx !== tasteFx) return;
+    sub.textContent = '새로운 조형이 완성됐어요';
+    layer.classList.add('is-revealing'); // 도형이 가운데로 빨려 들어감
+    await wait(700);
+    if (tasteRun !== run) return;
+    cells.forEach(({ cell }) => cell.classList.add('is-ready')); // 조형이 차례로 떠오름 (--d 만큼 늦게)
+    await wait(1500);
+    if (tasteRun !== run) return;
+    layer.classList.add('is-done');
     // 6개가 '다' 나타난 뒤에야 고를 수 있음 (만들어지는 중에는 클릭 안 됨)
     cells.forEach(({ cell }) => { cell.querySelector('.taste-hit').disabled = false; });
     sub.textContent = '맛보고 싶은 조형을 클릭하세요';
   };
-  const k = 280 / 463; // 휴대폰에서 그릇 크기 비율
-  FORMS.forEach((f, i) => {
-    const [fx, fy, fw, fh] = f.form;
-    const [bx, by] = f.bowl;
-    // 휴대폰: 2열 × 3행
-    const pbx = i % 2 === 0 ? 10 : 310;
-    const pby = 380 + Math.floor(i / 2) * 255;
-    const pfw = fw * k;
-    const pfh = fh * k;
-    const pfx = pbx + 140 + (fx + fw / 2 - (bx + 231.5)) * k - pfw / 2;
-    const pfy = pby + (fy - by) * k;
-    const top = Math.min(fy, by);
-    const ptop = Math.min(pfy, pby);
-    const cell = document.createElement('div');
-    cell.className = 'taste-cell';
-    cell.innerHTML = `
-      <img class="bowl abs box" src="assets/img/bowl.png" alt="" style="--x:${bx};--y:${by};--w:463;--h:232;--px:${pbx};--py:${pby};--pw:280;--ph:140">
-      <img class="taste-form abs box" alt="" style="--x:${fx};--y:${fy};--w:${fw};--h:${fh};--px:${pfx};--py:${pfy};--pw:${pfw};--ph:${pfh}">
-      <button class="taste-hit abs box" type="button" aria-label="맛보기 조형 ${f.id} 선택" style="--x:${bx + 60};--y:${top};--w:343;--h:${by + 170 - top};--px:${pbx + 36};--py:${ptop};--pw:208;--ph:${pby + 103 - ptop}"></button>`;
-    const hit = cell.querySelector('.taste-hit');
-    hit.disabled = true;
-    tasteFx.add(i, cell.querySelector('.taste-form'));
-    hit.addEventListener('click', () => chooseForm({ ...f, img: job.items[i], plan: job.meta?.forms?.[i] || null }, cell));
-    layer.append(cell);
-  });
-  job.lost.forEach((i) => tasteFx.cancel(i));
   revealAll();
   unsubTaste?.();
   const checkFailed = () => {
@@ -1044,10 +1045,12 @@ function buildTaste() {
   };
   checkFailed();
   unsubTaste = job.on((i, src) => {
-    if (!src) { tasteFx?.cancel(i); checkFailed(); }
+    if (!src) { markLost(); checkFailed(); }
     revealAll();
   });
 }
+let tasteRun = null;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // 조형을 누르면 바로 3D로 가지 않고 한 번 확인 (3D 변환은 한 번에 요금이 들어서)
 // '다시 고르기'를 누르면 다른 조형을 고를 수 있음
 function chooseForm(f, cell) {
@@ -1073,14 +1076,12 @@ $('#tasteGo').addEventListener('click', () => { if (current === 'taste' && state
 $('#tasteBack').addEventListener('click', () => current === 'taste' && unchooseForm());
 enter.taste = buildTaste;
 leave.taste = () => {
+  tasteRun = null;
   $('#tasteConfirm').hidden = true;
   clearTimeout(timers.taste);
   clearTimeout(timers.tasteFail);
   unsubTaste?.();
   unsubTaste = null;
-  const fx = tasteFx;
-  tasteFx = null;
-  setTimeout(() => fx?.stop(), 600); // 화면이 사라진 뒤 정지
 };
 
 /* =========================================================
