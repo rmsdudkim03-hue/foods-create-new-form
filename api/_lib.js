@@ -402,13 +402,12 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
   };
   const site = photoSite();
   if (!site) return { photos: [], page };
-  // 시간을 줄이려고 사진 사이트 + Wikimedia를 한꺼번에 찾고 고름 (모자란 자리는 화면에서 AI 이미지로 채움)
-  const rounds = [gather(site, page)];
-  if (site !== 'Wikimedia Commons') rounds.push(gather('Wikimedia Commons', page));
-  const [first, wiki = []] = await Promise.all(rounds);
-  // 사진 사이트 사진을 먼저, Wikimedia는 모자랄 때만
-  let photos = first;
-  if (photos.length < PHOTO_COUNT) photos = [...photos, ...wiki];
+  // 사진 사이트에서 먼저 고르고, 모자랄 때만 Wikimedia도 (모자란 자리는 화면에서 AI 이미지로 채움)
+  // (전에는 둘을 동시에 찾았는데, Wikimedia 사진 고르기에 쓰는 토큰이 대부분 버려져서 바꿈)
+  const first = await gather(site, page);
+  let wiki = [];
+  if (first.length < PHOTO_COUNT && site !== 'Wikimedia Commons') wiki = await gather('Wikimedia Commons', page);
+  const photos = [...first, ...wiki];
   console.log(`[알림] 사진 고름: ${site} ${first.length}장, Wikimedia ${wiki.length}장 → ${Math.min(photos.length, PICK_MAX)}장 보냄`);
   return { photos: photos.slice(0, PICK_MAX), page };
 }
@@ -416,7 +415,7 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------
    검색 결과에는 음식이 아닌 사진, 음식이 작게 나온 사진, 다른 것과 섞인 사진이 섞여 있어서
    작은 미리보기를 글 AI에 보여주고 '그 음식의 특징이 잘 드러나는' 사진만 고름 */
-const CANDIDATES = 30; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸림)
+const CANDIDATES = 20; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸리고 토큰이 많이 듦)
 
 async function thumbData(url) {
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
