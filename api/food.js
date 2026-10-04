@@ -2,7 +2,7 @@
 //   사진 사이트 키(UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY)가 있으면:
 //     글 AI가 음식인지 확인하고 영어 검색어를 정함 → 사진 사이트에서 실제 사진 10장 검색
 //   없으면 (예전 방식): 글 AI가 이미지 10장을 계획 → 이미지 AI가 그림. 프롬프트 원문: prompts/0-food-images.md
-import { handler, send, askJSON, prompt, S, searchPhotos, photoSite } from './_lib.js';
+import { handler, send, askJSON, prompt, S, searchPhotos, photoSite, prewarmSearch } from './_lib.js';
 
 
 // 실제 사진 모드: 음식인지 확인 + 검색어만 정함 (빠르게)
@@ -11,13 +11,15 @@ const PHOTO_SCHEMA = S.obj({
   name: S.str('정리된 음식 이름 (한국어, 짧게). 음식이 아니면 빈 문자열'),
   message: S.str('음식이 아닐 때 관람객에게 보여줄 한 문장 (한국어). 음식이면 빈 문자열'),
   queries: S.arr(S.str('영어 검색어 (1~3단어)'), '사진 사이트에서 이 음식의 서로 다른 모습을 찾을 영어 검색어 3개. 첫째는 음식 이름 그대로 (예: broccoli / broccoli floret / broccoli cross section). 음식이 아니면 빈 배열'),
+  ko: S.arr(S.str('한국어 검색어 (2~4단어)'), '같은 음식의 다른 모습을 찾을 한국어 검색어 2개 (예: 브로콜리 단면 / 브로콜리 송이). 음식이 아니면 빈 배열'),
 });
 const PHOTO_INSTRUCTIONS = `관람객이 입력한 단어가 음식인지 판단한다.
 음식이 아니면 is_food를 false로 하고, message에 "○○은(는) 음식이 아니에요. 다른 음식을 입력해 주세요"처럼 한 문장을 쓴다.
 음식이면 name에 정리된 이름을, queries에 그 음식 사진을 찾을 짧은 영어 검색어 3개를 쓴다.
 - 첫째: 음식 이름 그대로 (사진 사이트에서 흔히 쓰는 영어 이름)
 - 둘째, 셋째: 같은 음식의 다른 모습 (자른 단면, 조각, 여러 개, 다른 품종 등) 중 그 음식에 어울리는 것
-- 다른 음식이 섞여 나오기 쉬운 단어(요리, 레시피, 식탁 등)는 넣지 않는다.`;
+- 다른 음식이 섞여 나오기 쉬운 단어(요리, 레시피, 식탁 등)는 넣지 않는다.
+ko에는 같은 음식의 다른 모습(단면, 조각, 여러 개 등)을 찾을 한국어 검색어 2개를 쓴다.`;
 
 const SCHEMA = S.obj({
   is_food: S.bool('입력된 단어가 음식이면 true'),
@@ -69,7 +71,9 @@ export default handler(async (req, res, body) => {
     const exclude = Array.isArray(body.exclude) ? body.exclude.map(String).slice(0, 200) : [];
     let name = word;
     let queries = given;
+    let ko = Array.isArray(body.ko) ? body.ko.map((q) => String(q).slice(0, 40)).filter(Boolean).slice(0, 2) : [];
     if (!queries.length) {
+      prewarmSearch(word); // 음식 확인을 기다리는 동안 사진 검색을 먼저 시작 (빠르게)
       const out = await askJSON({
         instructions: PHOTO_INSTRUCTIONS,
         text: `입력 단어: ${word}`,
@@ -80,13 +84,14 @@ export default handler(async (req, res, body) => {
       if (!out.is_food) return send(res, 200, notFood(word, out.message));
       name = out.name || word;
       queries = out.queries?.length ? out.queries : [word];
+      ko = out.ko || [];
     }
     // 사진만 찾아서 돌려줌 (사진 모드에서는 AI로 음식 이미지를 그리지 않음)
-    const found = await searchPhotos(queries, name, { page, exclude });
+    const found = await searchPhotos(queries, name, { page, exclude, ko });
     const photos = found.photos;
     const shots = [];
     if (!photos.length && !shots.length) return send(res, 200, { ok: false, message: `${name} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
-    return send(res, 200, { ok: true, name, interpretation: '', queries, page: found.page, photos, shots });
+    return send(res, 200, { ok: true, name, interpretation: '', queries, ko, page: found.page, photos, shots });
   }
 
   const out = await planShots(word);

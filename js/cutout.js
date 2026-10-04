@@ -151,13 +151,21 @@ function maskStats(canvas) {
 const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.15;
 const usable = (s) => s.cover >= MIN_COVER && s.cover <= MAX_COVER && s.edge <= MAX_EDGE;
 
+// 화질이 낮은 사진은 아예 쓰지 않음 (짧은 변이 이보다 작으면 뺌. 미리보기 사진도 여기서 걸러짐)
+export const MIN_SIDE = 400;
 async function cutoutNow(src) {
   const img = await loadImage(src);
+  if (Math.min(img.naturalWidth, img.naturalHeight) < MIN_SIDE) {
+    cutoutInfo.lowres = (cutoutInfo.lowres || 0) + 1;
+    throw new Error('lowres');
+  }
   let canvas = null;
   if (server) {
     try { canvas = await serverCutout(img); } catch (err) {
       console.warn('[배경 제거] 서버 실패 → 브라우저에서', err.message);
       cutoutInfo.serverFail = (cutoutInfo.serverFail || 0) + 1;
+      // 서버가 계속 실패하면(예: fal 잔액 부족) 더 기다리지 않고 바로 브라우저에서 지움
+      if (cutoutInfo.serverFail >= 2) { server = null; cutoutInfo.method = '브라우저 AI (서버 실패)'; segmenter('fast').catch(() => {}); }
     }
   }
   if (!canvas) try {

@@ -212,16 +212,26 @@ export function foodImages(food) {
     const job = createJob(SHOW);
     job.meta = { photos: photos.length > 0, interpretation: plan.interpretation, t0: plan.t0 || performance.now() };
     let filled = 0;                 // 채운 자리 수
-    const enough = () => job.cancelled || filled >= SHOW;
+    let closed = false;             // 끝냄 (남은 자리는 빈칸으로 확정)
+    const enough = () => job.cancelled || closed || filled >= SHOW;
     const add = (item) => { if (!enough()) job.put(filled++, item); };
     let left = photos.length + Math.min(shots.length, SHOW); // 아직 처리 중인 것
+    let topping = false;            // 사진이 모자라서 다음 검색 묶음을 받는 중
     const backups = [];             // 배경이 덜 지워진 사진 (다른 게 다 모자랄 때만 씀)
-    const settle = () => {
-      if (--left > 0 || job.cancelled) return;
-      backups.sort((x, y) => x.score - y.score).forEach((b) => add(b.item));
+    const useBackups = () => { backups.sort((x, y) => x.score - y.score).splice(0).forEach((b) => add(b.item)); };
+    const finish = () => {
+      if (job.cancelled || closed) return;
+      useBackups();
+      closed = true;
       for (let i = filled; i < SHOW; i++) job.fail(i);
     };
-    photos.forEach((p, i) => {
+    const settle = () => { if (--left <= 0 && !topping) finish(); };
+    // 시간 제한: 35초가 지나도 6장이 안 되면 덜 지워진 사진으로 먼저 채우고, 55초엔 있는 만큼으로 끝냄
+    // (1분 안에 사진이 다 보이게)
+    setTimeout(() => { if (!enough()) useBackups(); }, 35000);
+    setTimeout(() => { if (!enough()) finish(); }, 55000);
+    const used = new Set(photos.map((p) => p.src));
+    const process = (p, i) => {
       // 네이버 검색 사진은 미리보기 주소(fb)와 서버 도장(sig)을 같이 보냄
       const src = `api/photo?u=${encodeURIComponent(p.src)}${p.sig ? `&f=${encodeURIComponent(p.fb || '')}&s=${p.sig}` : ''}`;
       const base = { alt: p.alt || `${food} 사진 ${i + 1}`, by: p.by, link: p.link, site: p.site, track: p.track };
@@ -232,7 +242,22 @@ export function foodImages(food) {
         })
         .catch((err) => { if (err.message !== 'skip') console.warn(err.message); })
         .finally(settle);
-    });
+    };
+    photos.forEach(process);
+    // 고른 사진이 적으면(저화질·배경 실패로 빠질 걸 대비) 다음 검색 묶음을 바로 같이 받아서 처리
+    if (photos.length && photos.length < 10 && plan.queries) {
+      topping = true;
+      call('api/food', { body: { word: food, queries: plan.queries, ko: plan.ko || [], page: (plan.page || 1) + 1, exclude: [...used] }, timeout: 40000, retries: 0 })
+        .then((r) => {
+          const more = (r.ok ? r.photos || [] : []).filter((p) => !used.has(p.src));
+          more.forEach((p) => used.add(p.src));
+          plan.page = r.page || plan.page;
+          left += more.length;
+          more.forEach((p, j) => process(p, photos.length + j));
+        })
+        .catch((err) => console.warn('[사진] 추가 검색 실패', err.message))
+        .finally(() => { topping = false; if (left <= 0) finish(); });
+    }
     // 예전 모드(PHOTOS=0): AI가 흰 배경으로 그림
     pool(shots.slice(0, SHOW).map((sh, j) => async () => {
       try {
@@ -263,7 +288,7 @@ export async function moreImages(food) {
   const seen = new Set(plan.seen || []);
   (plan.photos || []).forEach((p) => seen.add(p.src));
   const r = await call('api/food', {
-    body: plan.queries ? { word: food, queries: plan.queries, page: (plan.page || 1) + 1, exclude: [...seen] } : { word: food },
+    body: plan.queries ? { word: food, queries: plan.queries, ko: plan.ko || [], page: (plan.page || 1) + 1, exclude: [...seen] } : { word: food },
     timeout: 120000,
   });
   if (!r.ok) throw new Error(r.message || '사진을 더 찾지 못했어요');

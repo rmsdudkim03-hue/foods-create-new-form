@@ -310,7 +310,7 @@ export function checkPlan(plan) {
    배경은 화면(브라우저)에서 AI가 지움 */
 export const PHOTO_COUNT = 6;
 // 브라우저에서 배경을 못 지운 사진은 빠지므로, 여유 있게 더 골라서 보냄 (화면에는 실제 사진 + AI 이미지 합쳐 6장)
-export const PICK_MAX = 8;
+export const PICK_MAX = 12; // 저화질·배경 실패로 빠지는 사진이 있어도 6장이 채워지게 넉넉히
 const NAVER = process.env.NAVER_BASE || 'https://openapi.naver.com/v1/search/image';
 export const NAVER_SITE = '네이버 검색';
 const KAKAO = process.env.KAKAO_BASE || 'https://dapi.kakao.com/v2/search/image';
@@ -356,8 +356,28 @@ async function getJSON(label, url, headers = {}) {
   return data;
 }
 
+// 사진 짧은 변이 이보다 작으면 저화질로 보고 빼기 (화면에서도 400px 미만은 한 번 더 거름)
+const MIN_PHOTO = 500;
+// 같은 검색을 1분 안에 다시 하면 저장해 둔 결과를 씀 (음식 확인과 동시에 미리 찾아 둔 결과 재사용)
+const searchMemo = new Map();
+export function searchOne(site, query, page = 1) {
+  const key = `${site}|${query}|${page}`;
+  const hit = searchMemo.get(key);
+  if (hit && Date.now() - hit.t < 60000) return hit.p;
+  const p = searchOneNow(site, query, page);
+  searchMemo.set(key, { t: Date.now(), p });
+  p.catch(() => searchMemo.delete(key));
+  if (searchMemo.size > 200) searchMemo.delete(searchMemo.keys().next().value);
+  return p;
+}
+// 음식 확인(AI)을 기다리는 동안 한국어 검색을 미리 시작 (네이버·카카오만)
+export function prewarmSearch(word) {
+  const site = photoSite();
+  if (!KOREAN_SITES.includes(site)) return;
+  [`${word} 누끼`, word].forEach((q) => searchOne(site, q, 1).catch(() => {}));
+}
 // 검색어 하나로 사진 사이트 검색 → 사진 목록
-async function searchOne(site, query, page = 1) {
+async function searchOneNow(site, query, page = 1) {
   let list = [];
   if (site === 'Unsplash') {
     const data = await getJSON(`사진 검색 Unsplash (${query})`,
@@ -396,7 +416,7 @@ async function searchOne(site, query, page = 1) {
       `${KAKAO}?${new URLSearchParams({ query, size: '20', page: String(page), sort: 'accuracy' })}`,
       { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` });
     list = (data.documents || [])
-      .filter((p) => /^https?:\/\//.test(p.image_url || '') && p.thumbnail_url && Number(p.width) >= 300 && Number(p.height) >= 300)
+      .filter((p) => /^https?:\/\//.test(p.image_url || '') && p.thumbnail_url && Math.min(Number(p.width), Number(p.height)) >= MIN_PHOTO)
       .map((p) => {
         let host = '';
         try { host = new URL(p.doc_url || p.image_url).hostname.replace(/^www\./, ''); } catch { /* 무시 */ }
@@ -409,7 +429,7 @@ async function searchOne(site, query, page = 1) {
       { 'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID, 'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET });
     const strip = (h) => String(h || '').replace(/<[^>]*>/g, '').replace(/&[a-z]+;/g, ' ').trim().slice(0, 60);
     list = (data.items || [])
-      .filter((p) => /^https:\/\//.test(p.link || '') && p.thumbnail && Number(p.sizewidth) >= 300 && Number(p.sizeheight) >= 300)
+      .filter((p) => /^https:\/\//.test(p.link || '') && p.thumbnail && Math.min(Number(p.sizewidth), Number(p.sizeheight)) >= MIN_PHOTO)
       .map((p) => {
         let host = '';
         try { host = new URL(p.link).hostname.replace(/^www\./, ''); } catch { /* 무시 */ }
@@ -440,13 +460,15 @@ async function searchOne(site, query, page = 1) {
 // 고른 사진이 PHOTO_COUNT장보다 적으면 Wikimedia Commons 사진도 보탬 (동시에 찾음)
 // page: 몇 번째 검색 결과 묶음인지 ('다른 사진 보기'를 누를 때마다 다음 묶음), exclude: 이미 보여준 사진 주소
 // 돌려주는 값: { photos, page: 마지막으로 쓴 묶음 번호 }
-export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {}) {
+export async function searchPhotos(queries, name, { page = 1, exclude = [], ko = [] } = {}) {
   const qs = [...new Set((Array.isArray(queries) ? queries : [queries]).map((q) => String(q || '').trim()).filter(Boolean))].slice(0, 3);
   // 배경이 단순한 사진(배경 지우기가 잘 됨)을 찾으려고 '단독으로 찍은' 검색어를 하나 더
   if (qs[0]) qs.unshift(`${qs[0]} isolated`);
   const seen = new Set(exclude);
   // 네이버는 한국어로 찾음: '누끼'(배경 없이 찍은 사진), 이름 그대로, 영어 이름
-  const naverQs = [...new Set([`${name} 누끼`, name, qs[1] || qs[0]].filter(Boolean))];
+  // (AI가 정한 한국어 검색어: 단면·조각 등 다른 모습 → 비슷한 사진만 나오지 않게)
+  const koQs = (Array.isArray(ko) ? ko : []).map((q) => String(q || '').trim()).filter(Boolean).slice(0, 2);
+  const naverQs = [...new Set([`${name} 누끼`, name, ...koQs, qs[1] || qs[0]].filter(Boolean))].slice(0, 5);
   const gather = async (site, pg) => {
     const words = KOREAN_SITES.includes(site) ? naverQs : qs;
     const lists = await Promise.all(words.map((q) => searchOne(site, q, pg).catch((err) => { console.error(err); return []; })));
@@ -483,7 +505,7 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------
    검색 결과에는 음식이 아닌 사진, 음식이 작게 나온 사진, 다른 것과 섞인 사진이 섞여 있어서
    작은 미리보기를 글 AI에 보여주고 '그 음식의 특징이 잘 드러나는' 사진만 고름 */
-const CANDIDATES = 20; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸리고 토큰이 많이 듦)
+const CANDIDATES = 24; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸리고 토큰이 많이 듦)
 
 async function thumbData(url) {
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
@@ -510,7 +532,8 @@ const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보
 
 [다양성]
 - 고른 사진들이 서로 다른 모습이 되게 한다: 통째, 자른 단면, 작은 조각, 여러 개 모인 모습, 다른 품종이나 색, 다른 시점.
-- 거의 같은 모습의 사진은 하나만 고른다.
+- 거의 같은 모습의 사진은 하나만 고른다. 같은 각도·같은 상태의 통째 사진은 많아야 2장.
+- 그 음식이 무엇인지 한눈에 알아볼 수 있어야 한다. 특징이 잘 안 보이는 애매한 사진보다 특징이 분명한 사진을 먼저 쓴다.
 
 좋은 순서대로 번호를 쓴다. 기준에 맞는 사진이 적으면 맞는 것만 쓴다.`;
 
