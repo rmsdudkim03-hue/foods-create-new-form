@@ -705,6 +705,13 @@ const recipe = {
       bowl.classList.toggle('is-active', i === this.active);
       bowl.classList.toggle('is-done', this.valid(this.combos[i]));
       this.drawMix(i);
+      // 그릇 아래: 담긴 재료 이름 (색 점 + 이름, 누르면 뺌)
+      const list = bowl.querySelector('.rc-list');
+      const have = [...list.children].map((li) => li.dataset.id).join();
+      if (have !== this.combos[i].join()) {
+        list.innerHTML = this.combos[i].map((id) => `<li data-id="${esc(id)}"><button type="button" data-id="${esc(id)}" aria-label="${esc(this.feat(id)?.title)} 빼기"><i style="background:${this.colors[this.side(id)]}"></i>${esc(id)} ${esc(this.feat(id)?.title)}</button></li>`).join('');
+      }
+      bowl.querySelector('.rc-clear').hidden = !this.combos[i].length;
     });
     $$('[data-screen="recipe"] .rc-token').forEach((t) => {
       const id = t.dataset.id;
@@ -733,8 +740,12 @@ const recipe = {
     const c = this.combos[i];
     const at = c.indexOf(id);
     if (at >= 0) c.splice(at, 1);
-    else if (c.length >= 3) { shake(token); toast('그릇 하나에 재료는 3개까지 담을 수 있어요'); this.render(); return; }
-    else { c.push(id); this.fly(token, i); }
+    else {
+      // 3개가 찼으면 가장 먼저 넣은 재료를 빼고 새 재료로 바꿈 (막지 않고 계속 바꿔볼 수 있게)
+      if (c.length >= 3) c.shift();
+      c.push(id);
+      this.fly(token, i);
+    }
     // 그릇 1을 3개 다 채우면 자동으로 그릇 2로
     if (i === 0 && c.length === 3 && this.valid(c) && !this.valid(this.combos[1])) this.active = 1;
     this.label(id);
@@ -763,7 +774,7 @@ enter.recipe = () => {
   recipe.colors = { A: '#d9d6d2', B: '#d9d6d2' };
   recipe.combos = [[], []];
   recipe.active = 0;
-  $$('#recipeBowls .rc-mix').forEach((m) => { m.innerHTML = ''; });
+  $$('#recipeBowls .rc-mix, #recipeBowls .rc-list').forEach((m) => { m.innerHTML = ''; });
   $('#recipeLabel').textContent = '';
   const run = state.run;
   const draw = () => {
@@ -775,8 +786,9 @@ enter.recipe = () => {
       box.innerHTML = `<p class="rc-letter" style="color:${recipe.colors[k]}">${k}</p><p class="rc-side-name">${esc(state.foods[k])}</p>`
         + list.map((f, i) => {
           const a = -Math.PI / 2 + (i / list.length) * Math.PI * 2;
-          const x = 50 + Math.cos(a) * 38;
-          const y = 50 + Math.sin(a) * 38;
+          const R = view.portrait ? 35 : 38; // 휴대폰은 화면 밖으로 안 나가게 조금 안쪽
+          const x = 50 + Math.cos(a) * R;
+          const y = 50 + Math.sin(a) * R;
           return `<button class="rc-token" type="button" data-id="${esc(f.id)}" aria-pressed="false" aria-label="${esc(f.title)}"
             style="left:${x.toFixed(1)}%; top:${y.toFixed(1)}%">${recipe.svg(f.id)}<span class="rc-id">${esc(f.id)}</span></button>`;
         }).join('');
@@ -788,7 +800,7 @@ enter.recipe = () => {
   Promise.all(['A', 'B'].map((k) => dominantColor(state.picks[k].src))).then(([ca, cb]) => {
     if (run !== state.run || current !== 'recipe') return;
     recipe.colors = { A: vivid(ca), B: vivid(cb) };
-    $$('#recipeBowls .rc-mix').forEach((m) => { m.innerHTML = ''; });
+    $$('#recipeBowls .rc-mix, #recipeBowls .rc-list').forEach((m) => { m.innerHTML = ''; });
     draw();
   });
 };
@@ -857,6 +869,10 @@ $('#recipeBowls').addEventListener('click', (e) => {
   const bowl = e.target.closest('.rc-bowl');
   if (!bowl) return;
   const i = Number(bowl.dataset.slot);
+  // 비우기 / 이름 눌러서 빼기
+  if (e.target.closest('.rc-clear')) { recipe.combos[i] = []; recipe.active = i; recipe.render(); return; }
+  const item = e.target.closest('.rc-list button');
+  if (item) { recipe.combos[i] = recipe.combos[i].filter((id) => id !== item.dataset.id); recipe.active = i; recipe.render(); return; }
   const g = e.target.closest('.rc-mix svg');
   if (g && i === recipe.active) recipe.combos[i] = recipe.combos[i].filter((id) => id !== g.dataset.id);
   recipe.active = i;
