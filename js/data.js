@@ -52,28 +52,28 @@ export const GALLERY_SEED = [
 
 // ---------- 데모 모드: '나만의 조합' 화면에 보여줄 특징 ----------
 // 실제 AI 모드에서는 분석 결과(api/analyze)가 대신 들어감. 구조도 같음
-// visual: 사진에서 보이는 특징 3개, knowledge: 알려진 성질 후보 2개, glyph: 화면에 보일 도형 (js/glyphs.js)
+// visual: 사진에서 보이는 특징 3개, knowledge: 알려진 성질 후보 2개, glyph: 화면에 보일 도형, shape: 도형 모양 값 (js/glyphs.js)
 export const DEMO_FEATURES = {
   '젤리': {
     visual: [
-      { title: '세로 홈이 도는 윤곽', desc: '둥근 몸체 둘레를 따라 세로 홈이 일정한 간격으로 반복된다.', glyph: 'grooves' },
-      { title: '위로 좁아지는 계단 단면', desc: '아래가 넓고 위로 갈수록 단을 이루며 좁아진다.', glyph: 'layers' },
-      { title: '빛이 통과하는 두께', desc: '가장자리가 얇아질수록 빛이 많이 통과해 밝게 보인다.', glyph: 'veil' },
+      { title: '세로 홈이 도는 윤곽', desc: '둥근 몸체 둘레를 따라 세로 홈이 일정한 간격으로 반복된다.', glyph: 'grooves', shape: { count: 12, weight: 0.6, taper: 0, sharp: 0.2, spread: 0.3, irregular: 0.05, dir: 'out' } },
+      { title: '위로 좁아지는 계단 단면', desc: '아래가 넓고 위로 갈수록 단을 이루며 좁아진다.', glyph: 'layers', shape: { count: 4, weight: 0.7, taper: -0.8, sharp: 0.1, spread: 0.2, irregular: 0.1, dir: 'up' } },
+      { title: '빛이 통과하는 두께', desc: '가장자리가 얇아질수록 빛이 많이 통과해 밝게 보인다.', glyph: 'veil', shape: { count: 3, weight: 0.4, taper: 0, sharp: 0, spread: 0.5, irregular: 0.2, dir: 'out' } },
     ],
     knowledge: [
-      { title: '틀을 따라 굳는 성질', desc: '액체 상태로 틀에 부어 식히면 틀의 형태 그대로 굳는다.', glyph: 'press' },
-      { title: '누르면 되돌아오는 탄성', desc: '눌렀다 놓으면 원래 형태로 천천히 되돌아온다.', glyph: 'blob' },
+      { title: '틀을 따라 굳는 성질', desc: '액체 상태로 틀에 부어 식히면 틀의 형태 그대로 굳는다.', glyph: 'press', shape: { count: 3, weight: 0.5, taper: 0.3, sharp: 0.1, spread: 0.3, irregular: 0.1, dir: 'up' } },
+      { title: '누르면 되돌아오는 탄성', desc: '눌렀다 놓으면 원래 형태로 천천히 되돌아온다.', glyph: 'blob', shape: { count: 5, weight: 0.6, taper: 0, sharp: 0, spread: 0.4, irregular: 0.4, dir: 'out' } },
     ],
   },
   '브로콜리': {
     visual: [
-      { title: '작은 송이의 반복', desc: '비슷한 모양의 작은 송이가 모여 큰 송이를 이룬다.', glyph: 'cluster' },
-      { title: '가지가 갈라지는 구조', desc: '굵은 줄기가 위로 갈수록 여러 갈래로 나뉜다.', glyph: 'branch' },
-      { title: '오돌토돌한 표면 밀도', desc: '표면이 아주 작은 알갱이로 촘촘하게 덮여 있다.', glyph: 'dots' },
+      { title: '작은 송이의 반복', desc: '비슷한 모양의 작은 송이가 모여 큰 송이를 이룬다.', glyph: 'cluster', shape: { count: 12, weight: 0.5, taper: 0, sharp: 0, spread: 0.3, irregular: 0.5, dir: 'out' } },
+      { title: '가지가 갈라지는 구조', desc: '굵은 줄기가 위로 갈수록 여러 갈래로 나뉜다.', glyph: 'branch', shape: { count: 4, weight: 0.6, taper: -0.4, sharp: 0.2, spread: 0.55, irregular: 0.3, dir: 'up' } },
+      { title: '오돌토돌한 표면 밀도', desc: '표면이 아주 작은 알갱이로 촘촘하게 덮여 있다.', glyph: 'dots', shape: { count: 7, weight: 0.8, taper: 0.5, sharp: 0, spread: 0.2, irregular: 0.3, dir: 'out' } },
     ],
     knowledge: [
-      { title: '자라며 펼쳐지는 성질', desc: '자라는 동안 송이 사이가 벌어지며 바깥으로 펼쳐진다.', glyph: 'burst' },
-      { title: '익히면 물러지는 성질', desc: '익히면 줄기와 송이가 부드러워져 쉽게 휘어진다.', glyph: 'wave' },
+      { title: '자라며 펼쳐지는 성질', desc: '자라는 동안 송이 사이가 벌어지며 바깥으로 펼쳐진다.', glyph: 'burst', shape: { count: 16, weight: 0.4, taper: 0, sharp: 0.3, spread: 0.6, irregular: 0.3, dir: 'out' } },
+      { title: '익히면 물러지는 성질', desc: '익히면 줄기와 송이가 부드러워져 쉽게 휘어진다.', glyph: 'wave', shape: { count: 2, weight: 0.6, taper: 0, sharp: 0, spread: 0.5, irregular: 0.2, dir: 'side' } },
     ],
   },
 };

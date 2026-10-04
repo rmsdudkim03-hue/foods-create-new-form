@@ -667,7 +667,7 @@ function recipeFeatures() {
   const out = {};
   for (const k of ['A', 'B']) {
     // 데모 특징에는 번호가 없어서 실제 분석과 같은 규칙으로 붙임 (A1~A3, AK1~AK2)
-    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, title: f.title, desc: f.desc, glyph: glyphFor(f), known: type === 'knowledge' }));
+    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, title: f.title, desc: f.desc, glyph: glyphFor(f), shape: f.shape || null, known: type === 'knowledge' }));
     out[k] = [...list('visual', k), ...list('knowledge', `${k}K`)];
   }
   return out;
@@ -682,7 +682,7 @@ const recipe = {
   feat(id) { return [...this.feats.A, ...this.feats.B].find((f) => f.id === id); },
   side(id) { return id.startsWith('A') ? 'A' : 'B'; },
   // 질감: 사진에서 보이는 특징은 입자(grain), 알려진 성질은 망점(halftone)
-  svg(id) { const f = this.feat(id); return glyphSVG(f?.glyph, this.colors[this.side(id)], id, f?.known ? 'halftone' : 'grain'); },
+  svg(id) { const f = this.feat(id); return glyphSVG(f?.glyph, this.colors[this.side(id)], id, f?.known ? 'halftone' : 'grain', f?.shape); },
   // 그릇 안 도형: 담긴 것만 다시 그림 (새로 담긴 것만 떨어지는 효과가 나도록 원래 것은 그대로 둠)
   drawMix(i) {
     const mix = $(`#recipeBowls .rc-bowl[data-slot="${i}"] .rc-mix`);
