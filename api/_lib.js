@@ -21,8 +21,9 @@ export const MODELS = {
   imageForm: process.env.IMAGE_MODEL_FORM || 'gpt-image-2.5-flare', // 빠른 이미지 모델
   qualityFood: process.env.IMAGE_QUALITY_FOOD || 'medium',
   qualityForm: process.env.IMAGE_QUALITY_FORM || 'medium',
-  // 글 AI 고속 모드 (비용 2배, 속도 향상). 끄려면 환경 변수 TEXT_FAST=0
-  textFast: process.env.TEXT_FAST !== '0',
+  // 글 AI 고속 모드 (속도는 조금 빨라지지만 비용이 크게 늘어남 — 실제 사용량의 약 90%가 여기서 나옴).
+  // 기본은 꺼짐. 켜려면 환경 변수 TEXT_FAST=1
+  textFast: process.env.TEXT_FAST === '1',
 };
 
 // 걸린 시간을 Vercel 로그에 남김 (로그 메뉴에서 확인)
