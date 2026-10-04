@@ -291,8 +291,8 @@ h1, h2, p { margin: 0; font-weight: inherit; }
   pointer-events: none; transition: color .6s var(--ease);
 }
 .is-portrait .rc-letter { font-size: calc(78 * var(--u)); }
-.rc-side-name { position: absolute; left: 50%; top: 62%; translate: -50% 0; font-size: calc(15 * var(--u)); font-weight: 700; color: var(--ink-sub); white-space: nowrap; }
-.is-portrait .rc-side-name { font-size: calc(12 * var(--u)); }
+.rc-side-name { position: absolute; left: 50%; top: 50%; translate: -50% -50%; font-size: calc(26 * var(--u)); font-weight: 800; color: var(--ink-sub); white-space: nowrap; transition: color .6s var(--ease); }
+.is-portrait .rc-side-name { font-size: calc(17 * var(--u)); }
 .rc-token {
   position: absolute;
   width: 27%; height: 27%;
@@ -455,6 +455,17 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .taste-cell:has(.taste-hit:focus-visible) .taste-form { translate: 0 calc(-16 * var(--u)); }
 #tasteLayer.has-choice .taste-cell:not(.is-chosen) .taste-form,
 #tasteLayer.has-choice .taste-cell:not(.is-chosen) .bowl { opacity: .15; }
+/* 조형 고른 뒤 확인 버튼 */
+.taste-confirm { display: flex; align-items: center; gap: calc(20 * var(--u)); z-index: 6; }
+.taste-go, .result-end {
+  padding: calc(12 * var(--u)) calc(26 * var(--u));
+  border-radius: 999px; background: var(--pill); color: var(--on-pill); font-weight: 800; white-space: nowrap;
+  transition: scale .3s var(--ease);
+}
+.result-end { z-index: 5; padding: calc(9 * var(--u)) calc(22 * var(--u)); }
+@media (hover: hover) { .taste-go:hover, .result-end:hover { scale: 1.04; } }
+/* 다 만들어지기 전에는 조형을 누를 수 없음 */
+#tasteLayer .taste-hit:disabled { pointer-events: none; }
 #tasteLayer.has-choice .is-chosen .taste-form { translate: 0 calc(-28 * var(--u)); scale: 1.08; }
 
 /* ---------- 화면 7: 3D 결과 ---------- */

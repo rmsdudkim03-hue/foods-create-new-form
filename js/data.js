@@ -82,4 +82,4 @@ export const DEMO_FEATURES = {
 export const ANALYZE_MS = 4500;
 
 // 전시장용: 체험 도중 아무 조작이 없으면 처음 화면으로 돌아가는 시간 (ms)
-export const IDLE_RESET_MS = 120000;
+export const IDLE_RESET_MS = 240000; // 4분
