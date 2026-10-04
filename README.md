@@ -9,7 +9,7 @@
 갤러리는 메뉴에서 볼 수 있음. 모아보기로 전체 작품을 한눈에 보고, 누르면 크게 보기 (3D 파일이 있는 작품은 바로 3D로)
 
 ## 파일 구조
-- `index.html` — 화면 7개의 뼈대
+- `index.html` — 화면 8개의 뼈대
 - `style.css` — 색·폰트 토큰(맨 위)과 화면별 스타일
 - `js/app.js` — 화면 흐름과 인터랙션
 - `js/ai.js` — 화면에서 AI(서버)를 부르는 부분. 서버를 못 쓰면 데모 모드로 동작
@@ -31,7 +31,7 @@
 | 배경 지우기 | `js/cutout.js` | 브라우저 (RMBG-1.4) |
 | (Pexels 키가 없을 때) 음식 이미지 그리기 | `api/image.js` | OpenAI 이미지 (저가 모델) |
 | 특징 분석 | `api/analyze.js` | GPT-6 Astra |
-| 맛보기 조형 6개 계획 | `api/forms.js` | GPT-6 Astra |
+| 맛보기 조형 6개 계획 (2개는 관람객이 고른 특징 조합) | `api/forms.js` | GPT-6 Astra |
 | 조형 이미지 그리기 | `api/image.js` | OpenAI 이미지 (고화질 모델) |
 | 3D 변환 | `api/model.js` | Meshy |
 | 공유 갤러리 + 관람객 선택 기록 | `api/works.js` | Vercel Blob |

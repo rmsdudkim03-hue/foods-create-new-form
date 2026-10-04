@@ -1,8 +1,8 @@
 /* =========================================================
    화면 흐름과 인터랙션
-   메인 → 음식 고르기(입력 + 사진 선택, A·B) → 분석 → 요리하기 → 맛보기 선택 → 3D 결과 → 갤러리
+   메인 → 음식 고르기(입력 + 사진 선택, A·B) → 분석 → 나만의 조합 → 요리하기 → 맛보기 선택 → 3D 결과 → 갤러리
    ========================================================= */
-import { FOODS, FORMS, GALLERY_SEED, IDLE_RESET_MS } from './data.js';
+import { FOODS, FORMS, GALLERY_SEED, IDLE_RESET_MS, DEMO_FEATURES } from './data.js';
 import * as ai from './ai.js';
 import { contour } from './contour.js';
 import { formParticles } from './particles.js';
@@ -32,6 +32,7 @@ const state = {
   saving: null,                  // 공유 갤러리 저장이 끝나면 작품 id를 주는 약속 (평가할 때 씀)
   jobs: { A: null, B: null },    // AI가 음식 이미지를 만드는 작업
   analysis: null,                // AI 분석 결과
+  combos: null,                  // 관람객이 만든 특징 조합 2개 (없으면 AI가 다 고름)
   formsJob: null,                // AI가 맛보기 조형을 만드는 작업
   run: 0,                        // 체험 회차 (이전 회차의 늦은 응답 무시용)
 };
@@ -83,6 +84,7 @@ function startFlow() {
   state.saved = false;
   state.saving = null;
   state.analysis = null;
+  state.combos = null;
   state.run++;
   cancelJobs();
   picker.reset();
@@ -627,16 +629,126 @@ enter.analyze = async () => {
     return;
   }
   if (run !== state.run || current !== 'analyze') return;
-  state.formsJob?.cancel();
-  state.formsJob = ai.tasteForms(state.analysis, state.picks, state.foods); // 요리하는 동안 맛보기 조형을 미리 만듦
-  go('cook');
+  // 특징 카드를 보여줄 수 있으면 '나만의 조합'으로, 아니면 예전처럼 AI가 다 고르고 바로 요리하기
+  if (recipeFeatures()) go('recipe');
+  else startForms(null);
 };
+// 맛보기 조형 만들기 시작 → 요리하는 동안 미리 만듦
+function startForms(combos) {
+  state.combos = combos;
+  state.formsJob?.cancel();
+  state.formsJob = ai.tasteForms(state.analysis, state.picks, state.foods, combos);
+  go('cook');
+}
 leave.analyze = () => {
   // 화면 전환 애니메이션이 끝난 뒤 효과 정지
   const fx = materialFx;
   materialFx = [];
   setTimeout(() => fx.forEach((f) => f.stop()), 700);
 };
+
+/* =========================================================
+   화면 4-1: 나만의 조합
+   분석된 특징 카드(A 5개, B 5개)를 눌러 조합 2개를 만듦
+   조합마다 2~3개, A와 B에서 하나씩 이상. 조합 1 → 기본 조합, 조합 2 → 조형적 재해석
+   나머지 4개 조형은 AI가 고름. 'AI에게 모두 맡기기'를 누르면 예전처럼 AI가 6개 다 고름
+   ========================================================= */
+const KIND = { visual: '보이는 특징', knowledge: '알려진 성질' };
+// AI가 쓴 글을 화면에 넣을 때 태그로 해석되지 않게
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+// 화면에 보여줄 특징 목록 { A: [{id, kind, title, desc}...], B: [...] }. 없으면 null
+function recipeFeatures() {
+  const a = state.analysis;
+  const src = a?.demo
+    ? { A: DEMO_FEATURES[state.foods.A], B: DEMO_FEATURES[state.foods.B] }
+    : { A: a?.A, B: a?.B };
+  if (!src.A?.visual?.length || !src.B?.visual?.length) return null;
+  const out = {};
+  for (const k of ['A', 'B']) {
+    // 데모 특징에는 번호가 없어서 실제 분석과 같은 규칙으로 붙임 (A1~A3, AK1~AK2)
+    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, kind: KIND[type], title: f.title, desc: f.desc }));
+    out[k] = [...list('visual', k), ...list('knowledge', `${k}K`)];
+  }
+  return out;
+}
+const recipe = {
+  combos: [[], []],
+  active: 0,
+  feats: null,
+  valid(c) { return c.length >= 2 && c.length <= 3 && c.some((id) => id.startsWith('A')) && c.some((id) => id.startsWith('B')); },
+  same() { const [a, b] = this.combos; return a.length === b.length && a.every((id) => b.includes(id)); },
+  title(id) { return [...this.feats.A, ...this.feats.B].find((f) => f.id === id)?.title || id; },
+  render() {
+    $$('#recipeSlots .rc-slot').forEach((slot, i) => {
+      const c = this.combos[i];
+      slot.classList.toggle('is-active', i === this.active);
+      slot.classList.toggle('is-done', this.valid(c));
+      slot.querySelector('.rc-count').textContent = `${c.length} / 3`;
+      slot.querySelector('.rc-chips').innerHTML = c.map((id) => `<button class="rc-chip" type="button" data-id="${esc(id)}" aria-label="${esc(this.title(id))} 빼기">${id} ${esc(this.title(id))}</button>`).join('');
+    });
+    $$('[data-screen="recipe"] .rc-card').forEach((card) => {
+      const id = card.dataset.id;
+      const inActive = this.combos[this.active].includes(id);
+      card.classList.toggle('is-in', inActive);
+      card.setAttribute('aria-pressed', String(inActive));
+      card.querySelector('.rc-badges').innerHTML = [0, 1].filter((i) => this.combos[i].includes(id))
+        .map((i) => `<span class="rc-badge${i === this.active ? ' is-active' : ''}">${i + 1}</span>`).join('');
+    });
+    const done = this.combos.every((c) => this.valid(c));
+    $('#recipeGo').disabled = !done || this.same();
+    const sub = $('#recipeSub');
+    if (done && this.same()) sub.textContent = '두 조합을 서로 다르게 만들어주세요';
+    else if (done) sub.textContent = '좋아요! 이 조합으로 요리를 시작해볼까요';
+    else sub.textContent = `조합 ${this.active + 1}: A와 B에서 하나씩 이상, 특징 2~3개를 골라주세요`;
+  },
+  toggle(id, card) {
+    const c = this.combos[this.active];
+    const at = c.indexOf(id);
+    if (at >= 0) c.splice(at, 1);
+    else if (c.length >= 3) { shake(card); toast('조합 하나에 특징은 3개까지 넣을 수 있어요'); return; }
+    else c.push(id);
+    // 조합 1을 3개 다 채우면 자동으로 조합 2로
+    if (this.active === 0 && c.length === 3 && this.valid(c) && !this.valid(this.combos[1])) this.active = 1;
+    this.render();
+  },
+};
+enter.recipe = () => {
+  recipe.feats = recipeFeatures();
+  recipe.combos = [[], []];
+  recipe.active = 0;
+  for (const k of ['A', 'B']) {
+    const box = $(`#recipe${k}`);
+    const pick = state.picks[k];
+    box.innerHTML = `<p class="rc-head"><img src="${esc(pick.src)}" alt=""><b>${k} · ${esc(state.foods[k])}</b></p>`
+      + recipe.feats[k].map((f) => `<button class="rc-card" type="button" data-id="${esc(f.id)}" aria-pressed="false">
+          <span class="rc-kind">${esc(f.id)} · ${f.kind}</span><b class="rc-title">${esc(f.title)}</b><span class="rc-desc">${esc(f.desc)}</span><span class="rc-badges"></span></button>`).join('');
+  }
+  recipe.render();
+};
+$$('[data-screen="recipe"] .rc-side').forEach((side) => side.addEventListener('click', (e) => {
+  const card = e.target.closest('.rc-card');
+  if (card) recipe.toggle(card.dataset.id, card);
+}));
+$('#recipeSlots').addEventListener('click', (e) => {
+  const chip = e.target.closest('.rc-chip');
+  const slot = e.target.closest('.rc-slot');
+  if (!slot) return;
+  const i = Number(slot.dataset.slot);
+  if (chip) { // 칩을 누르면 그 조합에서 빼기
+    recipe.combos[i] = recipe.combos[i].filter((id) => id !== chip.dataset.id);
+  }
+  recipe.active = i;
+  recipe.render();
+});
+$('#recipeSlots').addEventListener('keydown', (e) => {
+  const slot = e.target.closest('.rc-slot');
+  if (slot && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); recipe.active = Number(slot.dataset.slot); recipe.render(); }
+});
+$('#recipeGo').addEventListener('click', () => {
+  if (current !== 'recipe' || $('#recipeGo').disabled) return;
+  startForms(recipe.combos.map((c) => [...c]));
+});
+$('#recipeSkip').addEventListener('click', () => current === 'recipe' && startForms(null));
 
 /* =========================================================
    화면 5: 새로운 조형 요리하기 (조각을 그릇에 드래그)
@@ -706,7 +818,7 @@ function buildTaste() {
   const layer = $('#tasteLayer');
   layer.innerHTML = '';
   layer.classList.remove('has-choice');
-  if (!state.formsJob) state.formsJob = ai.tasteForms(state.analysis, state.picks, state.foods);
+  if (!state.formsJob) state.formsJob = ai.tasteForms(state.analysis, state.picks, state.foods, state.combos);
   const job = state.formsJob;
   tasteFx?.stop();
   tasteFx = formParticles($('#tasteFx'));
@@ -1216,7 +1328,7 @@ window.addEventListener('keydown', (e) => {
 let idleTimer;
 function resetIdle() {
   clearTimeout(idleTimer);
-  if (['pick', 'analyze', 'cook', 'taste', 'result'].includes(current)) {
+  if (['pick', 'analyze', 'recipe', 'cook', 'taste', 'result'].includes(current)) {
     idleTimer = setTimeout(() => go('home'), IDLE_RESET_MS);
   }
 }

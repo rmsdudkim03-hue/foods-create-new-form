@@ -311,14 +311,15 @@ async function drawForm(prompt, cancelled) {
 }
 
 /* ---------- ② 맛보기 조형 6개 ---------- */
-export function tasteForms(analysis, picks, foods) {
+// combos: 관람객이 '나만의 조합' 화면에서 만든 특징 조합 2개 (없으면 AI가 6개 모두 고름)
+export function tasteForms(analysis, picks, foods, combos = null) {
   const job = createJob(FORMS.length);
   if (live && analysis && !analysis.demo) {
     (async () => {
       try {
         const [a, b] = await Promise.all([onWhite(picks.A.src), onWhite(picks.B.src)]);
         const plan = await call('api/forms', {
-          body: { A: { name: foods.A, image: a }, B: { name: foods.B, image: b }, analysis },
+          body: { A: { name: foods.A, image: a }, B: { name: foods.B, image: b }, analysis, combos },
           timeout: 240000,
         });
         if (job.cancelled) return;
