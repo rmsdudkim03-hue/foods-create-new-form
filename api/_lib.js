@@ -299,8 +299,9 @@ export function checkPlan(plan) {
 }
 
 /* ---------- 실제 음식 사진 검색 ----------
-   키가 있는 곳을 씀 (우선순위: 네이버 이미지 검색 → Unsplash → Pixabay → Pexels)
+   키가 있는 곳을 씀 (우선순위: 네이버 → 카카오(다음) 이미지 검색 → Unsplash → Pixabay → Pexels)
      NAVER_CLIENT_ID + NAVER_CLIENT_SECRET (네이버 개발자센터 '검색' API, 한국 음식·생소한 음식에 강함)
+     KAKAO_REST_API_KEY (카카오 개발자 앱의 REST API 키, 다음 이미지 검색. 네이버와 비슷)
      UNSPLASH_ACCESS_KEY / PIXABAY_API_KEY / PEXELS_API_KEY
    키가 하나도 없으면 Wikimedia Commons(위키백과 사진 저장소)에서 찾음 → 키 없이 바로 동작
    끄려면 PHOTOS=0 (그러면 예전처럼 AI가 음식 이미지를 그림)
@@ -311,6 +312,9 @@ export const PHOTO_COUNT = 6;
 export const PICK_MAX = 8;
 const NAVER = process.env.NAVER_BASE || 'https://openapi.naver.com/v1/search/image';
 export const NAVER_SITE = '네이버 검색';
+const KAKAO = process.env.KAKAO_BASE || 'https://dapi.kakao.com/v2/search/image';
+export const KAKAO_SITE = '카카오 검색';
+const KOREAN_SITES = [NAVER_SITE, KAKAO_SITE]; // 한국어 검색어로 찾는 곳
 const UNSPLASH = process.env.UNSPLASH_BASE || 'https://api.unsplash.com';
 const PIXABAY = process.env.PIXABAY_BASE || 'https://pixabay.com/api';
 const COMMONS = process.env.COMMONS_BASE || 'https://commons.wikimedia.org/w/api.php';
@@ -336,6 +340,7 @@ export function checkPhoto(u, f, sig) {
 
 export function photoSite() {
   if (process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET) return NAVER_SITE;
+  if (process.env.KAKAO_REST_API_KEY) return KAKAO_SITE;
   if (process.env.UNSPLASH_ACCESS_KEY) return 'Unsplash';
   if (process.env.PIXABAY_API_KEY) return 'Pixabay';
   if (process.env.PEXELS_API_KEY) return 'Pexels';
@@ -385,6 +390,18 @@ async function searchOne(site, query, page = 1) {
       by: p.photographer || '', link: p.url || '',
       thumb: p.src.medium,
     }));
+  } else if (site === KAKAO_SITE) {
+    const data = await getJSON(`사진 검색 카카오 (${query})`,
+      `${KAKAO}?${new URLSearchParams({ query, size: '20', page: String(page), sort: 'accuracy' })}`,
+      { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` });
+    list = (data.documents || [])
+      .filter((p) => /^https?:\/\//.test(p.image_url || '') && p.thumbnail_url && Number(p.width) >= 300 && Number(p.height) >= 300)
+      .map((p) => {
+        let host = '';
+        try { host = new URL(p.doc_url || p.image_url).hostname.replace(/^www\./, ''); } catch { /* 무시 */ }
+        // 원본 사진이 막혀 있으면 카카오 미리보기 사진으로 대신 (fb)
+        return { src: p.image_url, fb: p.thumbnail_url, w: Number(p.width), h: Number(p.height), alt: String(p.display_sitename || ''), by: host, link: p.doc_url || p.image_url, thumb: p.thumbnail_url };
+      });
   } else if (site === NAVER_SITE) {
     const data = await getJSON(`사진 검색 네이버 (${query})`,
       `${NAVER}?${new URLSearchParams({ query, display: '20', start: String((page - 1) * 20 + 1), sort: 'sim', filter: 'large' })}`,
@@ -430,7 +447,7 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [] } = {
   // 네이버는 한국어로 찾음: '누끼'(배경 없이 찍은 사진), 이름 그대로, 영어 이름
   const naverQs = [...new Set([`${name} 누끼`, name, qs[1] || qs[0]].filter(Boolean))];
   const gather = async (site, pg) => {
-    const words = site === NAVER_SITE ? naverQs : qs;
+    const words = KOREAN_SITES.includes(site) ? naverQs : qs;
     const lists = await Promise.all(words.map((q) => searchOne(site, q, pg).catch((err) => { console.error(err); return []; })));
     // 검색어마다 앞쪽부터 번갈아 섞기 (한 검색어 결과만 몰리지 않게), 같은 사진·이미 보여준 사진은 빼기
     const list = [];

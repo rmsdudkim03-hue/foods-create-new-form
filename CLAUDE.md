@@ -25,7 +25,7 @@
 - `prompts/` AI 단계별 프롬프트 원문 (작업자가 작성)
 
 ## AI 흐름
-음식 확인 + 영어 검색어(GPT-6 Astra) → 사진 후보 검색(**네이버 이미지 검색** 우선: '음식명 누끼'·음식명·영어명. 키 없으면 Pixabay(음식 카테고리) / Unsplash / Pexels / Wikimedia Commons, 검색어: 음식 이름 + 'isolated' + 다른 모습 2개. 네이버 사진은 여러 사이트에 흩어져 있어 api/photo가 서버 도장(sig) 찍힌 주소만 전달, 원본이 막히면 네이버 미리보기) → Astra가 미리보기 20장을 보고 정확하고 서로 다른 모습으로 최대 8장 고름 (6장이 안 될 때만 Wikimedia에서도 고름)
+음식 확인 + 영어 검색어(GPT-6 Astra) → 사진 후보 검색(**네이버 → 카카오(다음) 이미지 검색** 우선: '음식명 누끼'·음식명·영어명. 키 없으면 Pixabay(음식 카테고리) / Unsplash / Pexels / Wikimedia Commons, 검색어: 음식 이름 + 'isolated' + 다른 모습 2개. 네이버 사진은 여러 사이트에 흩어져 있어 api/photo가 서버 도장(sig) 찍힌 주소만 전달, 원본이 막히면 네이버 미리보기) → Astra가 미리보기 20장을 보고 정확하고 서로 다른 모습으로 최대 8장 고름 (6장이 안 될 때만 Wikimedia에서도 고름)
 → 화면에는 **실제 사진만 6장까지** (AI로 음식 이미지를 그리지 않음): 배경 지우기(FAL_KEY 있으면 **서버에서 fal.ai BiRefNet**으로 4장씩 동시에, `api/cutout.js` / 없거나 실패하면 브라우저 RMBG-1.4) → 잘 지워진 것 먼저, 자리가 남으면 덜 지워진 사진으로 채움. 그래도 모자라면 있는 만큼만 ('다른 사진 보기'로 다음 검색 결과) → 특징 분석(Astra)
 → 조형 6개 계획(Astra) → 조형 이미지(gpt-image-2.5-flare, 동시에 3장씩, 실패하면 최대 3번 다시) → 3D 변환(Meshy, 텍스처 없이)
 - `PHOTOS=0`이면 예전 방식(이미지 계획 → gpt-image-1-mini로 그림)으로 동작. 이때만 AI가 음식 이미지를 그림.
@@ -44,7 +44,7 @@
 
 ## 배포
 - `main`에 푸시하면 Vercel이 자동 배포 (https://foods-create-new-form.vercel.app).
-- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, 추천 `NAVER_CLIENT_ID`+`NAVER_CLIENT_SECRET`(네이버 이미지 검색), `FAL_KEY`(서버 배경 제거), 사진 사이트 키는 선택(`UNSPLASH_ACCESS_KEY` 또는 `PIXABAY_API_KEY`. 없으면 키 필요 없는 Wikimedia Commons. Pexels는 2026-10 신규 키 발급 중단), `ACCESS_CODE`. 선택: README 참고.
+- 환경 변수(Vercel, Production): `OPENAI_API_KEY`, `MESHY_API_KEY`, 추천 `NAVER_CLIENT_ID`+`NAVER_CLIENT_SECRET`(네이버 이미지 검색) 또는 `KAKAO_REST_API_KEY`(카카오 이미지 검색), `FAL_KEY`(서버 배경 제거), 사진 사이트 키는 선택(`UNSPLASH_ACCESS_KEY` 또는 `PIXABAY_API_KEY`. 없으면 키 필요 없는 Wikimedia Commons. Pexels는 2026-10 신규 키 발급 중단), `ACCESS_CODE`. 선택: README 참고.
 - `ACCESS_CODE`가 있으면 주소에 `?code=...`를 붙여 연 기기에서만 실제 AI, 나머지는 데모 모드.
 - 브랜치로 푸시하면 Preview 배포가 되는데, 환경 변수가 Production에만 있어서 AI가 안 된다.
 

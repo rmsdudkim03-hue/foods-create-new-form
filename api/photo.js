@@ -22,7 +22,8 @@ export default async function photo(req, res) {
     for (const t of tries) {
       let target;
       try { target = new URL(t); } catch { continue; }
-      if (target.protocol !== 'https:' || (!signed && !PHOTO_HOSTS.includes(target.hostname))) continue;
+      // 도장 찍힌 주소(네이버·카카오 검색 결과)는 http 사이트도 허용 (블로그 사진 중에 http가 있음)
+      if (signed ? !/^https?:$/.test(target.protocol) : (target.protocol !== 'https:' || !PHOTO_HOSTS.includes(target.hostname))) continue;
       try {
         // 네이버 사진 서버(pstatic)는 네이버에서 연 것처럼 보여야 열림
         const headers = { 'User-Agent': signed ? 'Mozilla/5.0' : PHOTO_UA };

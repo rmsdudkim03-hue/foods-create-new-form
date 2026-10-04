@@ -54,6 +54,7 @@ AI가 만든 계획에는 서버가 도장(서명)을 찍어서, 도장이 맞�
 | `OPENAI_API_KEY` | 필수 | OpenAI API 키 |
 | `MESHY_API_KEY` | 필수 | Meshy API 키 |
 | `NAVER_CLIENT_ID` + `NAVER_CLIENT_SECRET` | 선택 (추천) | 네이버 이미지 검색. 한국 음식·생소한 음식 사진이 많음. https://developers.naver.com → Application 등록 → 사용 API '검색' → Client ID / Client Secret. 하루 2만5천 번 무료. 있으면 다른 사진 사이트보다 먼저 씀 |
+| `KAKAO_REST_API_KEY` | 선택 (추천) | 카카오(다음) 이미지 검색. 네이버 '검색' API를 등록할 수 없을 때 대신. https://developers.kakao.com → 내 애플리케이션 → 애플리케이션 추가하기 → 앱 키의 **REST API 키**. 네이버 키가 있으면 네이버를 먼저 씀 |
 | `FAL_KEY` | 선택 (추천) | 사진 배경 지우기를 서버에서 (BiRefNet, 빠르고 깨끗함). https://fal.ai 가입 → Keys에서 발급, 사용한 만큼 요금. 없으면 브라우저에서 지움 |
 | `UNSPLASH_ACCESS_KEY` | 선택 | 실제 음식 사진 검색 (추천). https://unsplash.com/developers 에서 앱 만들고 Access Key 복사. 무료는 한 시간 50번 검색 (관람객 1명당 2번) |
 | `PIXABAY_API_KEY` | 선택 | https://pixabay.com/api/docs/ 에서 로그인하면 키가 보임 |
