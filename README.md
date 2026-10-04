@@ -60,6 +60,7 @@ AI가 만든 계획에는 서버가 도장(서명)을 찍어서, 도장이 맞�
 | `PIXABAY_API_KEY` | 선택 | https://pixabay.com/api/docs/ 에서 로그인하면 키가 보임 |
 | `PEXELS_API_KEY` | 선택 | 2026-10 현재 신규 발급 중단. 사진 키가 하나도 없으면 키가 필요 없는 Wikimedia Commons에서 찾음 |
 | `PHOTOS` | 선택 | `0`이면 실제 사진 대신 AI가 음식 이미지를 그리는 예전 방식 |
+| `TEXT_FAST` | 선택 | `1`이면 글 AI 고속 모드(우선 처리). 조금 빨라지지만 비용이 크게 늘어서 기본은 꺼짐 |
 | `ACCESS_CODE` | 선택 | 설정하면 이 코드를 가진 기기에서만 실제 AI 사용 (주소 끝에 `?code=코드`를 붙여 한 번 열면 기억됨). 나머지는 데모 모드 |
 | `TEXT_MODEL` | 선택 | 기본 `gpt-6-astra` |
 | `IMAGE_MODEL_FOOD` / `IMAGE_QUALITY_FOOD` | 선택 | 기본 `gpt-image-1-mini` / `medium` |
