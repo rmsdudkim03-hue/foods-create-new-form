@@ -75,8 +75,23 @@ function go(name) {
     if (b.dataset.nav === name) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
-  if (enter[name]) enter[name]();
+  const done = enter[name] ? enter[name]() : null;
+  // 처음 화면·갤러리로 갈 때는 로딩 화면을 잠깐 보여줌 (갤러리는 작품 목록을 받을 때까지)
+  if (name === 'home') showLoader(Promise.all($$('.screen[data-screen="home"] img').map((im) => im.decode().catch(() => {}))));
+  if (name === 'gallery') showLoader(done);
   resetIdle();
+}
+
+/* ---------- 로딩 화면 ----------
+   최소 0.7초 보여주고, 준비(ready)가 끝나면 사라짐. 아무리 늦어도 6초 뒤엔 사라짐 */
+let loaderRun = 0;
+async function showLoader(ready, min = 700) {
+  const el = $('#loader');
+  const my = ++loaderRun;
+  el.classList.add('is-show');
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  await Promise.race([Promise.all([Promise.resolve(ready).catch(() => {}), wait(min)]), wait(6000)]);
+  if (my === loaderRun) el.classList.remove('is-show');
 }
 
 function startFlow() {
@@ -1415,7 +1430,7 @@ const gallery = (() => {
 })();
 enter.gallery = () => {
   gallery.openGrid(); // 들어오면 항상 모아보기부터
-  gallery.sync(); // 다른 관람객이 만든 작품도 불러옴
+  return gallery.sync(); // 다른 관람객이 만든 작품도 불러옴 (끝나면 로딩 화면이 사라짐)
 };
 gallery.sync();
 
