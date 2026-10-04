@@ -346,7 +346,32 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 }
 .is-portrait .rc-token { width: 25%; height: 25%; }
 .is-portrait .rc-dish { width: calc(200 * var(--u)); height: calc(200 * var(--u)); }
-.rc-bowl.is-active .rc-dish { box-shadow: 0 calc(10 * var(--u)) calc(28 * var(--u)) rgba(60,50,40,.14), inset 0 0 0 1px rgba(110,100,90,.16), 0 0 0 calc(3 * var(--u)) var(--pill); }
+/* 고른 그릇: 검은 선 대신 두 음식 색이 도는 흐릿한 그라데이션 테두리가 울렁거림 */
+.rc-bowl { isolation: isolate; }
+.rc-dish::before {
+  content: '';
+  position: absolute; inset: calc(-9 * var(--u));
+  z-index: -1;
+  border-radius: 50%;
+  background: conic-gradient(from var(--ga, 0deg), var(--ca, #f2c200), var(--cb, #7ae300), var(--ca, #f2c200));
+  filter: blur(calc(7 * var(--u)));
+  opacity: 0;
+  scale: .94;
+  transition: opacity .5s var(--ease), scale .5s var(--ease);
+}
+.rc-bowl.is-active .rc-dish::before {
+  opacity: .95;
+  scale: 1;
+  animation: rc-glow 5s linear infinite, rc-wobble 2.6s ease-in-out infinite;
+}
+@property --ga { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes rc-glow { to { --ga: 360deg; } }
+@keyframes rc-wobble {
+  0%, 100% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; translate: 0 0; }
+  25% { border-radius: 54% 46% 52% 48% / 47% 53% 47% 53%; translate: calc(2 * var(--u)) calc(-2 * var(--u)); }
+  50% { border-radius: 47% 53% 46% 54% / 53% 47% 54% 46%; translate: calc(-2 * var(--u)) calc(1 * var(--u)); }
+  75% { border-radius: 52% 48% 55% 45% / 48% 52% 46% 54%; translate: calc(1 * var(--u)) calc(2 * var(--u)); }
+}
 .rc-bowl.is-hover .rc-dish { scale: 1.05; }
 .rc-bowl:focus-visible .rc-dish { outline: 2px solid var(--ink-strong); outline-offset: 6px; }
 .rc-cap { font-size: calc(15 * var(--u)); font-weight: 600; color: var(--ink-faint); white-space: nowrap; }

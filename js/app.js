@@ -701,6 +701,9 @@ const recipe = {
     });
   },
   render() {
+    // 고른 그릇 테두리의 그라데이션 색 = 두 음식 색
+    $('#recipeBowls').style.setProperty('--ca', this.colors.A);
+    $('#recipeBowls').style.setProperty('--cb', this.colors.B);
     $$('#recipeBowls .rc-bowl').forEach((bowl, i) => {
       bowl.classList.toggle('is-active', i === this.active);
       bowl.classList.toggle('is-done', this.valid(this.combos[i]));
