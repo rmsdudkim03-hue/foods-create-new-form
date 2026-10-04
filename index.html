@@ -106,29 +106,30 @@
     </section>
 
     <!-- ===== 화면 4-1: 나만의 조합 =====
-      분석된 특징(A 5개, B 5개)을 카드로 보여주고, 관람객이 조합 2개를 만듦
-      조합 1 → 기본 조합 하나, 조합 2 → 조형적 재해석 하나로 쓰임. 나머지 4개는 AI가 고름
+      분석된 특징을 글 대신 도형 토큰으로 보여줌 (음식 사진 둘레에 A 5개, B 5개)
+      토큰을 끌거나 눌러서 가운데 그릇 2개에 담으면 그릇 안에서 도형이 겹쳐 돌며 섞임
+      그릇 1 → 기본 조합 하나, 그릇 2 → 조형적 재해석 하나로 쓰임. 나머지 4개는 AI가 고름
       (좌표는 임시. 피그마 디자인 나오면 바꾸기) -->
     <section class="screen" data-screen="recipe" aria-label="나만의 조합 만들기">
-      <h2 class="title cx fs" style="--cx:720; --y:115; --fs:48; --pcx:300; --py:110; --pfs:36">나만의 조합 만들기</h2>
-      <p class="sub cx fs" id="recipeSub" style="--cx:720; --y:184; --fs:20; --pcx:300; --py:164; --pfs:16">두 음식의 특징을 골라 조합 2개를 만들어주세요</p>
-      <div class="rc-side abs box" id="recipeA" data-side="A" style="--x:70; --y:250; --w:420; --h:650; --px:16; --py:450; --pw:278; --ph:520"></div>
-      <div class="rc-slots abs box" id="recipeSlots" style="--x:530; --y:270; --w:380; --h:470; --px:16; --py:212; --pw:568; --ph:222">
-        <div class="rc-slot" data-slot="0" role="button" tabindex="0" aria-label="조합 1 (기본 조합) 고르기">
-          <p class="rc-slot-head"><b>조합 1</b><span>기본 조합</span><em class="rc-count">0 / 3</em></p>
-          <div class="rc-chips"></div>
-          <p class="rc-hint">A와 B에서 하나씩 이상, 2~3개</p>
+      <h2 class="title cx fs" style="--cx:720; --y:100; --fs:40; --pcx:300; --py:104; --pfs:30">재료를 골라 그릇에 담아주세요</h2>
+      <p class="sub cx fs" id="recipeSub" style="--cx:720; --y:164; --fs:18; --pcx:300; --py:152; --pfs:15"></p>
+      <div class="rc-food abs box" id="recipeA" data-side="A" style="--x:70; --y:250; --w:440; --h:440; --px:4; --py:600; --pw:292; --ph:292"></div>
+      <div class="rc-bowls abs box" id="recipeBowls" style="--x:570; --y:236; --w:300; --h:600; --px:40; --py:206; --pw:520; --ph:330">
+        <div class="rc-bowl" data-slot="0" role="button" tabindex="0" aria-label="그릇 1 (기본 조합)">
+          <div class="rc-dish"><div class="rc-mix"></div></div>
+          <p class="rc-cap"><b>1</b> 기본</p>
         </div>
-        <div class="rc-slot" data-slot="1" role="button" tabindex="0" aria-label="조합 2 (조형적 재해석) 고르기">
-          <p class="rc-slot-head"><b>조합 2</b><span>조형적 재해석</span><em class="rc-count">0 / 3</em></p>
-          <div class="rc-chips"></div>
-          <p class="rc-hint">A와 B에서 하나씩 이상, 2~3개</p>
+        <div class="rc-bowl" data-slot="1" role="button" tabindex="0" aria-label="그릇 2 (조형적 재해석)">
+          <div class="rc-dish"><div class="rc-mix"></div></div>
+          <p class="rc-cap"><b>2</b> 재해석</p>
         </div>
       </div>
-      <div class="rc-side abs box" id="recipeB" data-side="B" style="--x:950; --y:250; --w:420; --h:650; --px:306; --py:450; --pw:278; --ph:520"></div>
+      <div class="rc-food abs box" id="recipeB" data-side="B" style="--x:930; --y:250; --w:440; --h:440; --px:304; --py:600; --pw:292; --ph:292"></div>
+      <!-- 마우스를 올리거나 누른 재료 이름 (작게) -->
+      <p class="rc-label cx fs" id="recipeLabel" style="--cx:720; --y:868; --fs:16; --pcx:300; --py:560; --pfs:14"></p>
       <button class="btn-dark abs box fs" id="recipeGo" type="button" disabled
-        style="--x:560; --y:780; --w:320; --h:76; --fs:22; --px:150; --py:986; --pw:300; --ph:64; --pfs:20">이 조합으로 요리하기 →</button>
-      <button class="more-btn cx fs" id="recipeSkip" type="button" style="--cx:720; --y:880; --fs:16; --pcx:300; --py:1058; --pfs:15">AI에게 모두 맡기기</button>
+        style="--x:600; --y:912; --w:240; --h:64; --fs:20; --px:170; --py:930; --pw:260; --ph:64; --pfs:20">요리하기 →</button>
+      <button class="pin-r pin-b more-btn abs fs" id="recipeSkip" type="button" style="--x:1222; --y:936; --fs:15; --px:400; --py:1040; --pfs:14">AI에게 맡기기</button>
     </section>
 
     <!-- ===== 화면 5: 새로운 조형 요리하기 (task4) ===== -->

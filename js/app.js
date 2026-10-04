@@ -8,6 +8,7 @@ import { contour } from './contour.js';
 import { formParticles } from './particles.js';
 import { startCook, preloadCook } from './cook.js';
 import { cutoutInfo } from './cutout.js';
+import { glyphFor, glyphSVG, dominantColor, foodTexture } from './glyphs.js';
 
 // 주소 끝에 ?debug를 붙이면 확인용 정보가 화면에 보임
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -18,6 +19,8 @@ const app = $('#app');
 const stage = $('#stage');
 const isTouch = () => matchMedia('(hover: none)').matches;
 const mod = (a, n) => ((a % n) + n) % n;
+// AI가 쓴 글을 화면에 넣을 때 태그로 해석되지 않게
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /* ---------- 화면 크기: 피그마 1px = 화면 몇 px인지 계산 ---------- */
 const view = { u: 1, portrait: false };
@@ -649,14 +652,12 @@ leave.analyze = () => {
 
 /* =========================================================
    화면 4-1: 나만의 조합
-   분석된 특징 카드(A 5개, B 5개)를 눌러 조합 2개를 만듦
-   조합마다 2~3개, A와 B에서 하나씩 이상. 조합 1 → 기본 조합, 조합 2 → 조형적 재해석
-   나머지 4개 조형은 AI가 고름. 'AI에게 모두 맡기기'를 누르면 예전처럼 AI가 6개 다 고름
+   분석된 특징을 도형 토큰으로 보여줌 (음식 사진 둘레에 A 5개, B 5개. 도형: js/glyphs.js)
+   토큰을 끌어서 그릇에 놓거나, 눌러서 지금 고른 그릇에 담음 (다시 누르면 뺌)
+   그릇마다 2~3개, A와 B에서 하나씩 이상. 그릇 1 → 기본 조합, 그릇 2 → 조형적 재해석
+   나머지 4개 조형은 AI가 고름. 'AI에게 맡기기'를 누르면 예전처럼 AI가 6개 다 고름
    ========================================================= */
-const KIND = { visual: '보이는 특징', knowledge: '알려진 성질' };
-// AI가 쓴 글을 화면에 넣을 때 태그로 해석되지 않게
-const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-// 화면에 보여줄 특징 목록 { A: [{id, kind, title, desc}...], B: [...] }. 없으면 null
+// 화면에 보여줄 특징 목록 { A: [{id, title, desc, glyph}...], B: [...] }. 없으면 null
 function recipeFeatures() {
   const a = state.analysis;
   const src = a?.demo
@@ -666,7 +667,7 @@ function recipeFeatures() {
   const out = {};
   for (const k of ['A', 'B']) {
     // 데모 특징에는 번호가 없어서 실제 분석과 같은 규칙으로 붙임 (A1~A3, AK1~AK2)
-    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, kind: KIND[type], title: f.title, desc: f.desc }));
+    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, title: f.title, desc: f.desc, glyph: glyphFor(f) }));
     out[k] = [...list('visual', k), ...list('knowledge', `${k}K`)];
   }
   return out;
@@ -675,74 +676,196 @@ const recipe = {
   combos: [[], []],
   active: 0,
   feats: null,
+  colors: { A: '#d9d6d2', B: '#d9d6d2' },
+  textures: { A: null, B: null }, // 음식 사진 질감 (도형을 이 질감으로 채움)
   valid(c) { return c.length >= 2 && c.length <= 3 && c.some((id) => id.startsWith('A')) && c.some((id) => id.startsWith('B')); },
   same() { const [a, b] = this.combos; return a.length === b.length && a.every((id) => b.includes(id)); },
-  title(id) { return [...this.feats.A, ...this.feats.B].find((f) => f.id === id)?.title || id; },
-  render() {
-    $$('#recipeSlots .rc-slot').forEach((slot, i) => {
-      const c = this.combos[i];
-      slot.classList.toggle('is-active', i === this.active);
-      slot.classList.toggle('is-done', this.valid(c));
-      slot.querySelector('.rc-count').textContent = `${c.length} / 3`;
-      slot.querySelector('.rc-chips').innerHTML = c.map((id) => `<button class="rc-chip" type="button" data-id="${esc(id)}" aria-label="${esc(this.title(id))} 빼기">${id} ${esc(this.title(id))}</button>`).join('');
+  feat(id) { return [...this.feats.A, ...this.feats.B].find((f) => f.id === id); },
+  side(id) { return id.startsWith('A') ? 'A' : 'B'; },
+  svg(id) { const f = this.feat(id); const k = this.side(id); return glyphSVG(f?.glyph, this.colors[k], id, this.textures[k]); },
+  // 그릇 안 도형: 담긴 것만 다시 그림 (새로 담긴 것만 떨어지는 효과가 나도록 원래 것은 그대로 둠)
+  drawMix(i) {
+    const mix = $(`#recipeBowls .rc-bowl[data-slot="${i}"] .rc-mix`);
+    const want = this.combos[i];
+    [...mix.children].forEach((el) => { if (!want.includes(el.dataset.id)) el.remove(); });
+    want.forEach((id, k) => {
+      if (mix.querySelector(`[data-id="${CSS.escape(id)}"]`)) return;
+      const wrap = document.createElement('div');
+      wrap.innerHTML = this.svg(id);
+      const el = wrap.firstChild;
+      el.dataset.id = id;
+      el.style.setProperty('--r0', `${(k * 137) % 360}deg`);
+      el.style.setProperty('--t', `${18 + k * 7}s`);
+      el.style.setProperty('--s', String(1 - k * 0.12));
+      mix.append(el);
     });
-    $$('[data-screen="recipe"] .rc-card').forEach((card) => {
-      const id = card.dataset.id;
+  },
+  render() {
+    $$('#recipeBowls .rc-bowl').forEach((bowl, i) => {
+      bowl.classList.toggle('is-active', i === this.active);
+      bowl.classList.toggle('is-done', this.valid(this.combos[i]));
+      this.drawMix(i);
+    });
+    $$('[data-screen="recipe"] .rc-token').forEach((t) => {
+      const id = t.dataset.id;
       const inActive = this.combos[this.active].includes(id);
-      card.classList.toggle('is-in', inActive);
-      card.setAttribute('aria-pressed', String(inActive));
-      card.querySelector('.rc-badges').innerHTML = [0, 1].filter((i) => this.combos[i].includes(id))
-        .map((i) => `<span class="rc-badge${i === this.active ? ' is-active' : ''}">${i + 1}</span>`).join('');
+      const inOther = this.combos[1 - this.active].includes(id);
+      t.classList.toggle('is-in', inActive);
+      t.classList.toggle('is-other', !inActive && inOther);
+      t.setAttribute('aria-pressed', String(inActive));
+      const nums = [0, 1].filter((i) => this.combos[i].includes(id)).map((i) => i + 1);
+      t.querySelector('.rc-dot')?.remove();
+      if (nums.length) t.insertAdjacentHTML('beforeend', `<span class="rc-dot">${nums.join('·')}</span>`);
     });
     const done = this.combos.every((c) => this.valid(c));
     $('#recipeGo').disabled = !done || this.same();
     const sub = $('#recipeSub');
-    if (done && this.same()) sub.textContent = '두 조합을 서로 다르게 만들어주세요';
-    else if (done) sub.textContent = '좋아요! 이 조합으로 요리를 시작해볼까요';
-    else sub.textContent = `조합 ${this.active + 1}: A와 B에서 하나씩 이상, 특징 2~3개를 골라주세요`;
-  },
-  toggle(id, card) {
     const c = this.combos[this.active];
+    if (done && this.same()) sub.textContent = '두 그릇을 서로 다르게 담아주세요';
+    else if (done) sub.textContent = '다 담았어요. 요리를 시작해볼까요';
+    else if (c.length && !c.some((id) => id.startsWith('A'))) sub.textContent = `그릇 ${this.active + 1}: A 재료도 하나 담아주세요`;
+    else if (c.length && !c.some((id) => id.startsWith('B'))) sub.textContent = `그릇 ${this.active + 1}: B 재료도 하나 담아주세요`;
+    else sub.textContent = `그릇 ${this.active + 1}에 A·B 재료를 2~3개 담아주세요`;
+  },
+  // 그릇 i에 재료 넣기/빼기
+  toggle(id, token, i = this.active) {
+    this.active = i;
+    const c = this.combos[i];
     const at = c.indexOf(id);
     if (at >= 0) c.splice(at, 1);
-    else if (c.length >= 3) { shake(card); toast('조합 하나에 특징은 3개까지 넣을 수 있어요'); return; }
-    else c.push(id);
-    // 조합 1을 3개 다 채우면 자동으로 조합 2로
-    if (this.active === 0 && c.length === 3 && this.valid(c) && !this.valid(this.combos[1])) this.active = 1;
+    else if (c.length >= 3) { shake(token); toast('그릇 하나에 재료는 3개까지 담을 수 있어요'); this.render(); return; }
+    else { c.push(id); this.fly(token, i); }
+    // 그릇 1을 3개 다 채우면 자동으로 그릇 2로
+    if (i === 0 && c.length === 3 && this.valid(c) && !this.valid(this.combos[1])) this.active = 1;
+    this.label(id);
     this.render();
+  },
+  // 토큰이 그릇으로 날아가는 효과
+  fly(token, i) {
+    const from = token.getBoundingClientRect();
+    const to = $(`#recipeBowls .rc-bowl[data-slot="${i}"] .rc-dish`).getBoundingClientRect();
+    const g = document.createElement('div');
+    g.className = 'rc-ghost';
+    g.innerHTML = token.querySelector('svg').outerHTML;
+    Object.assign(g.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` });
+    document.body.append(g);
+    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    g.animate([{ translate: '0 0', scale: 1, opacity: 1 }, { translate: `${dx}px ${dy}px`, scale: 0.6, opacity: 0 }], { duration: 520, easing: 'cubic-bezier(.5,0,.3,1)' }).finished.finally(() => g.remove());
+  },
+  label(id) {
+    const f = this.feat(id);
+    $('#recipeLabel').textContent = f ? `${id} · ${f.title}` : '';
   },
 };
 enter.recipe = () => {
   recipe.feats = recipeFeatures();
+  recipe.colors = { A: '#d9d6d2', B: '#d9d6d2' };
+  recipe.textures = { A: null, B: null };
   recipe.combos = [[], []];
   recipe.active = 0;
-  for (const k of ['A', 'B']) {
-    const box = $(`#recipe${k}`);
-    const pick = state.picks[k];
-    box.innerHTML = `<p class="rc-head"><img src="${esc(pick.src)}" alt=""><b>${k} · ${esc(state.foods[k])}</b></p>`
-      + recipe.feats[k].map((f) => `<button class="rc-card" type="button" data-id="${esc(f.id)}" aria-pressed="false">
-          <span class="rc-kind">${esc(f.id)} · ${f.kind}</span><b class="rc-title">${esc(f.title)}</b><span class="rc-desc">${esc(f.desc)}</span><span class="rc-badges"></span></button>`).join('');
-  }
-  recipe.render();
+  $$('#recipeBowls .rc-mix').forEach((m) => { m.innerHTML = ''; });
+  $('#recipeLabel').textContent = '';
+  const run = state.run;
+  const draw = () => {
+    for (const k of ['A', 'B']) {
+      const box = $(`#recipe${k}`);
+      const list = recipe.feats[k];
+      // 토큰 5개를 사진 둘레에 원형으로 (위에서 시작)
+      box.innerHTML = `<img class="rc-photo" src="${esc(state.picks[k].src)}" alt=""><p class="rc-side-name">${k}</p>`
+        + list.map((f, i) => {
+          const a = -Math.PI / 2 + (i / list.length) * Math.PI * 2;
+          const x = 50 + Math.cos(a) * 38;
+          const y = 50 + Math.sin(a) * 38;
+          return `<button class="rc-token" type="button" data-id="${esc(f.id)}" aria-pressed="false" aria-label="${esc(f.title)}"
+            style="left:${x.toFixed(1)}%; top:${y.toFixed(1)}%">${recipe.svg(f.id)}<span class="rc-id">${esc(f.id)}</span></button>`;
+        }).join('');
+    }
+    recipe.render();
+  };
+  draw();
+  // 사진의 대표색과 질감을 구하면 도형을 그 질감으로 다시 그림
+  Promise.all(['A', 'B'].flatMap((k) => [dominantColor(state.picks[k].src), foodTexture(state.picks[k].src)])).then(([ca, ta, cb, tb]) => {
+    if (run !== state.run || current !== 'recipe') return;
+    recipe.colors = { A: ca, B: cb };
+    recipe.textures = { A: ta, B: tb };
+    $$('#recipeBowls .rc-mix').forEach((m) => { m.innerHTML = ''; });
+    draw();
+  });
 };
-$$('[data-screen="recipe"] .rc-side').forEach((side) => side.addEventListener('click', (e) => {
-  const card = e.target.closest('.rc-card');
-  if (card) recipe.toggle(card.dataset.id, card);
-}));
-$('#recipeSlots').addEventListener('click', (e) => {
-  const chip = e.target.closest('.rc-chip');
-  const slot = e.target.closest('.rc-slot');
-  if (!slot) return;
-  const i = Number(slot.dataset.slot);
-  if (chip) { // 칩을 누르면 그 조합에서 빼기
-    recipe.combos[i] = recipe.combos[i].filter((id) => id !== chip.dataset.id);
-  }
+
+// 토큰: 누르면 지금 그릇에 담기, 끌어서 그릇에 놓으면 그 그릇에 담기
+(() => {
+  let drag = null;
+  const bowlAt = (x, y) => $$('#recipeBowls .rc-bowl').find((b) => {
+    const r = b.querySelector('.rc-dish').getBoundingClientRect();
+    return Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)) < r.width / 2 + 20;
+  });
+  const sideEls = () => $$('[data-screen="recipe"] .rc-food');
+  sideEls().forEach((side) => {
+    side.addEventListener('pointerdown', (e) => {
+      const t = e.target.closest('.rc-token');
+      if (!t) return;
+      const r = t.getBoundingClientRect();
+      drag = { t, id: t.dataset.id, x0: e.clientX, y0: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, w: r.width, ghost: null, pid: e.pointerId };
+      t.setPointerCapture(e.pointerId);
+      recipe.label(t.dataset.id);
+    });
+    side.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.pid) return;
+      if (!drag.ghost && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 8) {
+        drag.ghost = document.createElement('div');
+        drag.ghost.className = 'rc-ghost';
+        drag.ghost.innerHTML = drag.t.querySelector('svg').outerHTML;
+        Object.assign(drag.ghost.style, { width: `${drag.w}px`, height: `${drag.w}px` });
+        document.body.append(drag.ghost);
+        drag.t.classList.add('is-drag');
+      }
+      if (drag.ghost) {
+        drag.ghost.style.left = `${e.clientX - drag.ox}px`;
+        drag.ghost.style.top = `${e.clientY - drag.oy}px`;
+        const over = bowlAt(e.clientX, e.clientY);
+        $$('#recipeBowls .rc-bowl').forEach((b) => b.classList.toggle('is-hover', b === over));
+      }
+    });
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.pid) return;
+      const d = drag;
+      drag = null;
+      d.t.classList.remove('is-drag');
+      $$('#recipeBowls .rc-bowl').forEach((b) => b.classList.remove('is-hover'));
+      if (!d.ghost) { if (e.type === 'pointerup') recipe.toggle(d.id, d.t); return; }
+      d.ghost.remove();
+      const over = e.type === 'pointerup' && bowlAt(e.clientX, e.clientY);
+      if (!over) return;
+      const i = Number(over.dataset.slot);
+      if (recipe.combos[i].includes(d.id)) { recipe.active = i; recipe.render(); return; }
+      recipe.toggle(d.id, d.t, i);
+    };
+    side.addEventListener('pointerup', end);
+    side.addEventListener('pointercancel', end);
+    side.addEventListener('pointerover', (e) => { const t = e.target.closest('.rc-token'); if (t) recipe.label(t.dataset.id); });
+    // 키보드: Enter/Space로 담기
+    side.addEventListener('keydown', (e) => {
+      const t = e.target.closest('.rc-token');
+      if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); recipe.toggle(t.dataset.id, t); }
+    });
+    side.addEventListener('click', (e) => { if (e.detail === 0) e.preventDefault(); });
+  });
+})();
+// 그릇을 누르면 그 그릇을 고름. 그릇 안 도형을 누르면 그 재료를 뺌
+$('#recipeBowls').addEventListener('click', (e) => {
+  const bowl = e.target.closest('.rc-bowl');
+  if (!bowl) return;
+  const i = Number(bowl.dataset.slot);
+  const g = e.target.closest('.rc-mix svg');
+  if (g && i === recipe.active) recipe.combos[i] = recipe.combos[i].filter((id) => id !== g.dataset.id);
   recipe.active = i;
   recipe.render();
 });
-$('#recipeSlots').addEventListener('keydown', (e) => {
-  const slot = e.target.closest('.rc-slot');
-  if (slot && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); recipe.active = Number(slot.dataset.slot); recipe.render(); }
+$('#recipeBowls').addEventListener('keydown', (e) => {
+  const bowl = e.target.closest('.rc-bowl');
+  if (bowl && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); recipe.active = Number(bowl.dataset.slot); recipe.render(); }
 });
 $('#recipeGo').addEventListener('click', () => {
   if (current !== 'recipe' || $('#recipeGo').disabled) return;
