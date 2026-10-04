@@ -1429,7 +1429,10 @@ async function shrink(src, max = 520) {
   const c = document.createElement('canvas');
   c.width = Math.round(im.naturalWidth * s);
   c.height = Math.round(im.naturalHeight * s);
-  c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; // 투명한 곳이 검게 되지 않게 흰 바탕
+  g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(im, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', 0.86);
 }
 
@@ -1438,6 +1441,14 @@ function saveCreation(f) {
   state.saved = true;
   state.saving = saveCreationNow(f);
   return state.saving;
+}
+// 맛보기 조형 6개 이미지를 작품과 함께 저장 (한 장씩 보냄. 실패해도 체험은 그대로)
+async function saveTasteForms(id) {
+  const items = state.formsJob?.items || [];
+  for (let i = 0; i < items.length; i++) {
+    if (!items[i]) continue;
+    try { await ai.saveForm(id, i, await shrink(items[i], 640)); } catch (err) { console.warn(`조형 ${i + 1} 저장 실패`, err); }
+  }
 }
 async function saveCreationNow(f) {
   const d = new Date();
@@ -1461,6 +1472,7 @@ async function saveCreationNow(f) {
       item.id = r.id;
       item.no = r.no;
       gallery.refresh();
+      saveTasteForms(r.id); // 맛보기 조형 6개 이미지도 함께 보관 (기다리지 않음)
       return r.id;
     }
     if (DEBUG) toast('작품 저장 안 됨 (실제 AI 모드인지 확인)');

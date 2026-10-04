@@ -413,6 +413,12 @@ export async function rateWork(id, rating) {
   return call('api/works', { body: { id, rating }, timeout: 30000 });
 }
 
+// 맛보기 조형 6개 중 하나를 작품과 함께 보관 (works-forms/작품id-번호.jpg)
+export async function saveForm(id, index, image) {
+  if (!live || !id || !image?.startsWith('data:image/jpeg')) return null;
+  return call('api/works', { body: { id, form: index, image }, timeout: 60000, retries: 1 });
+}
+
 // 관람객이 고른 조형을 공유 갤러리 + 학습 기록으로 저장 (실제 AI로 만든 것만)
 export async function saveWork({ name, date, image, plan }) {
   if (!live || !image?.startsWith('data:image/jpeg')) return null;
