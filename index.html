@@ -30,14 +30,13 @@
 
     <!-- ===== 공통: 로고 (누르면 처음 화면) ===== -->
     <button class="pin-l pin-t logo abs box" id="logo" type="button" aria-label="처음 화면으로"
-      style="--x:40; --y:47; --w:59; --h:50; --px:24; --py:32; --pw:52; --ph:44">
+      style="--x:49; --y:42; --w:43; --h:37; --px:24; --py:32; --pw:52; --ph:44">
       <img src="assets/img/logo.png" alt="">
     </button>
 
     <!-- ===== 공통: 메뉴 (메인·갤러리에서만 보임) ===== -->
     <nav class="pin-l pin-t nav abs" id="nav" aria-label="메뉴" style="--x:147; --y:59; --px:100; --py:42">
       <button type="button" class="fs" data-nav="process" style="--fs:20; --pfs:22">Process</button>
-      <button type="button" class="fs" data-nav="about" style="--fs:20; --pfs:22">About</button>
       <button type="button" class="fs" data-nav="gallery" style="--fs:20; --pfs:22">Gallery</button>
       <button type="button" class="fs" data-nav="create" style="--fs:20; --pfs:22">Create</button>
     </nav>
@@ -95,11 +94,11 @@
     <section class="screen" data-screen="analyze" aria-label="분석 중">
       <h2 class="title cx fs" style="--cx:720; --y:164; --fs:48; --pcx:300; --py:140; --pfs:32">선택된 이미지를 분석중입니다</h2>
       <p class="sub cx fs" style="--cx:720; --y:233; --fs:20; --pcx:300; --py:186; --pfs:18">이미지 분석에는 시간이 소요됩니다</p>
-      <div class="scan abs box" style="--x:263; --y:389; --w:340; --h:340; --px:150; --py:270; --pw:300; --ph:300">
+      <div class="scan abs box" style="--x:175; --y:375; --w:390; --h:390; --px:150; --py:270; --pw:300; --ph:300">
         <img id="analyzeA" src="" alt="">
         <canvas id="materialA" aria-hidden="true"></canvas>
       </div>
-      <div class="scan abs box" style="--x:846; --y:389; --w:340; --h:340; --px:150; --py:630; --pw:300; --ph:300">
+      <div class="scan abs box" style="--x:844; --y:375; --w:390; --h:390; --px:150; --py:630; --pw:300; --ph:300">
         <img id="analyzeB" src="" alt="">
         <canvas id="materialB" aria-hidden="true"></canvas>
       </div>
@@ -113,25 +112,25 @@
     <section class="screen" data-screen="recipe" aria-label="나만의 조합 만들기">
       <h2 class="title cx fs" style="--cx:720; --y:100; --fs:40; --pcx:300; --py:104; --pfs:30">재료를 골라 그릇에 담아주세요</h2>
       <p class="sub cx fs" id="recipeSub" style="--cx:720; --y:164; --fs:18; --pcx:300; --py:152; --pfs:15"></p>
-      <div class="rc-food abs box" id="recipeA" data-side="A" style="--x:70; --y:250; --w:440; --h:440; --px:4; --py:600; --pw:292; --ph:292"></div>
-      <div class="rc-bowls abs box" id="recipeBowls" style="--x:560; --y:214; --w:320; --h:660; --px:10; --py:196; --pw:580; --ph:356">
+      <div class="rc-food abs box" id="recipeA" data-side="A" style="--x:70; --y:310; --w:440; --h:440; --px:4; --py:600; --pw:292; --ph:292"></div>
+      <div class="rc-bowls abs box" id="recipeBowls" style="--x:563; --y:296; --w:300; --h:590; --px:10; --py:196; --pw:580; --ph:356">
         <div class="rc-bowl" data-slot="0" role="button" tabindex="0" aria-label="그릇 1 (기본 조합)">
           <div class="rc-dish"><div class="rc-mix"></div></div>
-          <p class="rc-cap"><b>1</b> 기본<button class="rc-clear" type="button" hidden>비우기</button></p>
+          <p class="rc-cap"><span class="rc-cap-label"><b>1</b> 기본</span><button class="rc-clear" type="button" hidden>비우기</button></p>
           <ul class="rc-list" aria-label="그릇 1에 담긴 재료"></ul>
         </div>
         <div class="rc-bowl" data-slot="1" role="button" tabindex="0" aria-label="그릇 2 (조형적 재해석)">
           <div class="rc-dish"><div class="rc-mix"></div></div>
-          <p class="rc-cap"><b>2</b> 재해석<button class="rc-clear" type="button" hidden>비우기</button></p>
+          <p class="rc-cap"><span class="rc-cap-label"><b>2</b> 재해석</span><button class="rc-clear" type="button" hidden>비우기</button></p>
           <ul class="rc-list" aria-label="그릇 2에 담긴 재료"></ul>
         </div>
       </div>
-      <div class="rc-food abs box" id="recipeB" data-side="B" style="--x:930; --y:250; --w:440; --h:440; --px:304; --py:600; --pw:292; --ph:292"></div>
+      <div class="rc-food abs box" id="recipeB" data-side="B" style="--x:930; --y:310; --w:440; --h:440; --px:304; --py:600; --pw:292; --ph:292"></div>
       <!-- 마우스를 올리거나 누른 재료 이름 (작게) -->
-      <p class="rc-label cx fs" id="recipeLabel" style="--cx:720; --y:880; --fs:15; --pcx:300; --py:566; --pfs:13"></p>
+      <p class="rc-label cx fs" id="recipeLabel" style="--cx:720; --y:962; --fs:15; --pcx:300; --py:566; --pfs:13"></p>
       <button class="btn-dark abs box fs" id="recipeGo" type="button" disabled
-        style="--x:600; --y:912; --w:240; --h:64; --fs:20; --px:170; --py:930; --pw:260; --ph:64; --pfs:20">요리하기 →</button>
-      <button class="pin-r pin-b more-btn abs fs" id="recipeSkip" type="button" style="--x:1222; --y:936; --fs:15; --px:400; --py:1040; --pfs:14">AI에게 맡기기</button>
+        style="--x:593; --y:887; --w:240; --h:64; --fs:20; --px:170; --py:930; --pw:260; --ph:64; --pfs:20">요리하기 →</button>
+      <button class="pin-r pin-b more-btn abs fs" id="recipeSkip" type="button" style="--x:1272; --y:936; --fs:15; --px:400; --py:1040; --pfs:14">AI에게 맡기기</button>
     </section>
 
     <!-- ===== 화면 5: 새로운 조형 요리하기 (task4) ===== -->
