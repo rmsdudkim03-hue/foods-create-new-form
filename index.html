@@ -137,7 +137,7 @@
     <!-- ===== 화면 5: 새로운 조형 요리하기 (task4) ===== -->
     <section class="screen" data-screen="cook" aria-label="새로운 조형 요리하기">
       <h2 class="title cx fs" style="--cx:720; --y:115; --fs:48; --pcx:300; --py:110; --pfs:38">새로운 조형 요리하기</h2>
-      <p class="sub cx fs" id="cookSub" style="--cx:720; --y:184; --fs:20; --pcx:300; --py:164; --pfs:18">음식을 드래그하여 그릇안으로 넣어주세요</p>
+      <p class="sub cx fs" id="cookSub" style="--cx:720; --y:184; --fs:20; --pcx:300; --py:164; --pfs:18">재료를 드래그하여 그릇 안으로 넣어주세요</p>
       <!-- 사진이 도형 조각으로 분해 → 끌거나 눌러서 그릇에 떨어뜨림 → 다 넣으면 녹아서 합쳐짐 (js/cook.js)
            캔버스는 그릇 이미지 위에 있고, 그릇 앞쪽 벽 부분만 잘라내서 조각이 그릇 안에 담긴 것처럼 보임 -->
       <img class="bowl abs box" id="cookBowl" src="assets/img/bowl.png" alt="" style="--x:211; --y:546; --w:1018; --h:509; --px:-10; --py:600; --pw:620; --ph:310">
@@ -152,6 +152,8 @@
       <p class="sub cx fs" id="tasteSub" style="--cx:720; --y:184; --fs:20; --pcx:300; --py:160; --pfs:18">맛보고 싶은 조형을 클릭하세요</p>
       <div id="tasteLayer"></div>
       <!-- 조형을 고르면: 3D로 만들기 / 다시 고르기 (좌표는 임시) -->
+      <!-- 조형이 만들어지는 동안 AI가 지금 하는 일을 한 줄씩 바꿔 보여줌 -->
+      <p class="note tip cx fs" id="tasteTip" style="--cx:720; --y:940; --fs:17; --pcx:300; --py:1030; --pfs:15" aria-live="polite" hidden></p>
       <div class="taste-confirm cx fs" id="tasteConfirm" style="--cx:720; --y:930; --fs:18; --pcx:300; --py:1020; --pfs:16" hidden>
         <button class="more-btn" id="tasteBack" type="button">← 다시 고르기</button>
         <button class="taste-go" id="tasteGo" type="button">이 조형으로 3D 만들기 →</button>
@@ -164,6 +166,7 @@
       <div class="viewer abs box" id="viewer" style="--x:270; --y:236; --w:900; --h:660; --px:20; --py:220; --pw:560; --ph:640">
         <img class="viewer-fallback" id="resultImg" src="" alt="" hidden>
       </div>
+      <p class="note tip cx fs" id="resultTip" style="--cx:720; --y:930; --fs:17; --pcx:300; --py:930; --pfs:15" aria-live="polite" hidden></p>
       <p class="note cx fs" id="resultNote" style="--cx:720; --y:930; --fs:14; --pcx:300; --py:930; --pfs:15" hidden>보이지 않는 면은 AI가 추정한 형태예요</p>
       <!-- 관람객 평가: 누른 결과가 다음 관람객의 조형 제안에 반영됨 (좌표는 임시. 피그마 디자인 나오면 바꾸기) -->
       <div class="rate cx fs" id="resultRate" style="--cx:720; --y:962; --fs:16; --pcx:300; --py:964; --pfs:17" hidden>
@@ -171,6 +174,8 @@
         <button class="rate-btn" type="button" data-rating="good">좋아요</button>
         <button class="rate-btn" type="button" data-rating="bad">별로예요</button>
       </div>
+      <!-- 3D 색: 두 음식의 대표색 ↔ 흰 무광 (좌표는 임시) -->
+      <button class="pin-l pin-b more-btn abs fs" id="resultColor" type="button" style="--x:40; --y:946; --fs:15; --px:24; --py:1016; --pfs:15" hidden>흰색으로 보기</button>
       <button class="pin-r pin-b result-end abs fs" id="resultNext" type="button" aria-label="체험 끝내고 처음 화면으로" style="--x:1240; --y:940; --fs:17; --px:420; --py:1010; --pfs:17">처음으로 →</button>
     </section>
 

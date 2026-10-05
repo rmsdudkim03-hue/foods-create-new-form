@@ -788,7 +788,7 @@ const recipe = {
 };
 enter.recipe = () => {
   recipe.feats = recipeFeatures();
-  recipe.colors = { A: '#d9d6d2', B: '#d9d6d2' };
+  recipe.colors = { A: DEFAULT_COLOR, B: DEFAULT_COLOR };
   recipe.combos = [[], []];
   recipe.active = 0;
   $$('#recipeBowls .rc-mix, #recipeBowls .rc-list').forEach((m) => { m.innerHTML = ''; });
@@ -923,18 +923,21 @@ enter.cook = () => {
   cookFx?.stop();
   const sub = $('#cookSub');
   const all = $('#cookAll');
-  sub.textContent = '음식을 드래그하여 그릇안으로 넣어주세요';
+  sub.textContent = '재료를 드래그하여 그릇 안으로 넣어주세요';
   all.hidden = false;
   all.textContent = '모두 넣기 ↓';
   cookMixing = false;
+  // 조각: 나만의 조합에서 본 특징 도형 (음식마다 5개). 특징이 없으면 사진 조각
+  const glyphs = recipe.feats ? { A: recipe.feats.A.map((f) => recipe.svg(f.id)), B: recipe.feats.B.map((f) => recipe.svg(f.id)) } : null;
   cookFx = startCook($('#cookFx'), {
     picks: state.picks,
+    glyphs,
     view: () => view,
     bowlEl: cookBowl,
     onBump: bumpBowl,
     // 넣은 조각 수 표시, 다 넣으면 '모두 넣기' 숨김
     onCount: (n, total) => {
-      sub.textContent = n < total ? `음식을 드래그하여 그릇안으로 넣어주세요 (${n}/${total})` : '조각들을 섞어볼게요';
+      sub.textContent = n < total ? `재료를 드래그하여 그릇 안으로 넣어주세요 (${n}/${total})` : '재료들을 섞어볼게요';
       all.hidden = n >= total;
     },
     onMix: () => cookBowl.classList.remove('bump'),
@@ -987,6 +990,17 @@ function buildTaste() {
   const sub = $('#tasteSub');
   sub.textContent = '새로운 조형을 만들고 있어요';
   sub.classList.add('is-waiting');
+  stopTasteTip?.();
+  const { A: fa, B: fb } = state.foods;
+  const mine = state.combos?.some((c) => c?.length);
+  const doneCount = () => job.items.filter(Boolean).length;
+  stopTasteTip = ticker($('#tasteTip'), [
+    `AI가 ${fa}${wa(fa)} ${fb}의 특징을 다시 읽고 있어요`,
+    mine ? '내가 담은 조합 2개로 조형을 설계하는 중이에요' : 'AI가 특징 조합 6개를 고르고 있어요',
+    mine ? 'AI가 나머지 조합 4개를 고르고 있어요' : '서로 다른 조합이 되도록 맞추는 중이에요',
+    '음식의 겉모습은 빼고, 형태의 관계만 남기는 중이에요',
+    () => `흰색 무광 조형을 한 장씩 그리고 있어요 (${doneCount()}/6)`,
+  ]);
   // 그릇 안에서 돌 도형: 관람객이 담았던 조합 (없으면 특징 중 몇 개)
   const all = recipe.feats ? [...recipe.feats.A, ...recipe.feats.B].map((f) => f.id) : [];
   const mixFor = (i) => {
@@ -1022,6 +1036,8 @@ function buildTaste() {
       return img.decode().catch(() => {});
     }));
     if (tasteRun !== run) return;
+    stopTasteTip?.();
+    stopTasteTip = null;
     sub.classList.remove('is-waiting');
     sub.textContent = '새로운 조형이 완성됐어요';
     layer.classList.add('is-revealing'); // 도형이 가운데로 빨려 들어감
@@ -1051,6 +1067,26 @@ function buildTaste() {
 }
 let tasteRun = null;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ---------- 기다리는 동안 안내 문구 ----------
+   AI가 지금 무엇을 하는지 한 줄씩 바꿔 보여줌. lines는 글자 또는 글자를 돌려주는 함수
+   돌려받은 함수를 부르면 멈추고 숨김 */
+function ticker(el, lines, ms = 3600) {
+  let i = 0;
+  const text = (l) => (typeof l === 'function' ? l() : l);
+  el.textContent = text(lines[0]);
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('is-on'));
+  const t = setInterval(() => {
+    i = (i + 1) % lines.length;
+    el.classList.remove('is-on');
+    setTimeout(() => { el.textContent = text(lines[i]); el.classList.add('is-on'); }, 300);
+  }, ms);
+  return () => { clearInterval(t); el.classList.remove('is-on'); el.hidden = true; };
+}
+let stopTasteTip = null;
+// 받침에 따라 '와/과'
+const wa = (w) => { const c = (w || '').charCodeAt((w || '').length - 1) - 0xac00; return c >= 0 && c <= 11171 && c % 28 ? '과' : '와'; };
 // 조형을 누르면 바로 3D로 가지 않고 한 번 확인 (3D 변환은 한 번에 요금이 들어서)
 // '다시 고르기'를 누르면 다른 조형을 고를 수 있음
 function chooseForm(f, cell) {
@@ -1077,6 +1113,8 @@ $('#tasteBack').addEventListener('click', () => current === 'taste' && unchooseF
 enter.taste = buildTaste;
 leave.taste = () => {
   tasteRun = null;
+  stopTasteTip?.();
+  stopTasteTip = null;
   $('#tasteConfirm').hidden = true;
   clearTimeout(timers.taste);
   clearTimeout(timers.tasteFail);
@@ -1100,11 +1138,19 @@ enter.result = async () => {
   viewer?.stop();
   viewer?.setVisible(false);
   note.hidden = true;
+  colorBtn.hidden = true;
   resetRate();
   img.src = f.img;
   img.hidden = false;
   sub.textContent = '선택한 조형을 3D로 바꾸는 중이에요';
   sub.classList.add('is-waiting');
+  stopResultTip?.();
+  stopResultTip = ticker($('#resultTip'), [
+    '고른 조형의 윤곽과 비례를 읽고 있어요',
+    '구멍과 연결 구조를 살리며 입체로 세우는 중이에요',
+    '보이지 않는 뒷면을 추정하고 있어요',
+    '표면을 매끄럽게 다듬고 있어요',
+  ]);
   try {
     const urls = await ai.toModel(f.img, f, (p) => {
       if (run === state.run && current === 'result') sub.textContent = `선택한 조형을 3D로 바꾸는 중이에요 (${p}%)`;
@@ -1136,6 +1182,12 @@ enter.result = async () => {
         });
     }
     if (run !== state.run || current !== 'result') return;
+    // 색: 두 음식의 대표색 (대표색을 못 구했으면 흰 무광)
+    const colored = recipe.colors.A !== DEFAULT_COLOR && recipe.colors.B !== DEFAULT_COLOR;
+    resultColored = colored;
+    viewer.setColors(colored ? recipe.colors.A : null, colored ? recipe.colors.B : null);
+    colorBtn.hidden = !colored;
+    colorBtn.textContent = '흰색으로 보기';
     img.hidden = true;
     viewer.setVisible(true);
     viewer.start();
@@ -1149,9 +1201,20 @@ enter.result = async () => {
     rate.hidden = false;
   } finally {
     sub.classList.remove('is-waiting');
+    if (run === state.run) { stopResultTip?.(); stopResultTip = null; }
   }
 };
-leave.result = () => viewer?.stop();
+let stopResultTip = null;
+// 3D 색 바꾸기: 컬러 ↔ 흰 무광
+const DEFAULT_COLOR = '#d9d6d2';
+const colorBtn = $('#resultColor');
+let resultColored = false;
+colorBtn.addEventListener('click', () => {
+  resultColored = !resultColored;
+  viewer?.setColors(resultColored ? recipe.colors.A : null, resultColored ? recipe.colors.B : null);
+  colorBtn.textContent = resultColored ? '흰색으로 보기' : '컬러로 보기';
+});
+leave.result = () => { viewer?.stop(); stopResultTip?.(); stopResultTip = null; };
 
 /* ---------- 관람객 평가: 좋아요 / 별로예요 ----------
    누르면 저장되고, 다음 관람객의 조형 6개를 만들 때 AI가 참고함
