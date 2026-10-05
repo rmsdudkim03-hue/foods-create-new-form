@@ -1,6 +1,7 @@
 /* =========================================================
    화면 5: 새로운 조형 요리하기
-   1) 고른 사진 두 장이 원·삼각형·사각형·육각형 조각으로 분해되어 떠 있음
+   1) 나만의 조합에서 본 특징 도형(음식마다 5개)이 떠 있음
+      (특징 도형이 없을 때만 예전처럼 고른 사진을 원·삼각형·사각형·육각형 조각으로 나눔)
    2) 조각을 끌어다 놓거나 누르면 그릇으로 툭 떨어져 부딪히고 쌓임 (물리: matter.js)
    3) 다 넣으면 카메라가 위로 올라가듯 그릇이 탑뷰(위에서 내려다본 모습)로 바뀜
    4) 관람객이 커서(휴대폰은 손가락)로 그릇을 저으면 근처 조각이 밀리고 휩쓸리며 섞임
@@ -229,6 +230,27 @@ async function decompose(pick, center, size, count, startIndex) {
   return { img, scale, pieces };
 }
 
+/* ---------- 특징 도형을 조각으로 ----------
+   나만의 조합 화면의 도형(SVG)을 그대로 그림으로 바꿔 조각으로 씀 (사진은 안 씀)
+   물리에서는 동그라미로 다룸. 처음엔 음식 자리 가운데에 모여 있다가 바깥으로 벌어짐 */
+async function glyphPieces(svgs, center, size) {
+  const r = size * 0.16; // 조각 반지름 (데스크톱 약 58, 휴대폰 약 37)
+  const q = 2;
+  const imgs = await Promise.all(svgs.map((svg) => loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`).catch(() => null)));
+  const pieces = [];
+  const n = imgs.length;
+  imgs.forEach((im, i) => {
+    if (!im) return;
+    const tex = document.createElement('canvas');
+    tex.width = tex.height = Math.ceil(r * 2 * q) + 2;
+    tex.getContext('2d').drawImage(im, 1, 1, tex.width - 2, tex.height - 2);
+    const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+    const ring = size * 0.3;
+    pieces.push({ type: 'circle', r, home: [center[0] + Math.cos(a) * ring, center[1] + Math.sin(a) * ring], tex, rot0: (Math.random() - 0.5) * 0.4, glyph: true });
+  });
+  return { img: null, scale: 1, pieces };
+}
+
 /* =========================================================
    요리 화면 시작
    canvas: 화면 전체 캔버스 (그릇 이미지 뒤)
@@ -245,7 +267,7 @@ export function startCook(canvas, opts) {
   };
 }
 
-async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCount = () => {}, onMix = () => {}, onStir = () => {}, onDone = () => {} }, ctl) {
+async function run(canvas, { picks, glyphs = null, view, bowlEl = null, onBump = () => {}, onCount = () => {}, onMix = () => {}, onStir = () => {}, onDone = () => {} }, ctl) {
   const ctx = canvas.getContext('2d');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let raf = 0;
@@ -256,8 +278,8 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
 
   const [Matter, a, b] = await Promise.all([
     loadMatter(),
-    decompose(picks.A, centers.A, size, SETTINGS.pieces, 0),
-    decompose(picks.B, centers.B, size, SETTINGS.pieces, 2),
+    glyphs?.A?.length ? glyphPieces(glyphs.A, centers.A, size) : decompose(picks.A, centers.A, size, SETTINGS.pieces, 0),
+    glyphs?.B?.length ? glyphPieces(glyphs.B, centers.B, size) : decompose(picks.B, centers.B, size, SETTINGS.pieces, 2),
   ]);
   if (ctl.stopped) return;
   const photos = [{ ...a, center: centers.A }, { ...b, center: centers.B }];
@@ -587,6 +609,7 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
       const photoA = 1 - ease((t - 0.3) / 0.6);
       if (photoA > 0) {
         for (const ph of photos) {
+          if (!ph.img) continue; // 특징 도형 조각은 사진 없이 바로 벌어짐
           ctx.globalAlpha = photoA;
           const w = ph.img.naturalWidth * ph.scale, h = ph.img.naturalHeight * ph.scale;
           ctx.drawImage(ph.img, (ph.center[0] - w / 2) * k, (ph.center[1] - h / 2) * k, w * k, h * k);
@@ -619,6 +642,8 @@ async function run(canvas, { picks, view, bowlEl = null, onBump = () => {}, onCo
     for (const p of pieces) {
       p.alpha = 1;
       p.scale = p.state === 'float' || p.state === 'drag' || phase === 'shatter' ? 1 : SETTINGS.inBowl;
+      // 특징 도형: 가운데서 커지며 나타남
+      if (phase === 'shatter' && p.glyph) { p.alpha = clamp(open * 1.6, 0, 1); p.scale = 0.4 + 0.6 * open; }
       if (phase === 'tilt') {
         // 쌓여 있던 자리 → 탑뷰 그릇 안 흩어진 자리 (카메라가 올라가는 동안)
         const tx = top.cx + p.sx, ty = top.cy + p.sy * top.e;

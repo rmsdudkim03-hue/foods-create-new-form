@@ -39,6 +39,10 @@ export function createViewer(container) {
 
   // MATERIAL: 조형 재질 (피그마 렌더처럼 무광 회색)
   const material = new THREE.MeshStandardMaterial({ color: 0xcfcfcf, roughness: 0.55, metalness: 0 });
+  // 컬러 재질: 두 음식의 대표색이 아래(A)에서 위(B)로 부드럽게 이어짐 (점마다 색을 칠함)
+  const tinted = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0 });
+  const PASTEL = 0.3; // 흰색을 섞는 정도 (0 = 원래 색 그대로, 1 = 흰색)
+  let tint = null;
 
   const loader = new GLTFLoader();
   let model = null;
@@ -93,7 +97,37 @@ export function createViewer(container) {
     model.add(obj);
     scene.add(model);
     loadedUrl = url;
+    applyTint();
     resize();
+  }
+
+  // 색 입히기: setColors('rgb(..)', 'rgb(..)') → 컬러, setColors(null) → 흰 무광
+  function applyTint() {
+    if (!model) return;
+    const box = new THREE.Box3().setFromObject(model);
+    const span = box.max.y - box.min.y || 1;
+    const v = new THREE.Vector3();
+    const c = new THREE.Color();
+    model.updateMatrixWorld(true);
+    model.traverse((o) => {
+      if (!o.isMesh) return;
+      if (!tint) { o.material = material; return; }
+      const pos = o.geometry.attributes.position;
+      const col = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        const t = THREE.MathUtils.smoothstep((v.y - box.min.y) / span, 0.1, 0.9);
+        c.copy(tint[0]).lerp(tint[1], t);
+        col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      }
+      o.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      o.material = tinted;
+    });
+  }
+  function setColors(a, b) {
+    const white = new THREE.Color(0xffffff);
+    tint = a && b ? [a, b].map((x) => new THREE.Color(x).lerp(white, PASTEL)) : null;
+    applyTint();
   }
 
   function tick() {
@@ -106,5 +140,5 @@ export function createViewer(container) {
   function stop() { running = false; cancelAnimationFrame(raf); }
   function setVisible(v) { renderer.domElement.style.opacity = v ? '1' : '0'; }
 
-  return { load, start, stop, setVisible };
+  return { load, start, stop, setVisible, setColors };
 }

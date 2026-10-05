@@ -509,6 +509,9 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .sub.is-waiting { animation: pulse 1.4s ease-in-out infinite; }
 /* 작은 안내 문구 (AI 생성 이미지, 추정한 면) */
 .note { font-weight: 500; color: var(--ink-faint); line-height: 1.4; }
+/* 기다리는 동안 바뀌는 안내 한 줄: 바뀔 때 살짝 사라졌다 나타남 */
+.tip { color: var(--ink-sub); opacity: 0; transition: opacity .3s var(--ease); white-space: nowrap; }
+.tip.is-on { opacity: 1; }
 
 /* ---------- 화면 7: 관람객 평가 (좋아요 / 별로예요) ---------- */
 .rate { display: flex; align-items: center; gap: calc(10 * var(--u)); z-index: 3; }
