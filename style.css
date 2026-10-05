@@ -332,13 +332,13 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 .rc-token.shake { animation: shake .4s; }
 
 /* 그릇 (위에서 본 모습) */
-.rc-bowls { display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
+.rc-bowls { display: flex; flex-direction: column; justify-content: flex-start; align-items: center; }
 .is-portrait .rc-bowls { flex-direction: row; justify-content: space-around; }
-.rc-bowl { display: flex; flex-direction: column; align-items: center; gap: calc(8 * var(--u)); cursor: pointer; outline: none; min-height: calc(320 * var(--u)); }
+.rc-bowl { display: flex; flex-direction: column; align-items: center; gap: calc(8 * var(--u)); cursor: pointer; outline: none; min-height: calc(295 * var(--u)); }
 .is-portrait .rc-bowl { min-height: 0; width: 48%; }
 .rc-dish {
   position: relative;
-  width: calc(210 * var(--u)); height: calc(210 * var(--u));
+  width: calc(182 * var(--u)); height: calc(182 * var(--u));
   border-radius: 50%;
   background: radial-gradient(circle at 54% 47%, #f2f0ef 0 30%, #ebe9e7 60%, #dedad7 84%, #fbfaf9 85% 100%);
   box-shadow: 0 calc(10 * var(--u)) calc(28 * var(--u)) rgba(60,50,40,.10), inset 0 0 0 1px rgba(110,100,90,.16);
@@ -392,7 +392,10 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 @keyframes rc-in { from { opacity: 0; scale: 1.6; } to { opacity: 1; scale: var(--s, 1); } }
 @keyframes rc-spin { from { rotate: var(--r0, 0deg); } to { rotate: calc(var(--r0, 0deg) + 360deg); } }
 @keyframes rc-breath { 50% { scale: .92; } }
-.rc-cap { display: flex; align-items: center; }
+.rc-cap { display: flex; align-items: center; min-height: calc(23 * var(--u)); }
+/* 피그마 수정: 그릇 아래 '1 기본 / 2 재해석' 글자는 숨김 (비우기 버튼만) */
+.rc-cap-label { display: none; }
+.rc-cap .rc-clear { margin-left: 0; }
 .rc-clear {
   margin-left: calc(10 * var(--u));
   padding: calc(2 * var(--u)) calc(10 * var(--u));
