@@ -226,10 +226,9 @@ export function foodImages(food) {
       for (let i = filled; i < SHOW; i++) job.fail(i);
     };
     const settle = () => { if (--left <= 0 && !topping) finish(); };
-    // 시간 제한: 35초가 지나도 6장이 안 되면 덜 지워진 사진으로 먼저 채우고, 55초엔 있는 만큼으로 끝냄
-    // (1분 안에 사진이 다 보이게)
-    setTimeout(() => { if (!enough()) useBackups(); }, 35000);
-    setTimeout(() => { if (!enough()) finish(); }, 55000);
+    // 시간 제한: 20초가 지나도 6장이 안 되면 예비 사진으로 먼저 채우고, 40초엔 있는 만큼으로 끝냄
+    setTimeout(() => { if (!enough()) useBackups(); }, 20000);
+    setTimeout(() => { if (!enough()) finish(); }, 40000);
     const used = new Set(photos.map((p) => p.src));
     const process = (p, i) => {
       // 네이버 검색 사진은 미리보기 주소(fb)와 서버 도장(sig)을 같이 보냄
@@ -238,14 +237,15 @@ export function foodImages(food) {
       cutout(src, enough)
         .then((c) => {
           const item = { ...base, src: c.src, w: c.w, h: c.h, cut: true };
-          if (c.good) add(item); else backups.push({ item, score: c.score });
+          // AI가 '예비'로 고른 사진(p.spare)은 배경이 잘 지워졌어도 예비로만 씀
+          if (c.good && !p.spare) add(item); else backups.push({ item, score: c.score + (p.spare ? 0.3 : 0) });
         })
         .catch((err) => { if (err.message !== 'skip') console.warn(err.message); })
         .finally(settle);
     };
     photos.forEach(process);
     // 고른 사진이 적으면(저화질·배경 실패로 빠질 걸 대비) 다음 검색 묶음을 바로 같이 받아서 처리
-    if (photos.length && photos.length < 10 && plan.queries) {
+    if (photos.length && photos.filter((p) => !p.spare).length < 10 && plan.queries) {
       topping = true;
       call('api/food', { body: { word: food, queries: plan.queries, ko: plan.ko || [], page: (plan.page || 1) + 1, exclude: [...used] }, timeout: 40000, retries: 0 })
         .then((r) => {

@@ -151,14 +151,20 @@ function maskStats(canvas) {
 const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.15;
 const usable = (s) => s.cover >= MIN_COVER && s.cover <= MAX_COVER && s.edge <= MAX_EDGE;
 
-// 화질이 낮은 사진은 아예 쓰지 않음 (짧은 변이 이보다 작으면 뺌. 미리보기 사진도 여기서 걸러짐)
+// 화질 기준 (짧은 변)
+// - MIN_SIDE보다 작으면 '예비'로만 씀 (다른 사진이 모자랄 때만. 원본이 막혀서 미리보기로 받은 사진 등)
+// - TINY보다 작으면 아예 안 씀 (너무 흐림)
 export const MIN_SIDE = 400;
+const TINY = 200;
 async function cutoutNow(src) {
   const img = await loadImage(src);
-  if (Math.min(img.naturalWidth, img.naturalHeight) < MIN_SIDE) {
+  const side = Math.min(img.naturalWidth, img.naturalHeight);
+  if (side < TINY) {
     cutoutInfo.lowres = (cutoutInfo.lowres || 0) + 1;
     throw new Error('lowres');
   }
+  const small = side < MIN_SIDE;
+  if (small) cutoutInfo.small = (cutoutInfo.small || 0) + 1;
   let canvas = null;
   if (server) {
     try { canvas = await serverCutout(img); } catch (err) {
@@ -184,9 +190,10 @@ async function cutoutNow(src) {
   const st = maskStats(canvas);
   // 결과는 항상 돌려주고, 배경이 잘 지워졌는지(good)를 같이 알려줌
   // (잘 안 지워진 사진은 화면에서 '다른 사진이 다 모자랄 때만' 씀 → 빈 화면이 생기지 않게)
-  const good = usable(st);
-  if (!good) cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
-  return { ...trimAlpha(canvas), good, score: st.edge + Math.abs(st.cover - 0.4) };
+  const good = usable(st) && !small;
+  if (!usable(st)) cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
+  // score: 작을수록 좋은 예비 사진 (작은 사진은 배경이 잘 지워졌어도 뒤로)
+  return { ...trimAlpha(canvas), good, score: st.edge + Math.abs(st.cover - 0.4) + (small ? 0.5 : 0) };
 }
 
 async function modelCutout(img, src, kind) {

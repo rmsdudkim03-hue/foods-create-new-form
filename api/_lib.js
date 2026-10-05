@@ -311,6 +311,7 @@ export function checkPlan(plan) {
 export const PHOTO_COUNT = 6;
 // 브라우저에서 배경을 못 지운 사진은 빠지므로, 여유 있게 더 골라서 보냄 (화면에는 실제 사진 + AI 이미지 합쳐 6장)
 export const PICK_MAX = 12; // 저화질·배경 실패로 빠지는 사진이 있어도 6장이 채워지게 넉넉히
+const SPARE_MAX = 6;        // 예비 사진 (음식은 맞지만 아쉬운 사진. 모자랄 때만 화면에 씀)
 const NAVER = process.env.NAVER_BASE || 'https://openapi.naver.com/v1/search/image';
 export const NAVER_SITE = '네이버 검색';
 const KAKAO = process.env.KAKAO_BASE || 'https://dapi.kakao.com/v2/search/image';
@@ -485,7 +486,7 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [], ko =
       picked = await pickPhotos(list, name, words.join(', '));
     } catch (err) {
       console.error('[알림] 사진 고르기 실패 → 검색 순서대로 씀', err);
-      picked = list.slice(0, PHOTO_COUNT);
+      picked = list.slice(0, PHOTO_COUNT).map((p) => ({ ...p, spare: true })); // AI 확인 없이는 예비로만
     }
     // 네이버 사진은 api/photo가 전달해도 되는 주소라는 도장(sig)을 같이 줌
     return picked.map(({ thumb, ...p }) => ({ ...p, site, ...(p.fb ? { sig: signPhoto(p.src, p.fb) } : {}) }));
@@ -496,16 +497,19 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [], ko =
   // (전에는 둘을 동시에 찾았는데, Wikimedia 사진 고르기에 쓰는 토큰이 대부분 버려져서 바꿈)
   const first = await gather(site, page);
   let wiki = [];
-  if (first.length < PHOTO_COUNT && site !== 'Wikimedia Commons') wiki = await gather('Wikimedia Commons', page);
-  const photos = [...first, ...wiki];
-  console.log(`[알림] 사진 고름: ${site} ${first.length}장, Wikimedia ${wiki.length}장 → ${Math.min(photos.length, PICK_MAX)}장 보냄`);
-  return { photos: photos.slice(0, PICK_MAX), page };
+  const main = (l) => l.filter((p) => !p.spare);
+  if (main(first).length < PHOTO_COUNT && site !== 'Wikimedia Commons') wiki = await gather('Wikimedia Commons', page);
+  // 고른 사진 먼저, 예비는 뒤로 (화면은 앞에서부터 배경을 지움)
+  const photos = [...main(first), ...main(wiki)].slice(0, PICK_MAX);
+  const spares = [...first, ...wiki].filter((p) => p.spare).slice(0, SPARE_MAX);
+  console.log(`[알림] 사진 고름: ${site} ${main(first).length}장, Wikimedia ${main(wiki).length}장, 예비 ${spares.length}장 → ${photos.length + spares.length}장 보냄`);
+  return { photos: [...photos, ...spares], page };
 }
 
 /* ---------- 글 AI가 후보 사진을 보고 좋은 사진만 고르기 ----------
    검색 결과에는 음식이 아닌 사진, 음식이 작게 나온 사진, 다른 것과 섞인 사진이 섞여 있어서
    작은 미리보기를 글 AI에 보여주고 '그 음식의 특징이 잘 드러나는' 사진만 고름 */
-const CANDIDATES = 24; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸리고 토큰이 많이 듦)
+const CANDIDATES = 20; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸리고 토큰이 많이 듦)
 
 async function thumbData(url) {
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
@@ -535,7 +539,11 @@ const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보
 - 거의 같은 모습의 사진은 하나만 고른다. 같은 각도·같은 상태의 통째 사진은 많아야 2장.
 - 그 음식이 무엇인지 한눈에 알아볼 수 있어야 한다. 특징이 잘 안 보이는 애매한 사진보다 특징이 분명한 사진을 먼저 쓴다.
 
-좋은 순서대로 번호를 쓴다. 기준에 맞는 사진이 적으면 맞는 것만 쓴다.`;
+좋은 순서대로 번호를 picks에 쓴다. 기준에 맞는 사진이 적으면 맞는 것만 쓴다.
+
+[예비]
+picks에 넣지 않은 사진 중, 그 음식이 맞고 실제 사진이지만 다른 기준(배경이 복잡함, 조금 잘림, 다른 사진과 비슷함 등)이 아쉬운 사진을 spare에 좋은 순서대로 쓴다.
+(picks가 모자랄 때만 화면에 쓴다. 다른 음식, 그림, 사람이 주인공인 사진은 spare에도 넣지 않는다)`;
 
 async function pickPhotos(candidates, name, query) {
   if (!candidates.length) return [];
@@ -548,17 +556,20 @@ async function pickPhotos(candidates, name, query) {
     text: `음식: ${name} (검색어: ${query})\n후보 사진 ${usable.length}장이 0번부터 순서대로 첨부되어 있다. 최대 ${PICK_MAX}장을 고른다.`,
     images: usable.map((x) => ({ url: x.img, detail: 'low' })),
     name: 'photo_pick',
-    schema: S.obj({ picks: S.arr({ type: 'integer' }, `고른 사진 번호 (좋은 순서, 최대 ${PICK_MAX}개)`) }),
+    schema: S.obj({
+      picks: S.arr({ type: 'integer' }, `고른 사진 번호 (좋은 순서, 최대 ${PICK_MAX}개)`),
+      spare: S.arr({ type: 'integer' }, `예비 사진 번호 (좋은 순서, 최대 ${SPARE_MAX}개)`),
+    }),
     effort: 'low',
   });
   const seen = new Set();
-  const picked = (out.picks || [])
-    .filter((i) => Number.isInteger(i) && i >= 0 && i < usable.length && !seen.has(i) && seen.add(i))
-    .slice(0, PICK_MAX)
-    .map((i) => usable[i].c);
-  console.log(`[알림] 사진 ${usable.length}장 중 ${picked.length}장 고름 (${name})`);
-  // 맞는 사진이 적어도 엉뚱한 사진으로 채우지 않음 (부족하면 다른 곳에서 보충하거나 AI가 그림)
-  return picked;
+  const ok = (i) => Number.isInteger(i) && i >= 0 && i < usable.length && !seen.has(i) && seen.add(i);
+  const picked = (out.picks || []).filter(ok).slice(0, PICK_MAX).map((i) => usable[i].c);
+  // 예비: 음식은 맞지만 아쉬운 사진. 화면에서 다른 사진이 모자랄 때만 씀 (빈칸이 생기지 않게)
+  const spare = (out.spare || []).filter(ok).slice(0, SPARE_MAX).map((i) => ({ ...usable[i].c, spare: true }));
+  console.log(`[알림] 사진 ${usable.length}장 중 ${picked.length}장 고름 + 예비 ${spare.length}장 (${name})`);
+  // 맞는 사진이 적어도 엉뚱한 사진으로 채우지 않음
+  return [...picked, ...spare];
 }
 
 // Unsplash: 관람객이 사진을 고르면 '다운로드했다'고 알려줌 (Unsplash 이용 규칙)
