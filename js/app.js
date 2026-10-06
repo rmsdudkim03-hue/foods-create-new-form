@@ -797,7 +797,8 @@ const recipe = {
   },
   label(id) {
     const f = this.feat(id);
-    $('#recipeLabel').textContent = f ? f.title : '';
+    // 커서를 올린 도형의 특징 이름: 그 음식 색 알약으로 잘 보이게
+    $('#recipeLabel').innerHTML = f ? `<span class="rc-tag" style="--c:${this.colors[this.side(id)]}"><i></i>${esc(f.title)}</span>` : '';
   },
 };
 enter.recipe = () => {
