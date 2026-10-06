@@ -396,6 +396,11 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 /* 피그마 수정: 그릇 아래 '1 기본 / 2 재해석' 글자는 숨김 (비우기 버튼만) */
 .rc-cap-label { display: none; }
 .rc-cap .rc-clear { margin-left: 0; }
+/* 재료 3개를 담아도 글자가 아래 그릇·요리하기 버튼과 겹치지 않게: 비우기는 그릇 오른쪽 위에 띄움 */
+.rc-bowl { position: relative; }
+.rc-bowl > .rc-cap { position: absolute; top: calc(6 * var(--u)); left: calc(50% + 62 * var(--u)); z-index: 1; min-height: 0; }
+.rc-bowl > .rc-cap .rc-clear { background: #fff; }
+.is-portrait .rc-bowl > .rc-cap { position: static; }
 .rc-clear {
   margin-left: calc(10 * var(--u));
   padding: calc(2 * var(--u)) calc(10 * var(--u));
