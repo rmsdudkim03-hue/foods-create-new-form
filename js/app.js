@@ -387,7 +387,11 @@ const picker = (() => {
       let res;
       try { res = await ai.checkFood(word); } catch (err) {
         console.error(err);
-        res = { ok: false, message: '확인하지 못했어요. 다시 시도해 주세요' };
+        // 원인별 안내 (자세한 이유는 브라우저 콘솔과 Vercel 로그에)
+        const m = String(err.message || '');
+        res = { ok: false, message: m === 'access_code' ? '접근 코드가 맞지 않아요. 주소의 ?code=를 확인해 주세요'
+          : /abort/i.test(m) ? '응답이 늦어요. 다시 입력해 주세요'
+          : '확인하지 못했어요. 다시 시도해 주세요' };
       }
       if (pending[side]?.promise !== promise) return false; // 그사이 다른 단어로 바뀜
       pending[side] = null;

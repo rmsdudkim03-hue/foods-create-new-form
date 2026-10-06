@@ -14,6 +14,8 @@ const PHOTO_SCHEMA = S.obj({
   ko: S.arr(S.str('한국어 검색어 (2~4단어)'), '같은 음식의 다른 모습을 찾을 한국어 검색어 2개 (예: 브로콜리 단면 / 브로콜리 송이). 음식이 아니면 빈 배열'),
 });
 const PHOTO_INSTRUCTIONS = `관람객이 입력한 단어가 음식인지 판단한다.
+먹을 수 있는 것은 모두 음식으로 본다: 요리, 간식, 과자·사탕(상품 이름 포함), 음료, 술, 과일, 채소, 해산물, 고기 부위, 곡물, 양념, 재료, 지역 음식, 줄임말·사투리·영어 이름.
+오타가 있어도 어떤 음식인지 짐작되면 음식으로 보고 name에 바른 이름을 쓴다. 애매하면 음식으로 본다.
 음식이 아니면 is_food를 false로 하고, message에 "○○은(는) 음식이 아니에요. 다른 음식을 입력해 주세요"처럼 한 문장을 쓴다.
 음식이면 name에 정리된 이름을, queries에 그 음식 사진을 찾을 짧은 영어 검색어 3개를 쓴다.
 - 첫째: 음식 이름 그대로 (사진 사이트에서 흔히 쓰는 영어 이름)
@@ -74,20 +76,30 @@ export default handler(async (req, res, body) => {
     let ko = Array.isArray(body.ko) ? body.ko.map((q) => String(q).slice(0, 40)).filter(Boolean).slice(0, 2) : [];
     if (!queries.length) {
       prewarmSearch(word); // 음식 확인을 기다리는 동안 사진 검색을 먼저 시작 (빠르게)
-      const out = await askJSON({
-        instructions: PHOTO_INSTRUCTIONS,
-        text: `입력 단어: ${word}`,
-        name: 'food_check',
-        schema: PHOTO_SCHEMA,
-        effort: 'low',
-      });
+      let out;
+      try {
+        out = await askJSON({
+          instructions: PHOTO_INSTRUCTIONS,
+          text: `입력 단어: ${word}`,
+          name: 'food_check',
+          schema: PHOTO_SCHEMA,
+          effort: 'low',
+        });
+      } catch (err) {
+        // 글 AI가 실패해도 체험이 막히지 않게: 입력한 단어를 음식으로 보고 그대로 검색
+        console.error('[알림] 음식 확인 실패 → 입력 그대로 검색', err);
+        out = { is_food: true, name: word, queries: [word], ko: [] };
+      }
       if (!out.is_food) return send(res, 200, notFood(word, out.message));
       name = out.name || word;
       queries = out.queries?.length ? out.queries : [word];
       ko = out.ko || [];
     }
     // 사진만 찾아서 돌려줌 (사진 모드에서는 AI로 음식 이미지를 그리지 않음)
-    const found = await searchPhotos(queries, name, { page, exclude, ko });
+    const found = await searchPhotos(queries, name, { page, exclude, ko }).catch((err) => {
+      console.error('[알림] 사진 검색 실패', err);
+      return { photos: [], page };
+    });
     const photos = found.photos;
     const shots = [];
     if (!photos.length && !shots.length) return send(res, 200, { ok: false, message: `${name} 사진을 찾지 못했어요. 다른 음식을 입력해 주세요` });
