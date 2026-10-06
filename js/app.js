@@ -54,7 +54,7 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('is-show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('is-show'), 2600);
+  toastTimer = setTimeout(() => t.classList.remove('is-show'), Math.max(2600, msg.length * 90)); // 긴 안내는 더 오래
 }
 
 /* =========================================================
@@ -387,11 +387,7 @@ const picker = (() => {
       let res;
       try { res = await ai.checkFood(word); } catch (err) {
         console.error(err);
-        // 원인별 안내 (자세한 이유는 브라우저 콘솔과 Vercel 로그에)
-        const m = String(err.message || '');
-        res = { ok: false, message: m === 'access_code' ? '접근 코드가 맞지 않아요. 주소의 ?code=를 확인해 주세요'
-          : /abort/i.test(m) ? '응답이 늦어요. 다시 입력해 주세요'
-          : '확인하지 못했어요. 다시 시도해 주세요' };
+        res = { ok: false, message: `확인하지 못했어요. ${aiReason(err)}` };
       }
       if (pending[side]?.promise !== promise) return false; // 그사이 다른 단어로 바뀜
       pending[side] = null;
@@ -643,7 +639,7 @@ enter.analyze = async () => {
   } catch (err) {
     console.error(err);
     if (run === state.run && current === 'analyze') {
-      toast('분석에 실패했어요. 다시 시도해 주세요');
+      toast(`분석에 실패했어요. ${aiReason(err)}`);
       state.picks = { A: null, B: null }; // 사진을 다시 고르게
       timers.analyzeFail = setTimeout(() => go('pick'), 1500);
     }
@@ -654,6 +650,20 @@ enter.analyze = async () => {
   if (recipeFeatures()) go('recipe');
   else startForms(null);
 };
+// AI 오류 원인을 짧게 안내 (서버가 돌려준 오류 글로 판단. 자세한 내용은 Vercel 로그)
+function aiReason(err) {
+  const m = String(err?.message || '');
+  if (m === 'access_code') return '접근 코드가 맞지 않아요 (주소의 ?code= 확인)';
+  if (m === 'no_key') return '서버에 OpenAI 키가 없어요 (Vercel 환경 변수 확인)';
+  if (/OpenAI 429/.test(m)) return /quota|billing/i.test(m) ? 'OpenAI 잔액이 부족해요 (Billing 충전 필요)' : 'AI 요청이 몰렸어요. 잠시 후 다시 해 주세요';
+  if (/OpenAI 401/.test(m)) return 'OpenAI 키가 맞지 않아요 (Vercel 환경 변수 확인)';
+  if (/OpenAI 404|model/i.test(m)) return `AI 모델을 못 찾았어요 (${m.slice(0, 80)})`;
+  if (/OpenAI 5\d\d/.test(m)) return 'OpenAI 서버가 불안정해요. 잠시 후 다시 해 주세요';
+  if (/abort/i.test(m)) return '응답이 너무 늦어요. 다시 해 주세요';
+  if (/413|too large/i.test(m)) return '사진이 너무 커요. 다른 사진을 골라 주세요';
+  return m ? `(${m.slice(0, 80)})` : '다시 시도해 주세요';
+}
+
 // 맛보기 조형 만들기 시작 → 요리하는 동안 미리 만듦
 function startForms(combos) {
   state.combos = combos;
