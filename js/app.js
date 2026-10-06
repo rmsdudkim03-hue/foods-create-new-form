@@ -989,7 +989,7 @@ let unsubTaste = null;
 // 맛보기 조형 6개: 나만의 조합 화면과 같은 '위에서 본 그릇' 6개
 // 만들어지는 동안: 그릇마다 담았던 도형들이 천천히 돌며 섞이고, 테두리에 두 음식 색이 일렁임
 // 6개가 '다' 만들어지면: 도형이 가운데로 빨려 들어가며 사라지고 조형이 그 자리에서 차례로 떠오름
-const TASTE_POS = [[360, 400], [720, 400], [1080, 400], [360, 720], [720, 720], [1080, 720]]; // 그릇 가운데 (컴퓨터)
+const TASTE_POS = [[360, 395], [720, 395], [1080, 395], [360, 735], [720, 735], [1080, 735]]; // 그릇 가운데 (컴퓨터)
 const TASTE_PPOS = [[160, 330], [440, 330], [160, 580], [440, 580], [160, 830], [440, 830]]; // 휴대폰
 function buildTaste() {
   const layer = $('#tasteLayer');
@@ -1029,7 +1029,8 @@ function buildTaste() {
     const [pcx, pcy] = TASTE_PPOS[i];
     const cell = document.createElement('div');
     cell.className = 'taste-cell abs box';
-    cell.style.cssText = `--x:${cx - 130};--y:${cy - 130};--w:260;--h:260;--px:${pcx - 112};--py:${pcy - 112};--pw:224;--ph:224;--d:${i * 0.12}s`;
+    // 그릇 지름: 컴퓨터 310, 휴대폰 240 (조형이 잘 보이게 크게)
+    cell.style.cssText = `--x:${cx - 155};--y:${cy - 155};--w:310;--h:310;--px:${pcx - 120};--py:${pcy - 120};--pw:240;--ph:240;--d:${i * 0.12}s`;
     const swirl = mixFor(i).map((id, k) => recipe.svg(id).replace('<svg ', `<svg style="--r0:${(k * 137 + i * 40) % 360}deg;--t:${16 + k * 6}s" `)).join('');
     cell.innerHTML = `<button class="taste-hit tb-bowl" type="button" aria-label="맛보기 조형 ${f.id} 선택" disabled>
         <span class="tb-dish"><span class="tb-mix">${swirl}</span><img class="taste-form" alt=""></span>

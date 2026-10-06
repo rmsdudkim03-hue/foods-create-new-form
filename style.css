@@ -491,12 +491,12 @@ h1, h2, p { margin: 0; font-weight: inherit; }
 #tasteLayer.is-revealing .tb-mix { scale: .05; opacity: 0; rotate: 200deg; }
 /* 조형: 그릇 가운데에서 떠오름 */
 .taste-form {
-  position: absolute; left: 8%; top: 4%; width: 84%; height: 84%;
+  position: absolute; left: 3%; top: 1%; width: 94%; height: 94%; /* 그릇을 거의 꽉 채움 */
   object-fit: contain; mix-blend-mode: multiply; pointer-events: none;
   opacity: 0; scale: .3; filter: blur(calc(8 * var(--u)));
   transition: opacity .8s var(--ease) var(--d, 0s), scale .9s cubic-bezier(.2,1.4,.4,1) var(--d, 0s), filter .8s var(--ease) var(--d, 0s), translate .5s var(--ease);
 }
-.taste-cell.is-ready .taste-form { opacity: 1; scale: 1; filter: blur(0); }
+.taste-cell.is-ready .taste-form { opacity: 1; scale: 1; filter: blur(0) contrast(1.12); } /* 흰 조형이 그릇에 묻히지 않게 대비 조금 올림 */
 .taste-cell.is-lost .tb-bowl { opacity: .35; }
 .taste-cell.is-lost .tb-mix { opacity: 0; }
 .taste-hit:disabled { cursor: default; pointer-events: none; }
@@ -505,8 +505,8 @@ h1, h2, p { margin: 0; font-weight: inherit; }
   #tasteLayer.is-done .tb-bowl:hover .taste-form { translate: 0 calc(-8 * var(--u)); }
 }
 .tb-bowl:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 8px; }
-#tasteLayer.has-choice .taste-cell:not(.is-chosen) .tb-bowl { opacity: .25; scale: .94; }
-#tasteLayer.has-choice .is-chosen .tb-bowl { scale: 1.08; }
+#tasteLayer.has-choice .taste-cell:not(.is-chosen) .tb-bowl { opacity: .45; scale: .94; }
+#tasteLayer.has-choice .is-chosen .tb-bowl { scale: 1.05; }
 /* 조형 고른 뒤 확인 버튼 */
 .taste-confirm { display: flex; align-items: center; gap: calc(20 * var(--u)); z-index: 6; }
 .taste-go, .result-end {
