@@ -1620,10 +1620,12 @@ window.addEventListener('keydown', (e) => {
 });
 
 let idleTimer;
+// 조작이 없을 때 처음 화면으로 돌아가기: 지금은 끔 (모든 화면에서 관람객이 직접 '처음으로'나 메뉴를 눌러야 끝)
+// 다시 켜려면 아래 목록에 화면 이름을 넣으면 됨 (예: ['pick', 'analyze', 'recipe', 'cook'])
+const IDLE_SCREENS = [];
 function resetIdle() {
   clearTimeout(idleTimer);
-  // 맛보기(조형 생성)부터는 자동으로 돌아가지 않음: 맛보기·3D 결과 화면은 '처음으로' 버튼을 눌러야 끝
-  if (['pick', 'analyze', 'recipe', 'cook'].includes(current)) {
+  if (IDLE_SCREENS.includes(current)) {
     idleTimer = setTimeout(() => go('home'), IDLE_RESET_MS);
   }
 }
