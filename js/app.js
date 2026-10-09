@@ -1328,6 +1328,7 @@ const gallery = (() => {
     const it = items[cur];
     if (!it || shown === it) return;
     const apply = () => {
+      showForms(it);
       gImg.src = it.img;
       gImg.alt = it.name;
       $('#gNo').textContent = it.no;
@@ -1345,6 +1346,26 @@ const gallery = (() => {
     cur = Math.max(0, Math.min(items.length - 1, i));
     render();
   }
+
+  /* ---------- 맛보기 조형 6개: 크게 보기 옆에 작게. 누르면 가운데에 크게 ---------- */
+  const formsBox = $('#gForms');
+  function showForms(it) {
+    const list = it?.forms || [];
+    formsBox.hidden = !list.some(Boolean);
+    formsBox.innerHTML = list.map((src, i) => (src
+      ? `<button type="button" class="g-form${i === it.pick ? ' is-pick is-on' : ''}" data-i="${i}" aria-label="맛보기 조형 ${i + 1}${i === it.pick ? ' (고른 조형)' : ''}"><img src="${esc(src)}" alt=""></button>`
+      : '<span class="g-form is-empty"></span>')).join('');
+  }
+  formsBox.addEventListener('click', (e) => {
+    const b = e.target.closest('.g-form[data-i]');
+    const it = items[cur];
+    if (!b || !it) return;
+    const i = +b.dataset.i;
+    show3d(false);
+    // 고른 조형을 누르면 원래 작품 이미지로
+    gImg.src = i === it.pick ? it.img : it.forms[i];
+    $$('.g-form', formsBox).forEach((x) => x.classList.toggle('is-on', x === b));
+  });
 
   /* ---------- 모아보기: 모든 작품을 한 화면에 (최신 작품이 먼저) ---------- */
   const section = $('.screen[data-screen="gallery"]');
@@ -1461,7 +1482,8 @@ const gallery = (() => {
     const keep = items[cur];
     const ids = new Set(res.works.map((w) => w.id));
     const pending = mine.filter((it) => !it.id || !ids.has(it.id));
-    items = [...GALLERY_SEED, ...res.works.map((w) => ({ ...w, thumb: w.img })), ...pending];
+    const local = new Map(mine.filter((it) => it.id).map((it) => [it.id, it]));
+    items = [...GALLERY_SEED, ...res.works.map((w) => ({ ...w, thumb: w.img, forms: w.forms?.some(Boolean) ? w.forms : local.get(w.id)?.forms || null })), ...pending];
     const at = items.findIndex((it) => it === keep || (keep?.id && it.id === keep.id));
     cur = at >= 0 ? at : items.length - 1;
     shown = null;
@@ -1550,19 +1572,24 @@ async function saveCreationNow(f) {
   const date = `${d.getFullYear()} . ${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   let img = f.img;
   try { img = await shrink(f.img); } catch { /* 줄이기 실패하면 원본 */ }
+  // 맛보기 조형 6개 (갤러리 크게 보기에서 같이 보여줌. 이 기기에는 작게 줄여서)
+  const pick = FORMS.findIndex((x) => x.id === f.id);
+  const forms = await Promise.all((state.formsJob?.items || []).map((x) => (x ? shrink(x, 240).catch(() => null) : null)));
   const item = {
     no: gallery.nextNo(),
     name: `${state.foods.A || '젤리'} ${state.foods.B || '브로콜리'}`,
     date,
     img,
     thumb: img,
+    forms: forms.some(Boolean) ? forms : null,
+    pick: pick >= 0 ? pick : null,
     // 선택 특징과 해석의 기록 (화면에는 안 보임)
     record: { foods: { ...state.foods }, analysis: state.analysis?.demo ? null : state.analysis, plan: f.plan || null },
   };
   gallery.add(item);
   // 공유 갤러리 + 학습 기록으로 저장 (실제 AI 모드에서만)
   try {
-    const r = await ai.saveWork({ name: item.name, date, image: img, plan: f.plan });
+    const r = await ai.saveWork({ name: item.name, date, image: img, plan: f.plan, pick: item.pick ?? undefined });
     if (r) {
       item.id = r.id;
       item.no = r.no;

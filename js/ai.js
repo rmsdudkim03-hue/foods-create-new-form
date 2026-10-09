@@ -445,7 +445,7 @@ export async function saveForm(id, index, image) {
 }
 
 // 관람객이 고른 조형을 공유 갤러리 + 학습 기록으로 저장 (실제 AI로 만든 것만)
-export async function saveWork({ name, date, image, plan }) {
+export async function saveWork({ name, date, image, plan, pick }) {
   if (!live || !image?.startsWith('data:image/jpeg')) return null;
-  return call('api/works', { body: { name, date, image, plan }, timeout: 60000 });
+  return call('api/works', { body: { name, date, image, plan, pick }, timeout: 60000 });
 }
