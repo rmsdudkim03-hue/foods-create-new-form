@@ -1,6 +1,7 @@
 // 공유 갤러리 + 관람객 선택 기록
-// GET  → 최근 작품 목록 { enabled, works: [{ id, no, name, date, img, model }] } (오래된 것 → 최신 순)
-// POST { name, date, image, plan } → 작품 저장 { id, no }
+// GET  → 최근 작품 목록 { enabled, works: [{ id, no, name, date, img, model, forms, pick }] } (오래된 것 → 최신 순)
+//   forms: 맛보기 조형 6개 이미지 주소 (works-forms/작품id-1~6.jpg), pick: 그중 고른 번호
+// POST { name, date, image, plan, pick } → 작품 저장 { id, no }
 //   plan은 /api/forms가 도장(sig)을 찍어 준 조형 계획. 도장이 맞을 때만 "학습" 기록으로 남김
 // POST { id, model: Meshy 작업 id } → 완성된 3D 파일(.glb)을 저장소에 보관 (Meshy 주소는 며칠 뒤 만료돼서)
 //   갤러리에서 다른 관람객 작품도 3D로 볼 수 있게 함. models/작품id.glb
@@ -49,6 +50,18 @@ async function rate(res, { id, rating }) {
 async function models() {
   const blobs = await store.list('models/', 1000);
   return Object.fromEntries(blobs.map((b) => [b.pathname.slice(7, -4), b.url]));
+}
+
+// 맛보기 조형 6개 이미지 { 작품id: [1번 주소, …, 6번 주소] } (없는 자리는 null)
+async function tasteForms() {
+  const blobs = await store.list('works-forms/', 2000);
+  const out = {};
+  for (const b of blobs) {
+    const m = b.pathname.slice(12).match(/^(.+)-([1-6])\.jpg$/);
+    if (!m) continue;
+    (out[m[1]] ??= Array(6).fill(null))[Number(m[2]) - 1] = b.url;
+  }
+  return out;
 }
 
 // 3D 변환을 시작한 작품 { 작품id: Meshy 작업 id }
@@ -166,7 +179,7 @@ export default async function works(req, res) {
     if (req.method === 'GET' && new URL(req.url, 'http://x').searchParams.has('diag')) return diag(req, res);
     if (req.method === 'GET') {
       if (!(await store.ready())) return send(res, 200, { enabled: false, works: [] });
-      const [list, glb, task] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks()]);
+      const [list, glb, task, forms] = await Promise.all([recentWorks(GALLERY_LIMIT), models(), tasks(), tasteForms()]);
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       // 여러 기기가 동시에 열어도 저장소를 매번 읽지 않게 15초 동안 같은 결과를 씀
@@ -174,7 +187,8 @@ export default async function works(req, res) {
       return res.end(JSON.stringify({
         enabled: true,
         // task: 3D 변환은 했는데 아직 파일을 보관하지 못한 작품 (갤러리에서 열면 그때 보관)
-        works: list.reverse().map((w) => ({ id: w.id, no: w.no, name: w.name, date: w.date, img: w.img, model: glb[w.id] || null, task: glb[w.id] ? null : task[w.id] || null })),
+        // forms: 맛보기 조형 6개 이미지, pick: 그중 관람객이 고른 번호(0~5)
+        works: list.reverse().map((w) => ({ id: w.id, no: w.no, name: w.name, date: w.date, img: w.img, model: glb[w.id] || null, task: glb[w.id] ? null : task[w.id] || null, forms: forms[w.id] || null, pick: Number.isInteger(w.pick) ? w.pick : null })),
       }));
     }
 
@@ -207,6 +221,7 @@ export default async function works(req, res) {
       if (!image.startsWith('data:image/jpeg;base64,') || image.length > 900_000) return send(res, 400, { error: 'input' });
       const name = String(body.name || '').slice(0, 40);
       const date = String(body.date || '').slice(0, 20);
+      const pick = Number.isInteger(body.pick) && body.pick >= 0 && body.pick <= 5 ? body.pick : null; // 6개 중 고른 조형 번호
 
       // 다음 번호 = 가장 최근 작품 번호 + 1
       const [last] = await recentWorks(1);
@@ -215,7 +230,7 @@ export default async function works(req, res) {
       const key = newKey();
       const img = await store.put(`works-img/${key}.jpg`, Buffer.from(image.split(',')[1], 'base64'), 'image/jpeg');
       const plan = checkPlan(body.plan); // 도장이 안 맞으면 null → 갤러리에는 나오지만 학습에는 안 씀
-      await store.put(`works/${key}.json`, JSON.stringify({ no, name, date, img, plan, createdAt: new Date().toISOString() }), 'application/json');
+      await store.put(`works/${key}.json`, JSON.stringify({ no, name, date, img, pick, plan, createdAt: new Date().toISOString() }), 'application/json');
       return send(res, 200, { id: key, no, learned: Boolean(plan) });
     }
 
