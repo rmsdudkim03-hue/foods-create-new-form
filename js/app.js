@@ -1622,8 +1622,8 @@ window.addEventListener('keydown', (e) => {
 let idleTimer;
 function resetIdle() {
   clearTimeout(idleTimer);
-  // 3D 결과 화면(result)은 자동으로 돌아가지 않음 → '처음으로' 버튼을 눌러야 끝
-  if (['pick', 'analyze', 'recipe', 'cook', 'taste'].includes(current)) {
+  // 맛보기(조형 생성)부터는 자동으로 돌아가지 않음: 맛보기·3D 결과 화면은 '처음으로' 버튼을 눌러야 끝
+  if (['pick', 'analyze', 'recipe', 'cook'].includes(current)) {
     idleTimer = setTimeout(() => go('home'), IDLE_RESET_MS);
   }
 }
