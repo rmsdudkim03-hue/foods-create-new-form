@@ -7,7 +7,7 @@ import * as ai from './ai.js';
 import { contour } from './contour.js';
 import { startCook, preloadCook } from './cook.js';
 import { cutoutInfo } from './cutout.js';
-import { glyphFor, glyphSVG, dominantColor, vivid } from './glyphs.js';
+import { glyphFor, glyphSVG, dominantColor, vivid, distinctGlyphs, textureFor, shade } from './glyphs.js';
 
 // 주소 끝에 ?debug를 붙이면 확인용 정보가 화면에 보임
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -695,9 +695,12 @@ function recipeFeatures() {
   const out = {};
   for (const k of ['A', 'B']) {
     // 데모 특징에는 번호가 없어서 실제 분석과 같은 규칙으로 붙임 (A1~A3, AK1~AK2)
-    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, title: f.title, desc: f.desc, glyph: glyphFor(f), shape: f.shape || null, known: type === 'knowledge' }));
+    // i: 같은 종류 안에서 몇 번째인지 (질감·색 진하기를 다르게 하는 데 씀)
+    const list = (type, prefix) => (src[k][type] || []).map((f, i) => ({ id: f.id || `${prefix}${i + 1}`, title: f.title, desc: f.desc, glyph: glyphFor(f), shape: f.shape || null, known: type === 'knowledge', i }));
     out[k] = [...list('visual', k), ...list('knowledge', `${k}K`)];
   }
+  // 10개가 서로 다른 도형이 되게 (보이는 특징 먼저 자리를 잡음)
+  distinctGlyphs([...out.A.filter((f) => !f.known), ...out.B.filter((f) => !f.known), ...out.A.filter((f) => f.known), ...out.B.filter((f) => f.known)]);
   return out;
 }
 const recipe = {
@@ -709,8 +712,12 @@ const recipe = {
   same() { const [a, b] = this.combos; return a.length === b.length && a.every((id) => b.includes(id)); },
   feat(id) { return [...this.feats.A, ...this.feats.B].find((f) => f.id === id); },
   side(id) { return id.startsWith('A') ? 'A' : 'B'; },
-  // 질감: 사진에서 보이는 특징은 입자(grain), 알려진 성질은 망점(halftone)
-  svg(id) { const f = this.feat(id); return glyphSVG(f?.glyph, this.colors[this.side(id)], id, f?.known ? 'halftone' : 'grain', f?.shape); },
+  // 질감: 보이는 특징은 입자 계열(고운 입자·얼룩·사선), 알려진 성질은 망점 계열(작은·큰 망점). 색은 특징마다 조금씩 진하게·옅게
+  svg(id) {
+    const f = this.feat(id);
+    const tone = [0, -0.18, 0.2][(f?.i || 0) % 3] * (f?.known ? 0.6 : 1);
+    return glyphSVG(f?.glyph, shade(this.colors[this.side(id)], tone), id, textureFor(f?.known, f?.i || 0), f?.shape);
+  },
   // 그릇 안 도형: 담긴 것만 다시 그림 (새로 담긴 것만 떨어지는 효과가 나도록 원래 것은 그대로 둠)
   drawMix(i) {
     const mix = $(`#recipeBowls .rc-bowl[data-slot="${i}"] .rc-mix`);
