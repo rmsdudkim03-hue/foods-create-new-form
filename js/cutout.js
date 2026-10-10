@@ -148,10 +148,11 @@ function maskStats(canvas) {
   return { cover: n / (W * H), edge: edge / edgeN };
 }
 // 쓸 수 없는 결과: 거의 안 지워짐(화면을 꽉 채움) / 거의 다 지워짐 / 테두리에 배경이 많이 남음
-// (테두리 기준을 0.15 → 0.1로: 사진 밖으로 잘린 음식도 걸러냄)
-const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.1;
-// 음식이 사진에서 너무 작게 찍힌 것: 차지하는 크기가 8% 미만이거나, 잘라낸 크기가 300px 미만이면 안 씀
-const MIN_FRAC = 0.08, MIN_SUBJECT = 300, MIN_FILL = 0.12;
+// (테두리 기준 0.15: 너무 낮추면 과자 무더기처럼 사진에 꽉 찬 음식이 다 빠짐)
+const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.15;
+// 음식이 사진에서 너무 작게 찍힌 것: 차지하는 크기가 6% 미만이거나, 잘라낸 크기가 300px 미만이면 안 씀
+// (여러 조각이 흩어진 과자도 쓰게 fill은 낮게)
+const MIN_FRAC = 0.06, MIN_SUBJECT = 300, MIN_FILL = 0.06;
 const usable = (s) => s.cover >= MIN_COVER && s.cover <= MAX_COVER && s.edge <= MAX_EDGE;
 
 // 화질 기준 (짧은 변)
