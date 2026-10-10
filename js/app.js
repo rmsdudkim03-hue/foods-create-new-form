@@ -1442,6 +1442,7 @@ const gallery = (() => {
     }
     g3d.hidden = !it;
     g3d.disabled = !it?.model;
+    gStl.hidden = !it?.model; // 3D 파일이 있을 때만 STL 다운로드
     on3d = Boolean(on && it?.model);
     g3d.classList.toggle('is-on', on3d);
     g3d.textContent = !it?.model ? '3D 파일이 없는 작품이에요' : on3d ? '이미지로 보기' : '3D로 보기';
@@ -1463,6 +1464,24 @@ const gallery = (() => {
     }
   }
   g3d.addEventListener('click', () => show3d(!on3d));
+  // STL 다운로드: 지금 보고 있는 작품의 3D 파일을 STL로 바꿔서 내려받음
+  const gStl = $('#gStl');
+  gStl.addEventListener('click', async () => {
+    const it = items[cur];
+    if (!it?.model) return;
+    gStl.disabled = true;
+    gStl.textContent = 'STL 만드는 중…';
+    try {
+      const { downloadSTL } = await import('./stl.js');
+      await downloadSTL(it.model, `FOODS_FORM_${it.no}`); // 한글 파일 이름은 브라우저에 따라 깨져서 영어 + 작품 번호
+    } catch (err) {
+      console.error('STL 만들기 실패', err);
+      toast('STL을 만들지 못했어요');
+    } finally {
+      gStl.disabled = false;
+      gStl.textContent = 'STL 다운로드 ↓';
+    }
+  });
   const step = (d) => select(cur + d);
 
   function add(item) {
