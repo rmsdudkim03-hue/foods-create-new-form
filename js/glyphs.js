@@ -4,7 +4,8 @@
    - 도형 종류는 분석 AI가 특징마다 하나 고름 (api/analyze의 glyph)
    - AI가 안 골랐으면(예전 분석, 데모) 제목·설명의 낱말로 추측
    - 모든 도형은 100×100 칸에 그리고, 색은 음식 사진의 대표색을 선명하게 바꾼 것
-   - 실제 사진은 쓰지 않고 색과 그래픽 질감만 (보이는 특징: 입자 / 알려진 성질: 망점)
+   - 실제 사진은 쓰지 않고 색과 그래픽 질감만 (보이는 특징: 입자·얼룩·사선 / 알려진 성질: 망점·큰 망점)
+   - 10개 특징은 서로 다른 도형 (distinctGlyphs), 특징마다 질감·색 진하기도 다르게
    ========================================================= */
 
 // 도형 종류: 이름 → 어떤 특징에 쓰는지 (api/analyze.js 목록과 같아야 함)
@@ -59,6 +60,46 @@ export function glyphFor(f) {
   const text = `${f?.title || ''} ${f?.desc || ''}`;
   for (const [type, re] of GUESS) if (re.test(text)) return type;
   return 'blob';
+}
+
+/* ---------- 10개 특징이 서로 다른 도형이 되게 ----------
+   비슷한 내용의 특징이 같은 도형으로 겹치면, 뜻이 가까운 다른 도형으로 바꿈 (그래도 겹치면 안 쓴 도형 아무거나) */
+const NEAR = {
+  grooves: ['stripe', 'fold', 'layers'], stripe: ['grooves', 'wave', 'layers'], layers: ['press', 'stripe', 'fold'],
+  branch: ['burst', 'crack', 'drip'], petals: ['cluster', 'burst', 'blob'], burst: ['branch', 'petals', 'dots'],
+  dots: ['pores', 'cluster', 'mesh'], cluster: ['dots', 'petals', 'blob'], pores: ['dots', 'mesh', 'ring'],
+  mesh: ['pores', 'stripe', 'crack'], ring: ['shell', 'pores', 'spiral'], shell: ['ring', 'veil', 'fold'],
+  spiral: ['wave', 'ring', 'branch'], wave: ['spiral', 'drip', 'stripe'], fold: ['layers', 'grooves', 'press'],
+  blob: ['press', 'drip', 'cluster'], drip: ['wave', 'blob', 'veil'], crack: ['branch', 'mesh', 'fold'],
+  veil: ['shell', 'wave', 'layers'], press: ['layers', 'blob', 'fold'],
+};
+export function distinctGlyphs(list) {
+  const used = new Set();
+  for (const f of list) {
+    let g = f.glyph;
+    if (used.has(g)) {
+      const text = `${f.title || ''} ${f.desc || ''}`;
+      g = (NEAR[g] || []).find((x) => !used.has(x))
+        || GUESS.map(([t]) => t).find((t, i) => !used.has(t) && GUESS[i][1].test(text))
+        || Object.keys(GLYPH_TYPES).find((t) => !used.has(t));
+    }
+    f.glyph = g;
+    used.add(g);
+  }
+  return list;
+}
+
+/* ---------- 질감·색 차이 ----------
+   보이는 특징(입자 계열): 고운 입자 / 굵은 얼룩 입자 / 사선 판화
+   알려진 성질(망점 계열): 작은 망점 / 큰 망점
+   같은 음식 안에서도 특징마다 색을 조금씩 진하게·옅게 */
+export function textureFor(known, i) { return known ? ['halftone', 'halftoneBig'][i % 2] : ['grain', 'coarse', 'hatch'][i % 3]; }
+export function shade(hex, t) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m || !t) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = [n >> 16, (n >> 8) & 255, n & 255].map((c) => Math.round(t < 0 ? c * (1 + t) : c + (255 - c) * t));
+  return `#${ch.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 // 같은 특징은 늘 같은 모양이 되도록 번호로 정해지는 무작위 수
@@ -391,7 +432,7 @@ function shapes(type, r, p) {
 }
 
 // 도형 그리기 → SVG 글자 (viewBox 0 0 100 100)
-// color: 음식 대표색(선명하게), texture: 'grain'(리소 인쇄 같은 입자) 또는 'halftone'(망점)
+// color: 음식 대표색(선명하게), texture: 'grain'(고운 입자) 'coarse'(굵은 얼룩) 'hatch'(사선) / 'halftone'(망점) 'halftoneBig'(큰 망점)
 let uid = 0;
 export function glyphSVG(type, color = '#212121', seed = '', texture = 'grain', params = null) {
   const r = rng(seed + type);
@@ -403,8 +444,19 @@ export function glyphSVG(type, color = '#212121', seed = '', texture = 'grain', 
     + `<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1 .42" result="d"/>`
     + `<feComposite in="d" in2="SourceGraphic" operator="in" result="g"/>`
     + `<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="g"/></feMerge></filter>`;
-  const half = `<pattern id="${id}h" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(${f1(15 + r() * 30)})">`
-    + `<circle cx="2.5" cy="2.5" r="1.25" fill="#000" fill-opacity=".22"/></pattern>`;
+  // 망점 (큰 망점은 간격·점을 키움)
+  const hs = texture === 'halftoneBig' ? 9 : 5;
+  const half = `<pattern id="${id}h" patternUnits="userSpaceOnUse" width="${hs}" height="${hs}" patternTransform="rotate(${f1(15 + r() * 30)})">`
+    + `<circle cx="${hs / 2}" cy="${hs / 2}" r="${texture === 'halftoneBig' ? 2.7 : 1.25}" fill="#000" fill-opacity="${texture === 'halftoneBig' ? '.2' : '.22'}"/></pattern>`;
+  // 사선 판화 질감
+  const hatch = `<pattern id="${id}l" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(${f1(30 + r() * 40)})">`
+    + `<rect width="1.4" height="4" fill="#000" fill-opacity=".2"/></pattern>`;
+  // 굵은 얼룩 입자 (리소 인쇄의 고르지 않은 잉크)
+  const coarse = `<filter id="${id}c" filterUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120">`
+    + `<feTurbulence type="fractalNoise" baseFrequency=".28" numOctaves="2" seed="${Math.floor(r() * 99)}" result="n"/>`
+    + `<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 1.05" result="d"/>`
+    + `<feComposite in="d" in2="SourceGraphic" operator="in" result="g"/>`
+    + `<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="g"/></feMerge></filter>`;
   // 메타볼: 흐리게 한 뒤 경계를 다시 또렷하게 → 가까운 원끼리 녹아 붙음
   const goo = `<filter id="${id}g" filterUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120"><feGaussianBlur stdDeviation="${sh.blur ?? 1.7}"/><feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/></filter>`;
   const op = sh.opacity ? ` fill-opacity="${sh.opacity}"` : '';
@@ -419,8 +471,10 @@ export function glyphSVG(type, color = '#212121', seed = '', texture = 'grain', 
     }
     return b;
   };
-  let svg = `<defs>${grain}${half}${goo}</defs>`;
-  if (texture === 'halftone') svg += `<g>${body(color)}</g><g>${body(`url(#${id}h)`)}</g>`;
+  let svg = `<defs>${grain}${half}${hatch}${coarse}${goo}</defs>`;
+  if (texture === 'halftone' || texture === 'halftoneBig') svg += `<g>${body(color)}</g><g>${body(`url(#${id}h)`)}</g>`;
+  else if (texture === 'hatch') svg += `<g>${body(color)}</g><g>${body(`url(#${id}l)`)}</g>`;
+  else if (texture === 'coarse') svg += `<g filter="url(#${id}c)">${body(color)}</g>`;
   else svg += `<g filter="url(#${id}t)">${body(color)}</g>`;
   // 방향(위·아래·옆)에 맞게 돌리기
   if (sh.rotate) svg = `<g transform="rotate(${f1(sh.rotate)} 50 50)">${svg}</g>`;
