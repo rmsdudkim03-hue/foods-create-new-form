@@ -226,7 +226,7 @@ export function foodImages(food) {
       for (let i = filled; i < SHOW; i++) job.fail(i);
     };
     const settle = () => { if (--left <= 0 && !topping) finish(); };
-    // 시간 제한: 20초가 지나도 6장이 안 되면 예비 사진으로 먼저 채우고, 40초엔 있는 만큼으로 끝냄
+    // 시간 제한: 20초가 지나도 6장이 안 되면 예비 사진(AI가 음식이 맞다고 확인한 것만)으로 채우고, 40초엔 있는 만큼으로 끝냄
     setTimeout(() => { if (!enough()) useBackups(); }, 20000);
     setTimeout(() => { if (!enough()) finish(); }, 40000);
     const used = new Set(photos.map((p) => p.src));
@@ -237,8 +237,10 @@ export function foodImages(food) {
       cutout(src, enough)
         .then((c) => {
           const item = { ...base, src: c.src, w: c.w, h: c.h, cut: true };
-          // AI가 '예비'로 고른 사진(p.spare)은 배경이 잘 지워졌어도 예비로만 씀
-          if (c.good && !p.spare) add(item); else backups.push({ item, score: c.score + (p.spare ? 0.3 : 0) });
+          // 배경이 잘 안 지워졌거나 음식이 작게 찍힌 사진(good 아님)은 아예 안 씀
+          // AI가 '예비'로 고른 사진(p.spare)은 잘 지워졌어도 다른 사진이 모자랄 때만 씀
+          if (!c.good) return;
+          if (p.spare) backups.push({ item, score: c.score }); else add(item);
         })
         .catch((err) => { if (err.message !== 'skip') console.warn(err.message); })
         .finally(settle);

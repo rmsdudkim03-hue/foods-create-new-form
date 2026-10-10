@@ -148,14 +148,17 @@ function maskStats(canvas) {
   return { cover: n / (W * H), edge: edge / edgeN };
 }
 // 쓸 수 없는 결과: 거의 안 지워짐(화면을 꽉 채움) / 거의 다 지워짐 / 테두리에 배경이 많이 남음
-const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.15;
+// (테두리 기준을 0.15 → 0.1로: 사진 밖으로 잘린 음식도 걸러냄)
+const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.1;
+// 음식이 사진에서 너무 작게 찍힌 것: 차지하는 크기가 8% 미만이거나, 잘라낸 크기가 300px 미만이면 안 씀
+const MIN_FRAC = 0.08, MIN_SUBJECT = 300, MIN_FILL = 0.12;
 const usable = (s) => s.cover >= MIN_COVER && s.cover <= MAX_COVER && s.edge <= MAX_EDGE;
 
 // 화질 기준 (짧은 변)
 // - MIN_SIDE보다 작으면 '예비'로만 씀 (다른 사진이 모자랄 때만. 원본이 막혀서 미리보기로 받은 사진 등)
 // - TINY보다 작으면 아예 안 씀 (너무 흐림)
 export const MIN_SIDE = 400;
-const TINY = 200;
+const TINY = MIN_SIDE; // 400px 미만은 배경을 지우기 전에 바로 뺌 (어차피 안 쓰니 시간 절약)
 async function cutoutNow(src) {
   const img = await loadImage(src);
   const side = Math.min(img.naturalWidth, img.naturalHeight);
@@ -190,10 +193,12 @@ async function cutoutNow(src) {
   const st = maskStats(canvas);
   // 결과는 항상 돌려주고, 배경이 잘 지워졌는지(good)를 같이 알려줌
   // (잘 안 지워진 사진은 화면에서 '다른 사진이 다 모자랄 때만' 씀 → 빈 화면이 생기지 않게)
-  const good = usable(st) && !small;
-  if (!usable(st)) cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
-  // score: 작을수록 좋은 예비 사진 (작은 사진은 배경이 잘 지워졌어도 뒤로)
-  return { ...trimAlpha(canvas), good, score: st.edge + Math.abs(st.cover - 0.4) + (small ? 0.5 : 0) };
+  const t = trimAlpha(canvas);
+  const big = t.frac >= MIN_FRAC && t.side >= MIN_SUBJECT && t.fill >= MIN_FILL;
+  // good이 아니면 화면에 쓰지 않음 (배경이 남았거나, 음식이 너무 작거나, 저화질)
+  const good = usable(st) && big && !small;
+  if (!good) cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
+  return { ...t, good, score: st.edge + Math.abs(st.cover - 0.4) };
 }
 
 async function modelCutout(img, src, kind) {
@@ -273,16 +278,20 @@ function trimAlpha(canvas, pad = 0.04) {
   const sg = sc.getContext('2d', { willReadFrequently: true });
   sg.drawImage(canvas, 0, 0, sw, sh);
   const a = sg.getImageData(0, 0, sw, sh).data;
-  let x0 = sw, y0 = sh, x1 = -1, y1 = -1;
+  let x0 = sw, y0 = sh, x1 = -1, y1 = -1, n = 0;
   for (let y = 0; y < sh; y++) {
     for (let x = 0; x < sw; x++) {
       if (a[(y * sw + x) * 4 + 3] > 40) {
+        n++;
         if (x < x0) x0 = x; if (x > x1) x1 = x;
         if (y < y0) y0 = y; if (y > y1) y1 = y;
       }
     }
   }
   if (x1 < 0) { x0 = 0; y0 = 0; x1 = sw - 1; y1 = sh - 1; }
+  // frac: 음식(남은 부분)이 사진에서 차지하던 크기 / fill: 그 안이 얼마나 차 있는지 (낮으면 부스러기만 흩어져 남은 것)
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+  const frac = (bw * bh) / (sw * sh), fill = n / (bw * bh);
   const px = (x1 - x0) * pad, py = (y1 - y0) * pad;
   const cx = Math.max(0, (x0 - px) / k), cy = Math.max(0, (y0 - py) / k);
   const cw = Math.min(canvas.width - cx, (x1 - x0 + 1 + 2 * px) / k);
@@ -292,7 +301,7 @@ function trimAlpha(canvas, pad = 0.04) {
   out.width = Math.round(cw * s);
   out.height = Math.round(ch * s);
   out.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, out.width, out.height);
-  return { src: out.toDataURL('image/png'), w: out.width, h: out.height };
+  return { src: out.toDataURL('image/png'), w: out.width, h: out.height, frac, fill, side: Math.max(cw, ch) };
 }
 
 // AI 분석에 보낼 때: 투명 배경을 흰색으로 채운 JPEG (용량 줄이기)
