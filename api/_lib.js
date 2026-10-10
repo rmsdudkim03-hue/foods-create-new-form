@@ -485,8 +485,9 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [], ko =
     try {
       picked = await pickPhotos(list, name, words.join(', '));
     } catch (err) {
-      console.error('[알림] 사진 고르기 실패 → 검색 순서대로 씀', err);
-      picked = list.slice(0, PHOTO_COUNT).map((p) => ({ ...p, spare: true })); // AI 확인 없이는 예비로만
+      // AI가 확인하지 않은 사진은 쓰지 않음 (엉뚱한 음식이 나오지 않게)
+      console.error('[알림] 사진 고르기 실패 → 이 묶음은 안 씀', err);
+      picked = [];
     }
     // 네이버 사진은 api/photo가 전달해도 되는 주소라는 도장(sig)을 같이 줌
     return picked.map(({ thumb, ...p }) => ({ ...p, site, ...(p.fb ? { sig: signPhoto(p.src, p.fb) } : {}) }));
@@ -525,7 +526,8 @@ const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보
 - 사진 속 주인공이 바로 그 음식이다. 이름이 비슷한 다른 음식, 그 음식이 재료로 조금 들어간 요리는 고르지 않는다.
   (그 음식이 원래 요리라면 그 요리 자체로 본다)
 - 실제 사진이다. 그림, 일러스트, 3D 렌더, 장난감, 모형은 고르지 않는다.
-- 음식이 화면에서 충분히 크고, 형태가 잘리거나 흐리지 않다.
+- 음식이 화면에서 충분히 크다: 음식이 사진 면적의 3분의 1 이상을 차지한다. 멀리서 찍혀 작게 나온 사진, 여러 물건 사이에 작게 있는 사진은 고르지 않는다.
+- 형태가 흐리지 않다.
 - 음식 전체 윤곽이 사진 안에 다 들어와 있다. 음식이 화면 가장자리에서 잘리거나 화면을 꽉 채운 확대 사진은 고르지 않는다.
   (배경을 지워서 음식 모양만 남기므로, 음식과 배경이 분명히 구분되어야 한다)
 - 사람, 손, 포장지, 글자, 로고, 식기가 음식보다 눈에 띄지 않는다.
@@ -539,11 +541,15 @@ const PICK_INSTRUCTIONS = `관람객이 입력한 음식의 사진 후보를 보
 - 거의 같은 모습의 사진은 하나만 고른다. 같은 각도·같은 상태의 통째 사진은 많아야 2장.
 - 그 음식이 무엇인지 한눈에 알아볼 수 있어야 한다. 특징이 잘 안 보이는 애매한 사진보다 특징이 분명한 사진을 먼저 쓴다.
 
+[확신]
+- 각 사진에 붙은 제목·설명 글도 참고한다. 사진과 글이 그 음식이 아니라고 말하면 고르지 않는다.
+- 그 음식이 맞다고 확신하지 못하면 고르지 않는다. 적게 고르는 것이 틀린 사진을 고르는 것보다 낫다.
+
 좋은 순서대로 번호를 picks에 쓴다. 기준에 맞는 사진이 적으면 맞는 것만 쓴다.
 
 [예비]
-picks에 넣지 않은 사진 중, 그 음식이 맞고 실제 사진이지만 다른 기준(배경이 복잡함, 조금 잘림, 다른 사진과 비슷함 등)이 아쉬운 사진을 spare에 좋은 순서대로 쓴다.
-(picks가 모자랄 때만 화면에 쓴다. 다른 음식, 그림, 사람이 주인공인 사진은 spare에도 넣지 않는다)`;
+picks에 넣지 않은 사진 중, [정확도] 기준(바로 그 음식, 실제 사진, 음식이 크고 윤곽이 다 보임)은 모두 지키지만 배경이 조금 복잡하거나 다른 사진과 모습이 비슷해서 뺀 사진만 spare에 좋은 순서대로 쓴다.
+(picks가 모자랄 때만 화면에 쓴다. [정확도] 기준을 하나라도 어긴 사진은 spare에도 넣지 않는다)`;
 
 async function pickPhotos(candidates, name, query) {
   if (!candidates.length) return [];
@@ -553,7 +559,8 @@ async function pickPhotos(candidates, name, query) {
   if (!usable.length) return [];
   const out = await askJSON({
     instructions: PICK_INSTRUCTIONS,
-    text: `음식: ${name} (검색어: ${query})\n후보 사진 ${usable.length}장이 0번부터 순서대로 첨부되어 있다. 최대 ${PICK_MAX}장을 고른다.`,
+    // 사진마다 검색 결과 제목·설명을 같이 줌 (다른 음식 사진을 걸러내는 단서)
+    text: `음식: ${name} (검색어: ${query})\n후보 사진 ${usable.length}장이 0번부터 순서대로 첨부되어 있다. 최대 ${PICK_MAX}장을 고른다.\n[사진 제목·설명]\n${usable.map((x, i) => `${i}번: ${String(x.c.alt || '').replace(/\s+/g, ' ').slice(0, 60) || '(없음)'}`).join('\n')}`,
     images: usable.map((x) => ({ url: x.img, detail: 'low' })),
     name: 'photo_pick',
     schema: S.obj({
