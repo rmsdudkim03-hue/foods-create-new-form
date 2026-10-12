@@ -16,7 +16,9 @@ export default async function photo(req, res) {
     const f = q.get('f') || '';
     // 네이버 검색 사진: 서버가 도장(s)을 찍어 준 주소만. 원본이 막히면 네이버 미리보기(f)로
     const signed = q.has('s') && checkPhoto(u, f, q.get('s'));
-    const tries = signed ? [u, f].filter(Boolean) : [u];
+    // 원본이 막히면 미리보기를 쓰는데, 먼저 큰 미리보기를 시도 (네이버 type=w966, 카카오 600x600)
+    const big = (x) => x.replace(/([?&]type=)[^&]*/, '$1w966').replace(/\/argon\/\d+x\d+_/, '/argon/600x600_');
+    const tries = signed ? [...new Set([u, f && big(f), f].filter(Boolean))] : [u];
     let got = null;
     let lastErr = 'url';
     for (const t of tries) {
