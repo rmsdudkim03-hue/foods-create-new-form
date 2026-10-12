@@ -34,21 +34,29 @@ const headers = () => ({ 'Content-Type': 'application/json', 'x-access-code': ac
 let live = false;
 let serverCutout = false;
 let modePromise = null;
+// 데모 모드인 이유 (접근 코드를 붙여 열었는데 데모면 화면에 알려줌)
+export let demoReason = '';
 export function mode() {
   modePromise ??= (async () => {
+    let answered = false;
     try {
       const r = await fetch('api/status', { headers: headers(), cache: 'no-store' });
       if (r.ok) {
+        answered = true;
         const s = await r.json();
         live = Boolean(s.live && s.codeOk);
         serverCutout = live && Boolean(s.cutout);
-      }
+        demoReason = live ? '' : !s.live ? `Vercel에 ${(s.missing || []).join(', ') || 'AI 키'}가 없어요`
+          : s.needsCode && !s.codeOk ? (accessCode() ? '주소의 접근 코드가 Vercel의 ACCESS_CODE와 달라요' : '주소 끝에 ?code=접근코드 를 붙여 열어 주세요') : '';
+      } else demoReason = `서버 상태 확인 실패 (${r.status})`;
       // 배경 제거: 서버에서 할 수 있으면 서버로 (빠르고 깨끗함)
       // 아니면 브라우저 모델(약 88MB)을 처음부터 받아 둠 (음식을 입력하는 동안 준비되게)
       if (serverCutout) useServerCutout(headers);
       else if (live) warmup();
-    } catch { live = false; }
-    console.info(`[AI] ${live ? '실제 모드' : '데모 모드'}`);
+    } catch { live = false; demoReason = '서버에 연결하지 못했어요'; }
+    console.info(`[AI] ${live ? '실제 모드' : `데모 모드 (${demoReason})`}`);
+    // 서버가 대답하지 않았으면 다음에 다시 확인 (한 번 실패로 계속 데모 모드에 갇히지 않게)
+    if (!answered) modePromise = null;
     return live ? 'live' : 'demo';
   })();
   return modePromise;
@@ -194,7 +202,9 @@ export async function checkFood(word) {
   const key = w.toLowerCase().replace(/\s+/g, '');
   const name = FOODS[w] ? w : DEMO_ALIASES[key];
   if (name) return { ok: true, name };
-  return { ok: false, message: `미리보기에서는 ${Object.keys(FOODS).join(', ')}만 입력할 수 있어요` };
+  // 접근 코드를 붙여 열었는데 데모 모드면 이유를 같이 알려줌 (실제 AI가 왜 안 되는지 바로 알 수 있게)
+  const why = accessCode() && demoReason ? ` · 실제 AI가 꺼져 있어요: ${demoReason}` : '';
+  return { ok: false, message: `미리보기에서는 ${Object.keys(FOODS).join(', ')}만 입력할 수 있어요${why}` };
 }
 
 /* ---------- ⓪ 음식 이미지 ---------- */

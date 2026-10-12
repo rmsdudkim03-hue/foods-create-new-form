@@ -79,9 +79,16 @@ export function send(res, status, data) {
 }
 
 // 접근 코드 확인 (ACCESS_CODE를 설정한 경우에만)
+// 접근 코드 확인 (Vercel에 값을 붙여넣을 때 섞인 앞뒤 공백·줄바꿈은 무시, 주소에서 깨진 글자도 풀어서 비교)
+export function accessCodeOk(given) {
+  const code = String(process.env.ACCESS_CODE || '').trim();
+  if (!code) return true;
+  let g = String(given || '').trim();
+  try { g = decodeURIComponent(g); } catch { /* 그대로 */ }
+  return g === code;
+}
 export function allowed(req) {
-  const code = process.env.ACCESS_CODE;
-  return !code || req.headers['x-access-code'] === code;
+  return accessCodeOk(req.headers['x-access-code']);
 }
 
 export function handler(fn, { method = 'POST' } = {}) {
@@ -503,18 +510,21 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [], ko =
   const raw0 = first.raw || [];
   // 하나도 못 골랐으면 다음 검색 묶음으로 한 번 더 (상품 이름처럼 첫 묶음에 맞는 사진이 없을 때. 이때만 시간이 더 듦)
   if (!first.length) first = await gather(site, page + 1);
-  // 그래도 0장이면 마지막 수단: 첫 검색 결과를 순서대로 예비로 씀 (음식인데 사진이 하나도 안 나와서 못 넘어가는 일이 없게)
+  // 그래도 6장보다 적으면 마지막 수단: 첫 검색 결과를 순서대로 예비로 보탬 (사진이 1~2장뿐이면 원본이 막혀 하나도 안 보일 수 있어서)
   // 화면에서 배경 지우기·크기 기준은 그대로 거침
-  if (!first.length && raw0.length) {
-    console.log(`[알림] AI가 사진을 하나도 못 고름 → 검색 결과 ${Math.min(8, raw0.length)}장을 예비로 씀 (${name})`);
-    first = raw0.slice(0, 8).map((p) => ({ ...p, spare: true }));
+  if (first.length < PHOTO_COUNT && raw0.length) {
+    const have = new Set(first.map((p) => p.src));
+    const extra = raw0.filter((p) => !have.has(p.src)).slice(0, 10 - first.length).map((p) => ({ ...p, spare: true, unchecked: true }));
+    console.log(`[알림] AI가 고른 사진이 ${first.length}장뿐 → 검색 결과 ${extra.length}장을 예비로 보탬 (${name})`);
+    first = [...first, ...extra];
   }
   let wiki = [];
   const main = (l) => l.filter((p) => !p.spare);
   if (main(first).length < PHOTO_COUNT && site !== 'Wikimedia Commons') wiki = await gather('Wikimedia Commons', page);
   // 고른 사진 먼저, 예비는 뒤로 (화면은 앞에서부터 배경을 지움)
   const photos = [...main(first), ...main(wiki)].slice(0, PICK_MAX);
-  const spares = [...first, ...wiki].filter((p) => p.spare).slice(0, SPARE_MAX);
+  // 예비: AI가 확인한 것 먼저, 확인 안 한 검색 결과(마지막 수단)는 뒤로
+  const spares = [...first, ...wiki].filter((p) => p.spare).sort((a, b) => (a.unchecked ? 1 : 0) - (b.unchecked ? 1 : 0)).slice(0, SPARE_MAX + 4);
   console.log(`[알림] 사진 고름: ${site} ${main(first).length}장, Wikimedia ${main(wiki).length}장, 예비 ${spares.length}장 → ${photos.length + spares.length}장 보냄`);
   return { photos: [...photos, ...spares], page };
 }
@@ -524,8 +534,10 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [], ko =
    작은 미리보기를 글 AI에 보여주고 '그 음식의 특징이 잘 드러나는' 사진만 고름 */
 const CANDIDATES = 20; // AI에게 보여줄 후보 수 (많을수록 고르는 데 오래 걸리고 토큰이 많이 듦)
 
+// 미리보기 크게 받기 (네이버 type=w966 → 너무 크니 w480, 카카오 600x600): 130px 미리보기로는 AI가 음식을 잘 못 알아봐서 거의 안 고름
+export const bigThumb = (x) => String(x || '').replace(/([?&]type=)[^&]*/, '$1w480').replace(/\/argon\/\d+x\d+_/, '/argon/600x600_');
 async function thumbData(url) {
-  const r = await fetch(url, { headers: { 'User-Agent': UA } });
+  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', ...(/pstatic\.net/.test(url) ? { Referer: 'https://search.naver.com/' } : {}) }, signal: AbortSignal.timeout(6000) });
   if (!r.ok) throw new Error(`thumb ${r.status}`);
   const type = r.headers.get('content-type') || 'image/jpeg';
   if (!type.startsWith('image/')) throw new Error('thumb type');
@@ -570,7 +582,14 @@ picks에 넣지 않은 사진 중, 바로 그 음식의 실제 사진이지만 �
 async function pickPhotos(candidates, name, query) {
   if (!candidates.length) return [];
   // 미리보기를 서버에서 받아서 전달 (사진 사이트가 AI의 직접 접근을 막는 경우 대비). 못 받은 사진은 후보에서 뺌
-  const thumbs = await timed('후보 사진 받기', () => Promise.all(candidates.map((c) => thumbData(c.thumb || c.src).catch(() => null))));
+  // 큰 미리보기 → 원래 미리보기 → 원본 순서로 시도 (하나라도 받으면 AI가 볼 수 있음)
+  const one = async (c) => {
+    for (const u of [...new Set([c.thumb && bigThumb(c.thumb), c.thumb, c.src].filter(Boolean))]) {
+      try { return await thumbData(u); } catch { /* 다음 주소 */ }
+    }
+    return null;
+  };
+  const thumbs = await timed('후보 사진 받기', () => Promise.all(candidates.map(one)));
   const usable = candidates.map((c, i) => ({ c, img: thumbs[i] })).filter((x) => x.img);
   if (!usable.length) return [];
   const out = await askJSON({

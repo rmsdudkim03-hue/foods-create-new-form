@@ -11,7 +11,7 @@
 // POST { backfill: true } → 3D 기록이 없는 예전 작품을 Meshy 작업 목록에서 시간으로 짝지어 기록 (예전 작품 복구용)
 // POST { id, rating: 'good' | 'bad' } → 관람객 평가 저장 (작품 하나에 한 번만)
 //   평가는 ratings/작품id.good 처럼 파일 이름에 담아서, 내용을 읽지 않고 목록만으로 알 수 있게 함
-import { send, readJSON, allowed, store, newKey, checkPlan, meshy, timed, drawImage, searchPhotos, photoSite } from './_lib.js';
+import { send, readJSON, allowed, accessCodeOk, store, newKey, checkPlan, meshy, timed, drawImage, searchPhotos, photoSite } from './_lib.js';
 
 export const GALLERY_LIMIT = 60;   // 갤러리에 보여줄 최근 작품 수
 const FIRST_NO = 6;                // 기본 작품(04, 05) 다음 번호부터
@@ -141,7 +141,7 @@ async function saveModel(res, { id, model }) {
 async function diag(req, res) {
   const q = new URL(req.url, 'http://x').searchParams;
   const code = process.env.ACCESS_CODE;
-  if (code && q.get('code') !== code && req.headers['x-access-code'] !== code) return send(res, 401, { error: 'access_code' });
+  if (!accessCodeOk(q.get('code')) && !allowed(req)) return send(res, 401, { error: 'access_code', hint: '주소의 code= 값이 Vercel의 ACCESS_CODE와 다름' });
   const out = {
     설정: { 저장소: await store.ready(), 저장소연결정보: store.envNames, MESHY_API_KEY: Boolean(process.env.MESHY_API_KEY), 사진검색: photoSite(), 서버배경제거_FAL_KEY: Boolean(process.env.FAL_KEY), OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY), ACCESS_CODE: Boolean(code) },
   };
