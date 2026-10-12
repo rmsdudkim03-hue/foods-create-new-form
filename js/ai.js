@@ -237,10 +237,10 @@ export function foodImages(food) {
       cutout(src, enough)
         .then((c) => {
           const item = { ...base, src: c.src, w: c.w, h: c.h, cut: true };
-          // 배경이 잘 안 지워졌거나 음식이 작게 찍힌 사진(good 아님)은 아예 안 씀
-          // AI가 '예비'로 고른 사진(p.spare)은 잘 지워졌어도 다른 사진이 모자랄 때만 씀
-          if (!c.good) return;
-          if (p.spare) backups.push({ item, score: c.score }); else add(item);
+          // 배경이 잘 안 지워졌거나 음식이 작게 찍힌 사진(ok 아님)은 아예 안 씀
+          // 저화질(미리보기로 받은 사진)이나 AI가 '예비'로 고른 사진은 다른 사진이 모자랄 때만 씀
+          if (!c.ok) return;
+          if (p.spare || !c.good) backups.push({ item, score: c.score }); else add(item);
         })
         .catch((err) => { if (err.message !== 'skip') console.warn(err.message); })
         .finally(settle);

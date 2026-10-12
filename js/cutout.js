@@ -150,16 +150,17 @@ function maskStats(canvas) {
 // 쓸 수 없는 결과: 거의 안 지워짐(화면을 꽉 채움) / 거의 다 지워짐 / 테두리에 배경이 많이 남음
 // (테두리 기준 0.15: 너무 낮추면 과자 무더기처럼 사진에 꽉 찬 음식이 다 빠짐)
 const MAX_COVER = 0.85, MIN_COVER = 0.03, MAX_EDGE = 0.15;
-// 음식이 사진에서 너무 작게 찍힌 것: 차지하는 크기가 6% 미만이거나, 잘라낸 크기가 300px 미만이면 안 씀
+// 음식이 사진에서 너무 작게 찍힌 것: 차지하는 크기가 6% 미만이거나, 잘라낸 크기가 160px 미만이면 안 씀
+// (300px로 했더니 원본이 막혀 미리보기로 받은 사진이 전부 빠져서 사진이 아예 안 나왔음)
 // (여러 조각이 흩어진 과자도 쓰게 fill은 낮게)
-const MIN_FRAC = 0.06, MIN_SUBJECT = 300, MIN_FILL = 0.06;
+const MIN_FRAC = 0.06, MIN_SUBJECT = 160, MIN_FILL = 0.06;
 const usable = (s) => s.cover >= MIN_COVER && s.cover <= MAX_COVER && s.edge <= MAX_EDGE;
 
 // 화질 기준 (짧은 변)
 // - MIN_SIDE보다 작으면 '예비'로만 씀 (다른 사진이 모자랄 때만. 원본이 막혀서 미리보기로 받은 사진 등)
 // - TINY보다 작으면 아예 안 씀 (너무 흐림)
 export const MIN_SIDE = 400;
-const TINY = MIN_SIDE; // 400px 미만은 배경을 지우기 전에 바로 뺌 (어차피 안 쓰니 시간 절약)
+const TINY = 200; // 200px 미만은 배경을 지우기 전에 바로 뺌 (200~400px은 예비로: 원본이 막힌 사진은 미리보기만 받을 수 있어서)
 async function cutoutNow(src) {
   const img = await loadImage(src);
   const side = Math.min(img.naturalWidth, img.naturalHeight);
@@ -196,10 +197,12 @@ async function cutoutNow(src) {
   // (잘 안 지워진 사진은 화면에서 '다른 사진이 다 모자랄 때만' 씀 → 빈 화면이 생기지 않게)
   const t = trimAlpha(canvas);
   const big = t.frac >= MIN_FRAC && t.side >= MIN_SUBJECT && t.fill >= MIN_FILL;
-  // good이 아니면 화면에 쓰지 않음 (배경이 남았거나, 음식이 너무 작거나, 저화질)
-  const good = usable(st) && big && !small;
-  if (!good) cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
-  return { ...t, good, score: st.edge + Math.abs(st.cover - 0.4) };
+  // ok가 아니면 화면에 쓰지 않음 (배경이 남았거나, 음식이 너무 작게 찍힘)
+  // good: ok이면서 화질도 충분함. ok인데 저화질(small)이면 다른 사진이 모자랄 때만 씀
+  const ok = usable(st) && big;
+  const good = ok && !small;
+  if (!ok) cutoutInfo.rejected = (cutoutInfo.rejected || 0) + 1;
+  return { ...t, ok, good, score: st.edge + Math.abs(st.cover - 0.4) + (small ? 0.5 : 0) };
 }
 
 async function modelCutout(img, src, kind) {
