@@ -230,6 +230,7 @@ export function foodImages(food) {
     setTimeout(() => { if (!enough()) useBackups(); }, 20000);
     setTimeout(() => { if (!enough()) finish(); }, 40000);
     const used = new Set(photos.map((p) => p.src));
+    const allSpare = photos.length > 0 && photos.every((p) => p.spare);
     const process = (p, i) => {
       // 네이버 검색 사진은 미리보기 주소(fb)와 서버 도장(sig)을 같이 보냄
       const src = `api/photo?u=${encodeURIComponent(p.src)}${p.sig ? `&f=${encodeURIComponent(p.fb || '')}&s=${p.sig}` : ''}`;
@@ -240,7 +241,8 @@ export function foodImages(food) {
           // 배경이 잘 안 지워졌거나 음식이 작게 찍힌 사진(ok 아님)은 아예 안 씀
           // 저화질(미리보기로 받은 사진)이나 AI가 '예비'로 고른 사진은 다른 사진이 모자랄 때만 씀
           if (!c.ok) return;
-          if (p.spare || !c.good) backups.push({ item, score: c.score }); else add(item);
+          // (사진이 전부 예비뿐이면 기다리지 않고 바로 씀)
+          if ((p.spare && !allSpare) || !c.good) backups.push({ item, score: c.score }); else add(item);
         })
         .catch((err) => { if (err.message !== 'skip') console.warn(err.message); })
         .finally(settle);

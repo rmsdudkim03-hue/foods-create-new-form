@@ -490,15 +490,25 @@ export async function searchPhotos(queries, name, { page = 1, exclude = [], ko =
       picked = [];
     }
     // 네이버 사진은 api/photo가 전달해도 되는 주소라는 도장(sig)을 같이 줌
-    return picked.map(({ thumb, ...p }) => ({ ...p, site, ...(p.fb ? { sig: signPhoto(p.src, p.fb) } : {}) }));
+    const out = (l) => l.map(({ thumb, ...p }) => ({ ...p, site, ...(p.fb ? { sig: signPhoto(p.src, p.fb) } : {}) }));
+    const res = out(picked);
+    res.raw = out(list); // AI가 하나도 못 골랐을 때 마지막 수단으로 쓸 검색 결과 (검색 순서)
+    return res;
   };
   const site = photoSite();
   if (!site) return { photos: [], page };
   // 사진 사이트에서 먼저 고르고, 모자랄 때만 Wikimedia도 (모자란 자리는 화면에서 AI 이미지로 채움)
   // (전에는 둘을 동시에 찾았는데, Wikimedia 사진 고르기에 쓰는 토큰이 대부분 버려져서 바꿈)
   let first = await gather(site, page);
+  const raw0 = first.raw || [];
   // 하나도 못 골랐으면 다음 검색 묶음으로 한 번 더 (상품 이름처럼 첫 묶음에 맞는 사진이 없을 때. 이때만 시간이 더 듦)
   if (!first.length) first = await gather(site, page + 1);
+  // 그래도 0장이면 마지막 수단: 첫 검색 결과를 순서대로 예비로 씀 (음식인데 사진이 하나도 안 나와서 못 넘어가는 일이 없게)
+  // 화면에서 배경 지우기·크기 기준은 그대로 거침
+  if (!first.length && raw0.length) {
+    console.log(`[알림] AI가 사진을 하나도 못 고름 → 검색 결과 ${Math.min(8, raw0.length)}장을 예비로 씀 (${name})`);
+    first = raw0.slice(0, 8).map((p) => ({ ...p, spare: true }));
+  }
   let wiki = [];
   const main = (l) => l.filter((p) => !p.spare);
   if (main(first).length < PHOTO_COUNT && site !== 'Wikimedia Commons') wiki = await gather('Wikimedia Commons', page);
