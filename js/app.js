@@ -366,7 +366,9 @@ const picker = (() => {
     if (focus && !isTouch() && !okWord[side]) inputs[side].focus();
   }
 
+  const autoMore = { A: false, B: false }; // 사진이 0장일 때 자동으로 다시 찾았는지 (음식마다 한 번만)
   function invalidate(side) {
+    autoMore[side] = false;
     okWord[side] = null;
     state.foods[side] = null;
     state.jobs[side]?.cancel();
@@ -499,8 +501,15 @@ const picker = (() => {
     const start = Math.max(0, job.items.indexOf(prevSel));
     carousel.set(job.items.slice(), prevSel ? start : FOODS[state.foods[side]]?.start ?? 0, update);
     // 사진이 하나도 없이 끝났으면 (이 쪽을 열기 전에 끝났어도) 다시 입력하게
+    // 처음 한 번은 바로 지우지 않고 다음 검색 결과로 자동으로 다시 찾음 (원본 사진이 막혀 하나도 못 불러온 경우가 많아서)
     const nothing = () => {
-      toast(`${food} 사진을 불러오지 못했어요. 다시 입력해 주세요`);
+      if (!autoMore[side] && active === side && okWord[side]) {
+        autoMore[side] = true;
+        moreBtn.disabled = false;
+        moreBtn.click();
+        return;
+      }
+      toast(`${food} 사진을 불러오지 못했어요. 다른 이름으로 입력해 주세요`);
       invalidate(side);
       show(side);
     };
