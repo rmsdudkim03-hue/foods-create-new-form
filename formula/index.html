@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FORMULA</title>
+<meta name="description" content="form = f(everyday) — 일상의 대상을 넣으면 조형이 나오는 공식">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 위쪽 고정 막대 -->
+<header class="bar">
+  <a class="bar-logo" href="#top" aria-label="FORMULA 처음으로"><span id="miniLogo"></span></a>
+  <nav class="bar-nav">
+    <a href="#project">Project</a>
+    <a href="#works">Works</a>
+    <a href="#research">Research</a>
+    <a href="../" class="bar-try">직접 해보기 ↗</a>
+  </nav>
+</header>
+<div class="progress" aria-hidden="true"><i id="progress"></i></div>
+
+<main>
+  <!-- 1. 첫 화면: 흩어진 막대 조각이 모여 로고가 됨 -->
+  <section class="scene hero" id="top" data-scene="hero" style="--len:260">
+    <div class="stick">
+      <div class="hero-logo" id="heroLogo" role="img" aria-label="f()rmula — FORMULA"></div>
+      <p class="hero-eq mono" id="heroEq">form = f(everyday)</p>
+      <p class="hero-sub" id="heroSub">일상에 공식을 대입하면, 조형이 나온다.</p>
+      <p class="hero-hint mono" id="heroHint">Scroll ↓</p>
+    </div>
+  </section>
+
+  <!-- 2. 프로젝트 소개 문장: 스크롤하면 글자가 차례로 진해짐 -->
+  <section class="scene manifesto" id="project" data-scene="reveal" style="--len:300">
+    <div class="stick">
+      <p class="label mono">01 — Project</p>
+      <p class="reveal-text" data-reveal>
+        매일 먹는 음식에는 아직 아무도 꺼내 쓰지 않은 형태가 숨어 있다.
+        <b>FORMULA</b>는 일상의 대상을 넣으면 조형이 나오는 공식이다.
+        AI와 함께 음식의 특징을 읽어 조형 언어를 만들고,
+        그 조형으로 매일 쓰는 주방도구를 만들었다.
+      </p>
+    </div>
+  </section>
+
+  <!-- 3. 공식 풀이: form = f(x) 의 각 항이 차례로 켜짐 -->
+  <section class="scene equation" data-scene="equation" style="--len:520">
+    <div class="stick">
+      <div class="eq" aria-hidden="true">
+        <span class="t" data-t="2">form</span>
+        <span class="op">=</span>
+        <span class="t f" data-t="1">f</span><span class="op">(</span><span class="t" data-t="0">x</span><span class="op">)</span>
+      </div>
+      <div class="stages">
+        <article class="stage" data-stage="0">
+          <p class="mono k">x — 일상의 대상</p>
+          <h2>출발점은 매일 먹는 음식</h2>
+          <p>누구나 아는 대상이라 누구나 시작할 수 있다. 음식이 무엇인지보다, 그 안에 숨은 겹·결·송이·주름을 본다.</p>
+          <div class="vis foods">
+            <img src="../assets/img/food/jelly-gumdrop.png" alt="젤리">
+            <img src="../assets/img/food/broccoli-main.png" alt="브로콜리">
+            <img src="../assets/img/food/jelly-bear.png" alt="곰 젤리">
+            <img src="../assets/img/food/broccoli-cut.png" alt="자른 브로콜리">
+          </div>
+        </article>
+        <article class="stage" data-stage="1">
+          <p class="mono k">f — AI와 만든 조형 언어</p>
+          <h2>특징을 도형으로 번역한다</h2>
+          <p>AI가 사진에서 보이는 특징과 알려진 성질을 읽고, 20가지 도형과 7가지 모양 값으로 옮긴다. 말을 몰라도 비교하고 조합할 수 있는 언어.</p>
+          <div class="vis glyph-row" id="eqGlyphs"></div>
+        </article>
+        <article class="stage" data-stage="2">
+          <p class="mono k">form — 데일리 조형</p>
+          <h2>조합하면 새로운 형태가 된다</h2>
+          <p>특징을 섞어 대상을 벗어난 추상 조형을 만들고 3D로 세운다. 누구나 재료로 꺼내 쓸 수 있는 흰 조형.</p>
+          <div class="vis forms">
+            <video src="media/pearl.mp4" muted loop playsinline autoplay preload="metadata"></video>
+            <video src="media/glass.mp4" muted loop playsinline autoplay preload="metadata"></video>
+            <video src="media/butter.mp4" muted loop playsinline autoplay preload="metadata"></video>
+          </div>
+        </article>
+        <article class="stage" data-stage="3">
+          <p class="mono k">object — 일상으로 돌아가기</p>
+          <h2>조형이 다시 주방도구가 된다</h2>
+          <p>음식에서 꺼낸 조형으로, 다시 음식을 담고 다루는 주방도구를 만들었다. 공식은 음식에서 시작했지만, 무엇에든 대입할 수 있다.</p>
+          <div class="vis object">
+            <div class="slot">완성 오브젝트 사진</div>
+          </div>
+        </article>
+      </div>
+      <ol class="ticks mono" aria-hidden="true"><li>x</li><li>f</li><li>form</li><li>object</li></ol>
+    </div>
+  </section>
+
+  <!-- 4. 작품 8개: 세로로 내리면 가로로 흘러감 -->
+  <section class="scene works" id="works" data-scene="works" style="--len:700">
+    <div class="stick">
+      <div class="works-head">
+        <p class="label mono">02 — Works</p>
+        <h2>8개의 공식</h2>
+        <p class="mono works-legend">x 출처 → f 추출한 조형 → form 완성</p>
+      </div>
+      <div class="track" id="track"></div>
+    </div>
+  </section>
+
+  <!-- 5. 연구 시작: 질문 -->
+  <section class="scene question" id="research" data-scene="reveal" style="--len:260">
+    <div class="stick">
+      <p class="label mono">03 — Research · FOODS CREATE NEW FORM</p>
+      <p class="reveal-text big" data-reveal>
+        AI가 형태를 제안할 때, 우리는 어떤 판단을 AI에게 맡기고 있을까?
+      </p>
+    </div>
+  </section>
+
+  <!-- 6. 입장: 기존 AI와 비교 -->
+  <section class="block stance">
+    <div class="wrap">
+      <h2 class="in">결과가 아니라, 과정을 확장한다</h2>
+      <p class="lead in">이미지 생성 AI는 글 한 줄이면 완성된 결과를 준다. 빠르지만, 사람의 역할은 'AI가 낸 결과 중 하나 고르기'로 좁아진다. 이 연구는 AI가 관찰하고 생성하는 일을 돕고, 무엇을 보고 무엇을 고를지는 사람이 정하게 했다.</p>
+      <div class="compare in" role="table" aria-label="기존 이미지 생성 AI와 비교">
+        <div class="row head" role="row"><span role="columnheader"></span><span role="columnheader">기존 이미지 생성 AI</span><span role="columnheader">이 연구</span></div>
+        <div class="row" role="row"><span role="rowheader">입력</span><span role="cell">원하는 결과를 글로 정확히 설명</span><span role="cell">음식 이름 두 개</span></div>
+        <div class="row" role="row"><span role="rowheader">사람의 역할</span><span role="cell">프롬프트를 쓰고 기다림</span><span role="cell">사진·특징을 고르고 직접 조합</span></div>
+        <div class="row" role="row"><span role="rowheader">과정</span><span role="cell">결과가 바로 나옴</span><span role="cell">관찰 → 분해 → 조합 → 섞기를 체험</span></div>
+        <div class="row" role="row"><span role="rowheader">결과</span><span role="cell">대상을 닮은 이미지</span><span role="cell">대상을 벗어난 추상 조형 6개 + 3D</span></div>
+      </div>
+      <div class="three">
+        <article class="in"><p class="mono">01</p><h3>프롬프트 대신 선택으로</h3><p>관람객은 글을 쓰지 않는다. 사진과 특징을 고르고 조합하는 것으로 AI에게 방향을 준다.</p></article>
+        <article class="in"><p class="mono">02</p><h3>대상을 따라 그리지 않는다</h3><p>조형을 만드는 AI에게는 음식 사진을 주지 않는다. 특징의 말과 모양 값만 건네 외형 복제가 아닌 번역이 되게 했다.</p></article>
+        <article class="in"><p class="mono">03</p><h3>판단은 매번 사람에게</h3><p>사진 고르기, 특징 고르기, 조합하기, 조형 고르기. 단계마다 결정이 사람에게 돌아온다.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. 방법: 7단계 (왼쪽 단계 목록, 오른쪽 실제 화면) -->
+  <section class="scene method" data-scene="method" style="--len:760">
+    <div class="stick">
+      <div class="method-list">
+        <p class="label mono">관찰에서 형태까지, 7단계</p>
+        <ol id="steps"></ol>
+      </div>
+      <div class="method-screen">
+        <div class="screen" id="screen"></div>
+        <p class="screen-cap mono" id="screenCap"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. 도형 언어 20가지 -->
+  <section class="block glyphs">
+    <div class="wrap">
+      <p class="label mono in">Form language</p>
+      <h2 class="in">말 대신 도형으로</h2>
+      <p class="lead in">특징을 글 카드로 보여줄 때는 읽고 비교하기 어려웠다. 특징마다 20가지 도형 중 하나를 고르고, 7가지 모양 값으로 다듬는다. 보이는 특징은 입자·얼룩·사선, 알려진 성질은 망점 질감으로 구분한다.</p>
+      <ul class="chips mono in"><li>개수</li><li>굵기</li><li>크기 변화</li><li>뾰족함</li><li>간격</li><li>불규칙함</li><li>방향</li></ul>
+      <div class="glyph-grid" id="glyphGrid"></div>
+    </div>
+  </section>
+
+  <!-- 9. 발견 6가지: 카드가 겹쳐 쌓임 -->
+  <section class="block findings">
+    <div class="wrap">
+      <p class="label mono in">Findings</p>
+      <h2 class="in">만들며 알게 된 것</h2>
+      <div class="stack" id="findings"></div>
+    </div>
+  </section>
+
+  <!-- 10. 숫자 -->
+  <section class="block numbers">
+    <div class="wrap nums" id="nums">
+      <div><b data-n="22">0</b><span>번의 수정</span></div>
+      <div><b data-n="7">0</b><span>단계, 사람이 빠지는 단계 없음</span></div>
+      <div><b data-n="10">0</b><span>음식 두 개에서 읽은 특징</span></div>
+      <div><b data-n="20">0</b><span>가지 도형 언어</span></div>
+      <div><b data-n="6">0</b><span>개의 조형 제안 (사람 2 · AI 4)</span></div>
+    </div>
+  </section>
+
+  <!-- 11. 마무리 -->
+  <section class="scene outro" data-scene="reveal" style="--len:220">
+    <div class="stick">
+      <p class="reveal-text big" data-reveal>무엇을 보고 무엇을 고를지는 여전히 우리의 몫이다.</p>
+      <div class="cta">
+        <a class="btn" href="../">직접 해보기 →</a>
+        <a class="btn ghost" href="#works">작품 다시 보기</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot mono">
+  <span>FORMULA — form = f(everyday)</span>
+  <span>김근영 · 졸업 작품 2026</span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
