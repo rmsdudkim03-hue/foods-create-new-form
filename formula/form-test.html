@@ -26,6 +26,8 @@
     // 시험용: 주소 끝에 ?mat=porcelain 처럼 붙이면 질감을 바꿔 볼 수 있음
     const mat = new URLSearchParams(location.search).get('mat');
     if (mat) document.querySelector('.form3d').dataset.material = mat;
+    // ?bg=white 면 흰 배경에서 확인
+    if (new URLSearchParams(location.search).get('bg') === 'white') document.documentElement.style.setProperty('--bg', '#ffffff');
   </script>
   <script type="module" src="hover3d.js"></script>
 </body>

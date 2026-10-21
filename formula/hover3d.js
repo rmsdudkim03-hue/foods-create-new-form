@@ -14,7 +14,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 // 3D 질감 후보 (data-material="이름"). color가 'svg'면 SVG 색을 씀
 //  roughness: 0 매끈·반짝 ~ 1 거칠·무광 / clearcoat: 겉에 유약 한 겹 (0~1) / sheen: 부드러운 천·벨벳 느낌 (0~1)
 const MATERIALS = {
-  'pantone-602c': { color: '#F0E87F', roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05 },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색)
+  'pantone-602c': { color: '#E6D35A', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.3 },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색, 은은한 반광 렌더)
   'porcelain':   { color: '#f4f2ed', roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 },   // 흰 유광 도자기
   'matte-white': { color: '#eeece6', roughness: 0.68, sheen: 0.4, sheenColor: '#ffffff' },          // 흰 무광 (석고·세라믹 비스크)
   'svg-glaze':   { color: 'svg', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 },            // SVG 색 + 유약
@@ -25,7 +25,8 @@ const DEFAULT_MATERIAL = 'pantone-602c';
 
 const SPIN = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.9;   // 돌아가는 빠르기 (1초에 몇 라디안. 6.28이면 1초에 한 바퀴). 움직임 줄이기 설정이면 돌지 않음
 const FADE_MS = 450;       // SVG ↔ 3D 바뀌는 시간
-const TILT = 0.32;         // 돌 때 위에서 내려다보는 정도 (라디안. 0이면 정면 그대로)
+const TILT = 0.45;         // 돌 때 위에서 내려다보는 정도 (라디안. 0이면 정면 그대로)
+const FOV = 14;           // 카메라 화각(도). 작을수록 평면적, 클수록 원근이 강함
 const PAD = 0.35;          // 3D 무대를 SVG보다 위아래·양옆으로 넓혀서 돌 때 잘리지 않게 (SVG 크기 대비)
 const loader = new GLTFLoader();
 
@@ -55,21 +56,21 @@ async function setup(el) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.toneMapping = THREE.NeutralToneMapping;               // 흰색이 날아가지 않게 부드럽게
-  renderer.toneMappingExposure = 1.15;
+  renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;                             // 조형 스스로 드리우는 부드러운 그림자
   renderer.shadowMap.type = THREE.VSMShadowMap;                  // 가장자리가 흐린 그림자
   const scene = new THREE.Scene();
   // 사진 스튜디오 같은 주변 빛 (반사·은은한 밝기)
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 1.25;
-  const key = new THREE.DirectionalLight(0xffffff, 1.9);         // 왼쪽 앞 위에서 비추는 주 조명
-  key.position.set(-120, -160, 220);
+  scene.environmentIntensity = 0.75;
+  const key = new THREE.DirectionalLight(0xffffff, 2.6);         // 왼쪽 위에서 비추는 주 조명
+  key.position.set(-160, -90, 260);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
   key.shadow.radius = 10;
   key.shadow.blurSamples = 16;
-  key.shadow.intensity = 0.55;                                   // 그림자를 너무 진하지 않게
+  key.shadow.intensity = 0.5;                                   // 그림자를 너무 진하지 않게
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.6;
   scene.add(key);
@@ -88,7 +89,8 @@ async function setup(el) {
   const cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2;
   geo.translate(-cx, -cy, 0);                                     // 세로축(가운데)을 중심으로 돌게
   const { color: _c, ...look } = preset;
-  const mesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ ...look, color, metalness: 0 }));
+  // 모델에 구워 둔 앰비언트 오클루전(오목한 곳이 어두워지는 정도)을 꼭짓점 색으로 곱함
+  const mesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ ...look, color, metalness: 0, vertexColors: !!geo.attributes.color }));
   mesh.castShadow = mesh.receiveShadow = true;
   // 그림자 범위를 조형 크기에 맞춤
   const r = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
@@ -104,12 +106,16 @@ async function setup(el) {
   const zMid = (bb.min.z + bb.max.z) / 2, boxMid = box.y + box.height / 2;
   const top = zMid + boxMid / s;
   const px = PAD * vb.width / s, py = PAD * vb.height / s * 2;   // 넓힌 만큼 (세로는 더 넉넉히)
-  const cam = new THREE.OrthographicCamera(left - px, left + vb.width / s + px, top + py, top - vb.height / s - py, 0.1, 5000);
+  // 원근 카메라 (좁은 화각으로 멀리서 → 정면은 SVG와 거의 같고, 돌 때는 원근감이 생김)
+  const fL = left - px, fR = left + vb.width / s + px, fT = top + py, fB = top - vb.height / s - py;
+  const H = fT - fB, dist = H / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
+  const cam = new THREE.PerspectiveCamera(FOV, (fR - fL) / H, 1, dist * 4);
+  const aim = new THREE.Vector3((fL + fR) / 2, 0, (fT + fB) / 2);
   // 캔버스도 같은 비율로 넓힘 (가로는 양옆 PAD씩, 세로는 위아래 2×PAD씩)
   Object.assign(canvas.style, { left: `${-PAD * 100}%`, width: `${(1 + 2 * PAD) * 100}%`, top: `${-PAD * 200}%`, height: `${(1 + 4 * PAD) * 100}%` });
   cam.up.set(0, 0, 1);
-  cam.position.set(0, -2000, 0);
-  cam.lookAt(0, 0, 0);
+  cam.position.set(aim.x, -dist, aim.z);
+  cam.lookAt(aim);
 
   function resize() {
     const r = el.getBoundingClientRect();
