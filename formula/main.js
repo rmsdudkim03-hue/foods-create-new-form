@@ -1,6 +1,7 @@
 // FORMULA 첫 화면 모션: 글자 해독(text scramble)
 // 왼쪽 글자부터 차례로 확정되고, 아직 확정 안 된 자리는 다른 글자로 계속 바뀜
 //  - 로고(FORMULA): 구슬 글자 8개(f ( ) R M U L A)가 서로 섞이다가 제자리를 찾음
+//    다 맞춰지면 괄호 ( ) 만 커서처럼 깜빡임 (style.css의 .logo.done)
 // 메뉴 모션: 글자 솟아오르기(split text reveal) — 맨 아래 '메뉴' 부분
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -27,6 +28,7 @@ let logoRun = 0;
 function scrambleLogo() {
   if (reduce) return;
   const run = ++logoRun;
+  logo.classList.remove('done');     // 섞이는 동안은 깜빡임 멈춤
   const start = performance.now();
   let frame = 0;
   (function tick(now) {
@@ -43,7 +45,10 @@ function scrambleLogo() {
       }
     });
     if (k < 1.05) requestAnimationFrame(tick);
-    else slots.forEach((s) => show(s, s.dataset.k, false));
+    else {
+      slots.forEach((s) => show(s, s.dataset.k, false));
+      logo.classList.add('done');      // 다 맞춰지면 괄호 깜빡임 시작
+    }
   })(start);
 }
 
