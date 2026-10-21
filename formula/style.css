@@ -78,3 +78,11 @@ a { color: inherit; text-decoration: none; }
   .nav .about { right: 16px; top: 16px; }
   .nav .contact { right: 16px; top: 38px; }
 }
+
+/* 조형 SVG → 마우스 올리면 3D (hover3d.js). --mix: 0 = SVG, 1 = 3D */
+.form3d { position: relative; margin: 0; --mix: 0; cursor: pointer; }
+.form3d-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.form3d-gl { position: absolute; }   /* 위치·크기는 hover3d.js가 SVG보다 넓게 정함 */
+.form3d-svg svg { width: 100%; height: 100%; display: block; }
+.form3d-svg { opacity: calc(1 - var(--mix)); }
+.form3d-gl { opacity: var(--mix); pointer-events: none; }

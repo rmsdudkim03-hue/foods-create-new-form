@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FORMULA — 조형 3D 테스트</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* 테스트용 화면: 가운데에 조형 하나 */
+  body { overflow: auto; display: grid; place-items: center; min-height: 100vh; }
+  .form3d { width: min(70vw, 1000px); }
+  .hint { position: fixed; bottom: 24px; left: 0; right: 0; text-align: center; opacity: .5; font-size: 14px; }
+</style>
+</head>
+<body>
+  <!-- data-svg: 평면 실루엣, data-model: 3D 파일(GLB). 마우스를 올리면 3D로 바뀌며 돌아감 -->
+  <figure class="form3d" data-svg="forms/form_12.svg" data-model="forms/form_12.glb"></figure>
+  <p class="hint">조형에 마우스를 올려 보세요</p>
+  <script type="module" src="hover3d.js"></script>
+</body>
+</html>
