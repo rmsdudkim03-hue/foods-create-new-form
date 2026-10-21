@@ -14,7 +14,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 // 3D 질감 후보 (data-material="이름"). color가 'svg'면 SVG 색을 씀
 //  roughness: 0 매끈·반짝 ~ 1 거칠·무광 / clearcoat: 겉에 유약 한 겹 (0~1) / sheen: 부드러운 천·벨벳 느낌 (0~1)
 const MATERIALS = {
-  'pantone-602c': { color: '#E6D35A', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.3 },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색, 은은한 반광 렌더)
+  'pantone-602c': { color: '#E9D862', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.3, sheen: 0.35, sheenRoughness: 0.5, sheenColor: '#c7cfff' },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색, 은은한 반광 렌더)
   'porcelain':   { color: '#f4f2ed', roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 },   // 흰 유광 도자기
   'matte-white': { color: '#eeece6', roughness: 0.68, sheen: 0.4, sheenColor: '#ffffff' },          // 흰 무광 (석고·세라믹 비스크)
   'svg-glaze':   { color: 'svg', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 },            // SVG 색 + 유약
@@ -22,6 +22,8 @@ const MATERIALS = {
   'cream':       { color: '#e9e2d3', roughness: 0.5, clearcoat: 0.4, clearcoatRoughness: 0.35 },   // 웹 글자색에 맞춘 미색 반무광
 };
 const DEFAULT_MATERIAL = 'pantone-602c';
+const AO_STRENGTH = 0.5;      // 오목한 곳 그늘 진하기 (0 없음 ~ 1 구운 그대로)
+const COOL = '#b9c6ff';       // 반사광·그늘 쪽에 아주 살짝 섞는 보색(노랑의 반대쪽 = 푸른 보라)
 
 const SPIN = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.9;   // 돌아가는 빠르기 (1초에 몇 라디안. 6.28이면 1초에 한 바퀴). 움직임 줄이기 설정이면 돌지 않음
 const FADE_MS = 450;       // SVG ↔ 3D 바뀌는 시간
@@ -63,20 +65,21 @@ async function setup(el) {
   // 사진 스튜디오 같은 주변 빛 (반사·은은한 밝기)
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.75;
-  const key = new THREE.DirectionalLight(0xffffff, 2.6);         // 왼쪽 위에서 비추는 주 조명
+  scene.environmentIntensity = 1.0;
+  const key = new THREE.DirectionalLight(0xfffaf0, 2.2);         // 왼쪽 위에서 비추는 주 조명
   key.position.set(-160, -90, 260);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
   key.shadow.radius = 10;
   key.shadow.blurSamples = 16;
-  key.shadow.intensity = 0.5;                                   // 그림자를 너무 진하지 않게
+  key.shadow.intensity = 0.3;                                   // 그림자를 너무 진하지 않게
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.6;
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.35);       // 오른쪽 뒤에서 윤곽을 살리는 빛
+  const fill = new THREE.DirectionalLight(COOL, 0.45);           // 오른쪽 뒤에서 윤곽을 살리는 빛 (보색으로 아주 살짝)
   fill.position.set(160, 140, 80);
   scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0xfff8ea, COOL, 0.55));    // 중간톤을 채우는 은은한 빛 (아래쪽 그늘은 살짝 푸르게)
 
   // 3. 조형 불러오기 (Rhino STL처럼 Z가 위쪽인 모델 기준)
   const gltf = await loader.loadAsync(el.dataset.model);
@@ -89,6 +92,12 @@ async function setup(el) {
   const cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2;
   geo.translate(-cx, -cy, 0);                                     // 세로축(가운데)을 중심으로 돌게
   const { color: _c, ...look } = preset;
+  // 구워 둔 그늘을 AO_STRENGTH만큼만 (검게 꺼지지 않게)
+  const ao = geo.attributes.color;
+  if (ao) for (let i = 0; i < ao.count; i++) {
+    const v = 1 - (1 - ao.getX(i)) * AO_STRENGTH;
+    ao.setXYZ(i, v, v, v);
+  }
   // 모델에 구워 둔 앰비언트 오클루전(오목한 곳이 어두워지는 정도)을 꼭짓점 색으로 곱함
   const mesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ ...look, color, metalness: 0, vertexColors: !!geo.attributes.color }));
   mesh.castShadow = mesh.receiveShadow = true;
