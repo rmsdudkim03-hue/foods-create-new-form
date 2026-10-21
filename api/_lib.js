@@ -272,6 +272,26 @@ export const store = {
     return r.blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
   },
 
+  // 폴더 안 파일 목록을 쪽(page) 단위로 { blobs, cursor } (cursor가 있으면 다음 쪽이 더 있음)
+  async page(prefix, limit, cursor) {
+    const dir = process.env.BLOB_LOCAL_DIR;
+    if (dir) {
+      const all = await store.list(prefix, Infinity);
+      const from = Number(cursor) || 0;
+      return { blobs: all.slice(from, from + limit), cursor: from + limit < all.length ? String(from + limit) : null };
+    }
+    const { list } = await import('@vercel/blob');
+    const r = await list({ prefix, limit, ...(cursor ? { cursor } : {}), ...store.auth });
+    return { blobs: r.blobs.sort((a, b) => a.pathname.localeCompare(b.pathname)), cursor: r.hasMore ? r.cursor : null };
+  },
+
+  // 파일 지우기 (주소로)
+  async del(url) {
+    if (url.startsWith('file://')) return fs.rmSync(url.slice(7), { force: true });
+    const { del } = await import('@vercel/blob');
+    await del(url, store.auth);
+  },
+
   // 저장한 JSON 읽기
   async readJSON(url) {
     if (url.startsWith('file://')) return JSON.parse(fs.readFileSync(url.slice(7), 'utf8'));

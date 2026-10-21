@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>BUCKET LIST 관리</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="admin">
+<main class="page">
+  <header class="head">
+    <p class="eyebrow">ADMIN</p>
+    <h1>BUCKET LIST 관리</h1>
+    <p class="lead" id="info">관리 코드를 넣어 주세요.</p>
+  </header>
+
+  <!-- 관리 코드 (Vercel 환경 변수 ADMIN_CODE) -->
+  <form class="gate" id="gate">
+    <input id="code" type="password" placeholder="관리 코드" autocomplete="current-password">
+    <button class="del" style="color:inherit" type="submit">열기</button>
+  </form>
+
+  <div class="tools" id="tools" hidden>
+    <button class="dark" id="csv">엑셀(CSV)로 내려받기</button>
+    <button id="json">JSON으로 내려받기</button>
+    <button id="reload">새로고침</button>
+    <button id="logout">나가기</button>
+  </div>
+
+  <ol class="list" id="list"></ol>
+</main>
+<script src="admin.js"></script>
+</body>
+</html>

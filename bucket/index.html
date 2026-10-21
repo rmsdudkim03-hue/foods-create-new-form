@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>BUCKET LIST</title>
+<meta name="description" content="전시 방명록 — 나의 버킷리스트 한 줄">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+  <header class="head">
+    <p class="eyebrow">GUESTBOOK</p>
+    <h1>BUCKET LIST</h1>
+    <p class="lead">살면서 꼭 해 보고 싶은 일 하나를 남겨 주세요.</p>
+  </header>
+
+  <!-- 글 남기기 -->
+  <form class="write" id="write" autocomplete="off">
+    <label class="sr" for="text">버킷리스트</label>
+    <textarea id="text" rows="2" maxlength="80" placeholder="예) 오로라 보러 가기" required></textarea>
+    <div class="row">
+      <label class="sr" for="name">이름</label>
+      <input id="name" maxlength="12" placeholder="이름 (선택)">
+      <span class="count" id="count">0/80</span>
+    </div>
+    <button type="submit" id="send" disabled>남기기</button>
+    <p class="msg" id="msg" role="status" aria-live="polite"></p>
+  </form>
+
+  <!-- 모두의 버킷리스트 (최신순) -->
+  <section class="board">
+    <h2>모두의 버킷리스트</h2>
+    <ol class="list" id="list"></ol>
+    <p class="empty" id="empty" hidden>아직 남긴 글이 없어요. 첫 번째로 남겨 주세요.</p>
+    <button class="more" id="more" hidden>더 보기</button>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

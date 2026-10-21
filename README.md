@@ -68,6 +68,14 @@ AI가 만든 계획에는 서버가 도장(서명)을 찍어서, 도장이 맞�
 | `MESHY_POLYCOUNT` | 선택 | 3D 면 개수, 기본 60000 |
 | `BLOB_READ_WRITE_TOKEN` | 선택 | Vercel → Storage에서 Blob 저장소(**Public**)를 만들어 프로젝트에 연결하면 자동으로 생김 (이름이 달라도 됨. `api/works?diag=1`로 연결 확인). 없으면 갤러리는 각 기기에만 저장 |
 | `MEMORY` | 선택 | `0`이면 관람객 평가 참고를 끔 |
+| `ADMIN_CODE` | 선택 | 버킷리스트 방명록 관리 화면(`/bucket/admin.html`) 비밀번호. 없으면 `ACCESS_CODE`를 씀 |
+
+## 버킷리스트 방명록 (/bucket/)
+전시장 QR → https://foods-create-new-form.vercel.app/bucket/ (휴대폰 세로 화면용)
+- 로그인 없이 버킷리스트 한 줄(80자) + 이름(선택, 12자). 모두에게 최신순으로 보이고 30초마다 새 글이 붙음
+- 나쁜 말: `api/_badwords.js` 단어 목록 + OpenAI 검사(moderation, 무료, `OPENAI_API_KEY` 있을 때). 같은 기기는 10초에 한 번만
+- 관리: `/bucket/admin.html` → `ADMIN_CODE` 입력 → 글 지우기, 엑셀(CSV)·JSON으로 전체 내려받기
+- 글은 Blob 저장소 `bucket/글id.json`에 저장 (FOODS와 같은 저장소)
 
 ## 좌표 규칙
 `style="--x:87; --y:274"`는 피그마 좌표 그대로. `--px`, `--py`처럼 p가 붙은 값은 휴대폰(세로 화면, 600×1100 기준) 좌표.
