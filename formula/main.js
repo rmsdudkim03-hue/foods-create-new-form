@@ -1,7 +1,7 @@
 // FORMULA 첫 화면 모션: 글자 해독(text scramble)
 // 왼쪽 글자부터 차례로 확정되고, 아직 확정 안 된 자리는 다른 글자로 계속 바뀜
-//  - 로고: 구슬 글자 8개(f ( ) R M U L A)가 서로 섞이다가 제자리를 찾음
-//  - 메뉴: 마우스를 올리면 글자가 무작위 문자로 바뀌다가 원래 글자로 돌아옴
+//  - 로고(FORMULA)만 움직임: 구슬 글자 8개(f ( ) R M U L A)가 서로 섞이다가 제자리를 찾음
+//  - 메뉴 글자는 움직이지 않음
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -47,38 +47,7 @@ function scrambleLogo() {
   })(start);
 }
 
-// ── 메뉴 글자 ──
-const CHARS = '!<>-_\\/[]{}=+*^?#ABCDEFXYZ0123456789';
-function scrambleText(el, ms = 600) {
-  if (reduce) return;
-  const to = el.dataset.text;
-  const run = (el._run || 0) + 1;
-  el._run = run;
-  const start = performance.now();
-  (function tick(now) {
-    if (el._run !== run) return;
-    const k = (now - start) / ms;
-    let out = '';
-    for (let i = 0; i < to.length; i++) {
-      const c = to[i];
-      if (i < k * to.length || c === ' ' || c === '\n') out += c;
-      else out += `<span class="r">${CHARS[Math.random() * CHARS.length | 0]}</span>`;
-    }
-    el.innerHTML = out;
-    if (k < 1.05) requestAnimationFrame(tick);
-    else el.textContent = to;
-  })(start);
-}
-
-const navItems = [...document.querySelectorAll('.nav [data-text]')];
-navItems.forEach((el) => {
-  el.textContent = el.dataset.text;
-  el.addEventListener('mouseenter', () => scrambleText(el));
-  el.addEventListener('focus', () => scrambleText(el));
-});
-
 // 처음 열릴 때 + 로고에 마우스를 올릴 때 다시
 logo.addEventListener('mouseenter', scrambleLogo);
 logo.addEventListener('click', scrambleLogo);
 scrambleLogo();
-navItems.forEach((el, i) => setTimeout(() => scrambleText(el, 800), 150 + i * 80));

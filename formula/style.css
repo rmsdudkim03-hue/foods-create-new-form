@@ -40,7 +40,6 @@ a { color: inherit; text-decoration: none; }
 .nav .about { right: calc(37 * var(--u)); top: calc(46 * var(--u)); }
 .nav .contact { right: calc(37 * var(--u)); top: calc(78 * var(--u)); }
 .nav a:hover, .nav a:focus-visible { opacity: .7; }
-.nav .r { opacity: .5; }
 
 /* 로고: 피그마에서 가로 1068px, 화면 가운데 */
 .logo {
