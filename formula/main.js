@@ -1,7 +1,7 @@
 // FORMULA 첫 화면 모션: 글자 해독(text scramble)
 // 왼쪽 글자부터 차례로 확정되고, 아직 확정 안 된 자리는 다른 글자로 계속 바뀜
-//  - 로고(FORMULA)만 움직임: 구슬 글자 8개(f ( ) R M U L A)가 서로 섞이다가 제자리를 찾음
-//  - 메뉴 글자는 움직이지 않음
+//  - 로고(FORMULA): 구슬 글자 8개(f ( ) R M U L A)가 서로 섞이다가 제자리를 찾음
+// 메뉴 모션: 글자 솟아오르기(split text reveal) — 맨 아래 '메뉴' 부분
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -51,3 +51,30 @@ function scrambleLogo() {
 logo.addEventListener('mouseenter', scrambleLogo);
 logo.addEventListener('click', scrambleLogo);
 scrambleLogo();
+
+// ── 메뉴: 글자 솟아오르기 ──
+// 글자마다 span을 씌우고 순서대로 조금씩 늦게(transition-delay) 올라오게 함
+const CHAR_DELAY = 30;     // 글자 사이 간격(ms)
+const ITEM_DELAY = 90;     // 메뉴 항목 사이 간격(ms) — 처음 열릴 때 왼쪽 위부터 차례로
+const navItems = [...document.querySelectorAll('.nav a')];
+navItems.forEach((a) => {
+  const text = a.textContent;
+  a.setAttribute('aria-label', text.replace(/\n/g, ' '));
+  let i = 0;
+  a.innerHTML = text.split('\n').map((line) => `<span class="line" aria-hidden="true">${
+    [...line].map((c) => (c === ' ' ? ' ' : `<span class="ch" style="transition-delay:${(i++) * CHAR_DELAY}ms">${c}</span>`)).join('')
+  }</span>`).join('');
+});
+function rise(a) {
+  a.classList.add('reset');          // 움직임 없이
+  a.classList.remove('on');          // 글자를 아래(가려진 곳)로 내려놓고
+  void a.offsetWidth;
+  a.classList.remove('reset');
+  requestAnimationFrame(() => a.classList.add('on'));   // 다시 솟아오르게
+}
+// 처음 열릴 때 차례로 + 마우스를 올리면 그 메뉴만 다시
+navItems.forEach((a, n) => {
+  setTimeout(() => rise(a), 150 + n * ITEM_DELAY);
+  a.addEventListener('mouseenter', () => rise(a));
+  a.addEventListener('focus', () => rise(a));
+});

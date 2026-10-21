@@ -39,7 +39,14 @@ a { color: inherit; text-decoration: none; }
 .nav .process { left: calc(1531 * var(--u)); top: calc(44 * var(--u)); }
 .nav .about { right: calc(37 * var(--u)); top: calc(46 * var(--u)); }
 .nav .contact { right: calc(37 * var(--u)); top: calc(78 * var(--u)); }
-.nav a:hover, .nav a:focus-visible { opacity: .7; }
+.nav a:focus-visible { outline: 1px solid var(--text); outline-offset: 4px; }
+
+/* 메뉴 글자 솟아오르기: 글자마다 span(.ch), 줄(.line)은 넘치는 부분을 가려서 아래에서 올라오는 것처럼 보임 */
+.nav .line { display: block; overflow: hidden; padding-bottom: .06em; }
+.nav .ch { display: inline-block; transform: translateY(105%); transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+.nav .on .ch { transform: none; }
+.nav .reset .ch { transition: none; }   /* 다시 재생할 때 글자를 바로 아래로 내려놓기 */
+@media (prefers-reduced-motion: reduce) { .nav .ch { transform: none; transition: none; } }
 
 /* 로고: 피그마에서 가로 1068px, 화면 가운데 */
 .logo {
