@@ -3,12 +3,25 @@
 //   <figure class="form3d" data-svg="forms/form_12.svg" data-model="forms/form_12.glb"></figure>
 //   <script type="module" src="hover3d.js"></script>
 // - SVG는 3D 조형을 '정면'에서 본 실루엣. 3D도 정면에서 시작해서 SVG와 딱 겹친 상태로 바뀜
-// - 3D 색은 SVG 색을 그대로 씀 (data-color="#ffffff"로 바꿀 수 있음)
+// - 3D 질감은 data-material로 고름 (아래 MATERIALS). 색만 바꾸려면 data-color="#ffffff"
 // - 마우스를 떼면 정면으로 돌아와서 다시 SVG로
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// 3D 질감 후보 (data-material="이름"). color가 'svg'면 SVG 색을 씀
+//  roughness: 0 매끈·반짝 ~ 1 거칠·무광 / clearcoat: 겉에 유약 한 겹 (0~1) / sheen: 부드러운 천·벨벳 느낌 (0~1)
+const MATERIALS = {
+  'pantone-602c': { color: '#F0E87F', roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05 },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색)
+  'porcelain':   { color: '#f4f2ed', roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 },   // 흰 유광 도자기
+  'matte-white': { color: '#eeece6', roughness: 0.68, sheen: 0.4, sheenColor: '#ffffff' },          // 흰 무광 (석고·세라믹 비스크)
+  'svg-glaze':   { color: 'svg', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 },            // SVG 색 + 유약
+  'svg-matte':   { color: 'svg', roughness: 0.7, sheen: 0.3, sheenColor: '#ffffff' },                // SVG 색 무광
+  'cream':       { color: '#e9e2d3', roughness: 0.5, clearcoat: 0.4, clearcoatRoughness: 0.35 },   // 웹 글자색에 맞춘 미색 반무광
+};
+const DEFAULT_MATERIAL = 'pantone-602c';
 
 const SPIN = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.9;   // 돌아가는 빠르기 (1초에 몇 라디안. 6.28이면 1초에 한 바퀴). 움직임 줄이기 설정이면 돌지 않음
 const FADE_MS = 450;       // SVG ↔ 3D 바뀌는 시간
@@ -28,7 +41,11 @@ async function setup(el) {
   const vb = svg.viewBox.baseVal;
   const shape = svg.querySelector('path, polygon, rect, circle, ellipse');
   const box = shape.getBBox();                                   // SVG 안에서 모양이 차지하는 칸
-  const color = el.dataset.color || shape.getAttribute('fill') || '#ffffff';
+  const svgColor = shape.getAttribute('fill') || '#ffffff';
+  const preset = MATERIALS[el.dataset.material] || MATERIALS[DEFAULT_MATERIAL];
+  const color = el.dataset.color || (preset.color === 'svg' ? svgColor : preset.color);
+  // 평면 SVG도 3D와 같은 색으로 칠해서 바뀔 때 색이 튀지 않게 (원래 SVG 색을 쓰려면 data-keep-svg-color)
+  if (!('keepSvgColor' in el.dataset)) shape.setAttribute('fill', color);
 
   // 2. 3D 무대 (배경 투명)
   const canvas = document.createElement('canvas');
@@ -37,14 +54,28 @@ async function setup(el) {
   el.style.aspectRatio = `${vb.width} / ${vb.height}`;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.toneMapping = THREE.NeutralToneMapping;               // 흰색이 날아가지 않게 부드럽게
+  renderer.toneMappingExposure = 1.15;
+  renderer.shadowMap.enabled = true;                             // 조형 스스로 드리우는 부드러운 그림자
+  renderer.shadowMap.type = THREE.VSMShadowMap;                  // 가장자리가 흐린 그림자
   const scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x5a5650, 2.4));
-  const key = new THREE.DirectionalLight(0xffffff, 2.6);
-  key.position.set(-1, -2, 3);      // 왼쪽 앞 위에서 비춤
+  // 사진 스튜디오 같은 주변 빛 (반사·은은한 밝기)
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 1.25;
+  const key = new THREE.DirectionalLight(0xffffff, 1.9);         // 왼쪽 앞 위에서 비추는 주 조명
+  key.position.set(-120, -160, 220);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.radius = 10;
+  key.shadow.blurSamples = 16;
+  key.shadow.intensity = 0.55;                                   // 그림자를 너무 진하지 않게
+  key.shadow.bias = -0.0004;
+  key.shadow.normalBias = 0.6;
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0xffffff, 0.8);
-  rim.position.set(2, 3, 1);
-  scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35);       // 오른쪽 뒤에서 윤곽을 살리는 빛
+  fill.position.set(160, 140, 80);
+  scene.add(fill);
 
   // 3. 조형 불러오기 (Rhino STL처럼 Z가 위쪽인 모델 기준)
   const gltf = await loader.loadAsync(el.dataset.model);
@@ -56,7 +87,12 @@ async function setup(el) {
   const bb = geo.boundingBox;
   const cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2;
   geo.translate(-cx, -cy, 0);                                     // 세로축(가운데)을 중심으로 돌게
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0, emissive: color, emissiveIntensity: 0.12 }));
+  const { color: _c, ...look } = preset;
+  const mesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ ...look, color, metalness: 0 }));
+  mesh.castShadow = mesh.receiveShadow = true;
+  // 그림자 범위를 조형 크기에 맞춤
+  const r = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+  Object.assign(key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 1000 });
   const pivot = new THREE.Group();
   pivot.add(mesh);
   scene.add(pivot);

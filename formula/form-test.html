@@ -22,6 +22,11 @@
   <!-- data-svg: 평면 실루엣, data-model: 3D 파일(GLB). 마우스를 올리면 3D로 바뀌며 돌아감 -->
   <figure class="form3d" data-svg="forms/form_12.svg" data-model="forms/form_12.glb"></figure>
   <p class="hint">조형에 마우스를 올려 보세요</p>
+  <script>
+    // 시험용: 주소 끝에 ?mat=porcelain 처럼 붙이면 질감을 바꿔 볼 수 있음
+    const mat = new URLSearchParams(location.search).get('mat');
+    if (mat) document.querySelector('.form3d').dataset.material = mat;
+  </script>
   <script type="module" src="hover3d.js"></script>
 </body>
 </html>
