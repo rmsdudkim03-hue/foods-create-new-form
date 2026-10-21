@@ -14,7 +14,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 // 3D 질감 후보 (data-material="이름"). color가 'svg'면 SVG 색을 씀
 //  roughness: 0 매끈·반짝 ~ 1 거칠·무광 / clearcoat: 겉에 유약 한 겹 (0~1) / sheen: 부드러운 천·벨벳 느낌 (0~1)
 const MATERIALS = {
-  'pantone-602c': { color: '#E9D862', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.3, sheen: 0.6, sheenRoughness: 0.45, sheenColor: '#bba6ff' },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색, 은은한 반광 렌더)
+  'pantone-602c': { color: '#E9D862', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.3, sheen: 0.3, sheenRoughness: 0.5, sheenColor: '#e6dfff' },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색, 은은한 반광 렌더)
   'porcelain':   { color: '#f4f2ed', roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 },   // 흰 유광 도자기
   'matte-white': { color: '#eeece6', roughness: 0.68, sheen: 0.4, sheenColor: '#ffffff' },          // 흰 무광 (석고·세라믹 비스크)
   'svg-glaze':   { color: 'svg', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 },            // SVG 색 + 유약
@@ -23,7 +23,7 @@ const MATERIALS = {
 };
 const DEFAULT_MATERIAL = 'pantone-602c';
 const AO_STRENGTH = 0.32;     // 오목한 곳 그늘 진하기 (0 없음 ~ 1 구운 그대로)
-const COOL = '#b39cff';       // 반사광·그늘 쪽에 살짝 섞는 보색(노랑의 반대쪽 = 연보라)
+const COOL = '#e3dbff';       // 반사광·그늘 쪽에 아주아주 살짝 섞는 보색(노랑의 반대쪽 = 아주 연한 보라)
 
 const SPIN = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.9;   // 돌아가는 빠르기 (1초에 몇 라디안. 6.28이면 1초에 한 바퀴). 움직임 줄이기 설정이면 돌지 않음
 const ZOOM_OUT = 0.2;      // 입체가 되며 위에서 보이는 바닥면만큼 조금 작아지게 (0~1)
@@ -79,7 +79,7 @@ async function setup(el) {
   scene.add(key);
   // 오른쪽 뒤에서 가장자리를 스치는 연보라 빛 → 유광 반사(하이라이트)에 보라가 살짝 맺힘
   // (노란 표면에 보라 빛을 그냥 비추면 섞여서 회색이 되니까, 반사로만 보이게 뒤쪽에서)
-  const fill = new THREE.DirectionalLight(COOL, 1.4);
+  const fill = new THREE.DirectionalLight(COOL, 0.8);
   fill.position.set(170, 230, 110);
   scene.add(fill);
   scene.add(new THREE.HemisphereLight(0xfff8ea, COOL, 0.85));    // 중간톤을 채우는 은은한 빛 (아래쪽 그늘은 살짝 연보라)
