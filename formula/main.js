@@ -1,7 +1,7 @@
 // FORMULA 첫 화면 모션: 글자 해독(text scramble)
 // 왼쪽 글자부터 차례로 확정되고, 아직 확정 안 된 자리는 다른 글자로 계속 바뀜
-//  - 로고: 구슬 글자 8개(f ( ) R M U L A)가 서로 섞이다가 제자리를 찾음
-//  - 메뉴: 마우스를 올리면 글자가 무작위 문자로 바뀌다가 원래 글자로 돌아옴
+//  - 로고(FORMULA): 구슬 글자 8개(f ( ) R M U L A)가 서로 섞이다가 제자리를 찾음
+// 메뉴 모션: 글자 솟아오르기(split text reveal) — 맨 아래 '메뉴' 부분
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -47,38 +47,34 @@ function scrambleLogo() {
   })(start);
 }
 
-// ── 메뉴 글자 ──
-const CHARS = '!<>-_\\/[]{}=+*^?#ABCDEFXYZ0123456789';
-function scrambleText(el, ms = 600) {
-  if (reduce) return;
-  const to = el.dataset.text;
-  const run = (el._run || 0) + 1;
-  el._run = run;
-  const start = performance.now();
-  (function tick(now) {
-    if (el._run !== run) return;
-    const k = (now - start) / ms;
-    let out = '';
-    for (let i = 0; i < to.length; i++) {
-      const c = to[i];
-      if (i < k * to.length || c === ' ' || c === '\n') out += c;
-      else out += `<span class="r">${CHARS[Math.random() * CHARS.length | 0]}</span>`;
-    }
-    el.innerHTML = out;
-    if (k < 1.05) requestAnimationFrame(tick);
-    else el.textContent = to;
-  })(start);
-}
-
-const navItems = [...document.querySelectorAll('.nav [data-text]')];
-navItems.forEach((el) => {
-  el.textContent = el.dataset.text;
-  el.addEventListener('mouseenter', () => scrambleText(el));
-  el.addEventListener('focus', () => scrambleText(el));
-});
-
 // 처음 열릴 때 + 로고에 마우스를 올릴 때 다시
 logo.addEventListener('mouseenter', scrambleLogo);
 logo.addEventListener('click', scrambleLogo);
 scrambleLogo();
-navItems.forEach((el, i) => setTimeout(() => scrambleText(el, 800), 150 + i * 80));
+
+// ── 메뉴: 글자 솟아오르기 ──
+// 글자마다 span을 씌우고 순서대로 조금씩 늦게(transition-delay) 올라오게 함
+const CHAR_DELAY = 30;     // 글자 사이 간격(ms)
+const ITEM_DELAY = 90;     // 메뉴 항목 사이 간격(ms) — 처음 열릴 때 왼쪽 위부터 차례로
+const navItems = [...document.querySelectorAll('.nav a')];
+navItems.forEach((a) => {
+  const text = a.textContent;
+  a.setAttribute('aria-label', text.replace(/\n/g, ' '));
+  let i = 0;
+  a.innerHTML = text.split('\n').map((line) => `<span class="line" aria-hidden="true">${
+    [...line].map((c) => (c === ' ' ? ' ' : `<span class="ch" style="transition-delay:${(i++) * CHAR_DELAY}ms">${c}</span>`)).join('')
+  }</span>`).join('');
+});
+function rise(a) {
+  a.classList.add('reset');          // 움직임 없이
+  a.classList.remove('on');          // 글자를 아래(가려진 곳)로 내려놓고
+  void a.offsetWidth;
+  a.classList.remove('reset');
+  requestAnimationFrame(() => a.classList.add('on'));   // 다시 솟아오르게
+}
+// 처음 열릴 때 차례로 + 마우스를 올리면 그 메뉴만 다시
+navItems.forEach((a, n) => {
+  setTimeout(() => rise(a), 150 + n * ITEM_DELAY);
+  a.addEventListener('mouseenter', () => rise(a));
+  a.addEventListener('focus', () => rise(a));
+});
