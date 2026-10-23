@@ -1,6 +1,7 @@
 // 조형 SVG에 마우스를 올리면 → 같은 모양의 3D 조형으로 바뀌며 빙글 돌아감
 // 쓰는 법 (HTML):
 //   <figure class="form3d" data-svg="forms/form_12.svg" data-model="forms/form_12.glb"></figure>
+//   data-model이 없으면 SVG만 보여줌, data-fit이면 SVG 여백을 잘라 모양을 칸에 꽉 채움
 //   <script type="module" src="hover3d.js"></script>
 // - SVG는 3D 조형을 '정면'에서 본 실루엣. 3D도 정면에서 시작해서 SVG와 딱 겹친 상태로 바뀜
 // - 3D 질감은 data-material로 고름 (아래 MATERIALS). 색만 바꾸려면 data-color="#ffffff"
@@ -46,6 +47,10 @@ async function setup(el) {
   const vb = svg.viewBox.baseVal;
   const shape = svg.querySelector('path, polygon, rect, circle, ellipse');
   const box = shape.getBBox();                                   // SVG 안에서 모양이 차지하는 칸
+  // data-fit: SVG 여백을 잘라 모양이 칸(figure)에 꽉 차게 (피그마에서 잰 조형 크기에 그대로 맞출 때)
+  if ('fit' in el.dataset) svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
+  // 3D 파일이 아직 없는 조형은 평면 SVG만 (원래 색 그대로)
+  if (!el.dataset.model) { el.classList.add('ready'); return; }
   const svgColor = shape.getAttribute('fill') || '#ffffff';
   const preset = MATERIALS[el.dataset.material] || MATERIALS[DEFAULT_MATERIAL];
   const color = el.dataset.color || (preset.color === 'svg' ? svgColor : preset.color);
@@ -126,9 +131,9 @@ async function setup(el) {
   // 4. 카메라: 모델의 가로(X)·높이(Z)가 SVG 속 모양 자리에 딱 맞게
   const w = bb.max.x - bb.min.x;
   const s = box.width / w;                                        // SVG 1칸 = 모델 몇 mm
-  const left = -w / 2 - box.x / s;
+  const left = -w / 2 - (box.x - vb.x) / s;                      // 화면 왼쪽 끝(SVG viewBox 왼쪽)의 3D 위치
   const zMid = (bb.min.z + bb.max.z) / 2, boxMid = box.y + box.height / 2;
-  const top = zMid + boxMid / s;
+  const top = zMid + (boxMid - vb.y) / s;
   const px = PAD * vb.width / s, py = PAD * vb.height / s * 2;   // 넓힌 만큼 (세로는 더 넉넉히)
   const fL = left - px, fR = left + vb.width / s + px, fT = top + py, fB = top - vb.height / s - py;
   const W = fR - fL, H = fT - fB, dist = H / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
