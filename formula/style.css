@@ -55,7 +55,7 @@ a { color: inherit; text-decoration: none; }
 /* ── 1. 첫 화면 → 소개 ──
    .story 높이만큼 스크롤하는 동안 .stage가 화면에 붙어 있고, 스크롤 진행도에 따라 장면이 바뀜.
    길이를 바꾸면 장면이 빨리/천천히 넘어감 (main.js의 SCENE 구간과 함께) */
-.story { position: relative; height: 380vh; }
+.story { position: relative; height: 300vh; }
 .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 .wipe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
