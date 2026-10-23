@@ -14,18 +14,23 @@
 <style>
   /* 테스트용 화면: 가운데에 조형 하나 */
   body { overflow: auto; display: grid; place-items: center; min-height: 100vh; }
+  .forms { display: grid; gap: 14vh; justify-items: center; padding: 18vh 0; }
   .form3d { width: min(70vw, 1000px); }
+  .form3d.tall { width: min(32vw, 420px); }
   .hint { position: fixed; bottom: 24px; left: 0; right: 0; text-align: center; opacity: .5; font-size: 14px; }
 </style>
 </head>
 <body>
   <!-- data-svg: 평면 실루엣, data-model: 3D 파일(GLB). 마우스를 올리면 3D로 바뀌며 돌아감 -->
-  <figure class="form3d" data-svg="forms/form_12.svg" data-model="forms/form_12.glb"></figure>
+  <div class="forms">
+    <figure class="form3d" data-svg="forms/form_12.svg" data-model="forms/form_12.glb" data-material="pantone-602c"></figure>
+    <figure class="form3d tall" data-svg="forms/form_02.svg" data-model="forms/form_02.glb" data-material="svg-satin"></figure>
+  </div>
   <p class="hint">조형에 마우스를 올려 보세요</p>
   <script>
     // 시험용: 주소 끝에 ?mat=porcelain 처럼 붙이면 질감을 바꿔 볼 수 있음
     const mat = new URLSearchParams(location.search).get('mat');
-    if (mat) document.querySelector('.form3d').dataset.material = mat;
+    if (mat) document.querySelectorAll('.form3d').forEach((f) => { f.dataset.material = mat; });
     // ?bg=white 면 흰 배경에서 확인
     if (new URLSearchParams(location.search).get('bg') === 'white') document.documentElement.style.setProperty('--bg', '#ffffff');
   </script>

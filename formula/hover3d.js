@@ -15,6 +15,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 //  roughness: 0 매끈·반짝 ~ 1 거칠·무광 / clearcoat: 겉에 유약 한 겹 (0~1) / sheen: 부드러운 천·벨벳 느낌 (0~1)
 const MATERIALS = {
   'pantone-602c': { color: '#E9D862', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.3, sheen: 0.3, sheenRoughness: 0.5, sheenColor: '#e6dfff' },   // 실제 도색: 팬톤 602 C 유광 (화면용 근사색, 은은한 반광 렌더)
+  'svg-satin':   { color: 'svg', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.3, sheen: 0.3, sheenRoughness: 0.5, sheenColor: '#e6dfff' },   // 602C와 같은 반광 렌더 + SVG 색 (조형마다 색이 다를 때)
   'porcelain':   { color: '#f4f2ed', roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.12 },   // 흰 유광 도자기
   'matte-white': { color: '#eeece6', roughness: 0.68, sheen: 0.4, sheenColor: '#ffffff' },          // 흰 무광 (석고·세라믹 비스크)
   'svg-glaze':   { color: 'svg', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 },            // SVG 색 + 유약
@@ -26,7 +27,7 @@ const AO_STRENGTH = 0.32;     // 오목한 곳 그늘 진하기 (0 없음 ~ 1 �
 const COOL = '#e3dbff';       // 반사광·그늘 쪽에 아주아주 살짝 섞는 보색(노랑의 반대쪽 = 아주 연한 보라)
 
 const SPIN = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.9;   // 돌아가는 빠르기 (1초에 몇 라디안. 6.28이면 1초에 한 바퀴). 움직임 줄이기 설정이면 돌지 않음
-const ZOOM_OUT = 0.2;      // 입체가 되며 위에서 보이는 바닥면만큼 조금 작아지게 (0~1)
+const ZOOM_OUT = 0.2;      // 입체가 되며 위에서 보이는 바닥면만큼 조금 작아지게 (최대값. 납작하고 넓은 조형일수록 많이, 세로로 긴 조형은 거의 안 줄어듦)
 const VOL_MS = 1100;       // 평면 → 입체로 바뀌는 시간 (빛·그늘·원근·기울기가 함께)
 const TILT = 0.45;         // 돌 때 위에서 내려다보는 정도 (라디안. 0이면 정면 그대로)
 const FOV = 14;           // 카메라 화각(도). 작을수록 평면적, 클수록 원근이 강함
@@ -153,6 +154,10 @@ async function setup(el) {
   resize();
   new ResizeObserver(resize).observe(el);
 
+  // 기울 때 줄어드는 정도: 깊이(앞뒤) ÷ 높이가 클수록(납작하고 넓을수록) 위에서 보이는 바닥면이 커지니까 더 줄임
+  const depthRatio = (bb.max.y - bb.min.y) / (bb.max.z - bb.min.z);
+  const zoom = Math.min(ZOOM_OUT, 0.07 * depthRatio);
+
   // 5. 움직임
   //  올리면: SVG와 똑같은 평면 3D로 바꿔 끼움 → 빛·그늘이 서서히 생기며(vol) 원근·기울기가 같이 들어옴 → 돌기 시작
   //  떼면: 정면으로 돌아옴 → 기울기·원근·그늘이 빠지며 평면으로 → SVG로 바꿔 끼움
@@ -181,7 +186,7 @@ async function setup(el) {
     flat.visible = v < 1;
     lens(v);                                                       // 평면 렌즈 → 원근 렌즈
     pivot.rotation.set(TILT * v, 0, angle);                        // 앞으로 기울인 뒤 세로축으로 돌림
-    pivot.scale.setScalar(1 - ZOOM_OUT * v);                       // 기울면 바닥면이 보이며 커지니까 그만큼 살짝 줄임
+    pivot.scale.setScalar(1 - zoom * v);                           // 기울면 바닥면이 보이며 커지니까 그만큼 살짝 줄임
     renderer.render(scene, cam);
     const on = hover || vol > 0;
     el.style.setProperty('--mix', on ? 1 : 0);                     // 3D가 그려진 뒤 SVG와 바꿔 끼움 (모양이 같아서 티가 안 남)
