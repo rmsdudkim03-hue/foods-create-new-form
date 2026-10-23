@@ -135,13 +135,37 @@ async function setup(el) {
   pivot.position.z = zc;
   mesh.position.z = flat.position.z = -zc;
 
+  // 기울 때 줄어드는 정도: 깊이(앞뒤) ÷ 높이가 클수록(납작하고 넓을수록) 위에서 보이는 바닥면이 커지니까 더 줄임
+  const depthRatio = (bb.max.y - bb.min.y) / (bb.max.z - bb.min.z);
+  // 위에서 본 조형은 세워지면 높이만큼 커 보이니까 처음 크기에 맞게 줄임
+  const zoom = topView
+    ? 1 - Math.min(1, (bb.max.z - bb.min.z) / ((bb.max.y - bb.min.y) * Math.cos(TILT) + (bb.max.z - bb.min.z) * Math.sin(TILT)))
+    : Math.min(ZOOM_OUT, 0.07 * depthRatio);
+  // 다 기울었을 때 각도: 정면 조형은 위가 살짝 앞으로(TILT), 위에서 본 조형은 누워 있다가 TILT만큼 내려다보는 각도로 세워짐
+  const tiltEnd = topView ? -(Math.PI / 2 - TILT) : TILT;
+  // 돌고 기울 때 조형이 차지하는 범위 (무대가 이보다 좁으면 잘리니까 넓힘)
+  //  돌아가는 축에서 가장 먼 점까지 거리(r) + 높이의 절반(hz)을 기울인 만큼
+  const pos = geo.attributes.position, dpos = morph ? geo.morphAttributes.position[0] : null;
+  let rMax = 0, hMax = 0;
+  for (let i = 0; i < pos.count; i++) for (const k of morph ? [0, 1] : [0]) {
+    const x = pos.getX(i) + (k ? dpos.getX(i) : 0), y = pos.getY(i) + (k ? dpos.getY(i) : 0), z = pos.getZ(i) + (k ? dpos.getZ(i) : 0) - zc;
+    rMax = Math.max(rMax, topView ? Math.hypot(x, z) : Math.hypot(x, y));
+    hMax = Math.max(hMax, Math.abs(topView ? y : z));
+  }
+  const sc = (1 - zoom) * 1.1;                                    // 다 기울었을 때 크기 + 원근으로 가까운 쪽이 커지는 만큼 여유
+  const needX = rMax * sc, needZ = (hMax * Math.cos(TILT) + rMax * Math.sin(TILT)) * sc;
+
   // 4. 카메라: 모델의 가로(X)·높이(Z)가 SVG 속 모양 자리에 딱 맞게
   const w = bb.max.x - bb.min.x;
   const s = box.width / w;                                        // SVG 1칸 = 모델 몇 mm
   const left = -w / 2 - (box.x - vb.x) / s;                      // 화면 왼쪽 끝(SVG viewBox 왼쪽)의 3D 위치
   const zMid = (bb.min.z + bb.max.z) / 2, boxMid = box.y + box.height / 2;
   const top = zMid + (boxMid - vb.y) / s;
-  const px = PAD * vb.width / s, py = PAD * vb.height / s * 2;   // 넓힌 만큼 (세로는 더 넉넉히)
+  // 넓힌 만큼: 기본 PAD(세로는 2배), 돌 때 조형이 더 멀리 나가면 그만큼 더
+  const halfW = vb.width / s / 2, halfH = vb.height / s / 2;
+  const px = Math.max(PAD * vb.width / s, needX + Math.abs(left + halfW) - halfW);
+  const py = Math.max(PAD * vb.height / s * 2, needZ + Math.abs(top - halfH - zc) - halfH);
+  const fx = px * s / vb.width, fy = py * s / vb.height;          // 캔버스를 SVG 칸보다 넓히는 비율
   const fL = left - px, fR = left + vb.width / s + px, fT = top + py, fB = top - vb.height / s - py;
   const W = fR - fL, H = fT - fB, dist = H / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
   const aim = new THREE.Vector3((fL + fR) / 2, 0, (fT + fB) / 2);
@@ -156,24 +180,16 @@ async function setup(el) {
     for (let i = 0; i < 16; i++) e[i] = a[i] + (b[i] - a[i]) * t;
     cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
   }
-  // 캔버스도 같은 비율로 넓힘 (가로는 양옆 PAD씩, 세로는 위아래 2×PAD씩)
-  Object.assign(canvas.style, { left: `${-PAD * 100}%`, width: `${(1 + 2 * PAD) * 100}%`, top: `${-PAD * 200}%`, height: `${(1 + 4 * PAD) * 100}%` });
+  // 캔버스도 같은 비율로 넓힘
+  Object.assign(canvas.style, { left: `${-fx * 100}%`, width: `${(1 + 2 * fx) * 100}%`, top: `${-fy * 100}%`, height: `${(1 + 2 * fy) * 100}%` });
 
   function resize() {
     const r = el.getBoundingClientRect();
-    renderer.setSize(r.width * (1 + 2 * PAD), r.height * (1 + 4 * PAD), false);
+    renderer.setSize(r.width * (1 + 2 * fx), r.height * (1 + 2 * fy), false);
   }
   resize();
   new ResizeObserver(resize).observe(el);
 
-  // 기울 때 줄어드는 정도: 깊이(앞뒤) ÷ 높이가 클수록(납작하고 넓을수록) 위에서 보이는 바닥면이 커지니까 더 줄임
-  const depthRatio = (bb.max.y - bb.min.y) / (bb.max.z - bb.min.z);
-  // 위에서 본 조형은 세워지면 높이만큼 커 보이니까 처음 크기에 맞게 줄임
-  const zoom = topView
-    ? 1 - Math.min(1, (bb.max.z - bb.min.z) / ((bb.max.y - bb.min.y) * Math.cos(TILT) + (bb.max.z - bb.min.z) * Math.sin(TILT)))
-    : Math.min(ZOOM_OUT, 0.07 * depthRatio);
-  // 다 기울었을 때 각도: 정면 조형은 위가 살짝 앞으로(TILT), 위에서 본 조형은 누워 있다가 TILT만큼 내려다보는 각도로 세워짐
-  const tiltEnd = topView ? -(Math.PI / 2 - TILT) : TILT;
   const blend = 'blend' in el.dataset;
   const volMs = +el.dataset.ms || VOL_MS;                          // data-ms로 조형마다 입체가 되는 시간을 바꿀 수 있음 (접히는 조형은 천천히)
 
