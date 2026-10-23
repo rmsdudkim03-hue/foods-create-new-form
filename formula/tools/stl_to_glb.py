@@ -49,25 +49,46 @@ def bake_ao(mesh):
     return np.clip([(ao[i] * 2 + ao[k].mean()) / 3 if len(k) else ao[i] for i, k in enumerate(nb)], 0, 1)
 
 
-def write_glb(path, pos, col, idx):
+def write_glb(path, pos, col, idx, target=None, normals=None, target_normals=None):
+    # target: 접히는 조형처럼 모양이 바뀌는 경우, 바뀐 뒤 위치(모프 타깃). 파일에는 '차이'로 저장
     pos = pos.astype('<f4')
     colb = np.concatenate([(np.repeat(col[:, None], 3, 1) * 255).round().astype(np.uint8),
                            np.full((len(col), 1), 255, np.uint8)], 1)
     idx = idx.astype('<u4').ravel()
     parts = [pos.tobytes(), colb.tobytes(), idx.tobytes()]
-    offs = [0, len(parts[0]), len(parts[0]) + len(parts[1])]
+    acc = [
+        {'componentType': 5126, 'count': len(pos), 'type': 'VEC3', 'min': pos.min(0).tolist(), 'max': pos.max(0).tolist()},
+        {'componentType': 5121, 'normalized': True, 'count': len(pos), 'type': 'VEC4'},
+        {'componentType': 5125, 'count': len(idx), 'type': 'SCALAR'},
+    ]
+    attrs = {'POSITION': 0, 'COLOR_0': 1}
+    prim = {'attributes': attrs, 'indices': 2}
+
+    def add(arr, **kw):
+        arr = arr.astype('<f4')
+        parts.append(arr.tobytes())
+        acc.append({'componentType': 5126, 'count': len(arr), 'type': 'VEC3', **kw})
+        return len(acc) - 1
+
+    if normals is not None:
+        attrs['NORMAL'] = add(normals)
+    if target is not None:
+        d = (target - pos).astype('<f4')
+        t = {'POSITION': add(d, min=d.min(0).tolist(), max=d.max(0).tolist())}
+        if target_normals is not None:
+            t['NORMAL'] = add(target_normals - normals)
+        prim['targets'] = [t]
+    offs = np.concatenate([[0], np.cumsum([len(p) for p in parts])[:-1]]).tolist()
+    for a, i in zip(acc, range(len(acc))):
+        a['bufferView'] = i
     data = b''.join(parts)
     gltf = {
         'asset': {'version': '2.0', 'generator': 'FORMULA stl_to_glb (AO in COLOR_0)'},
         'scene': 0, 'scenes': [{'nodes': [0]}], 'nodes': [{'mesh': 0}],
-        'meshes': [{'primitives': [{'attributes': {'POSITION': 0, 'COLOR_0': 1}, 'indices': 2}]}],
+        'meshes': [{'primitives': [prim], **({'weights': [0]} if target is not None else {})}],
         'buffers': [{'byteLength': len(data)}],
-        'bufferViews': [{'buffer': 0, 'byteOffset': offs[i], 'byteLength': len(parts[i])} for i in range(3)],
-        'accessors': [
-            {'bufferView': 0, 'componentType': 5126, 'count': len(pos), 'type': 'VEC3', 'min': pos.min(0).tolist(), 'max': pos.max(0).tolist()},
-            {'bufferView': 1, 'componentType': 5121, 'normalized': True, 'count': len(pos), 'type': 'VEC4'},
-            {'bufferView': 2, 'componentType': 5125, 'count': len(idx), 'type': 'SCALAR'},
-        ],
+        'bufferViews': [{'buffer': 0, 'byteOffset': offs[i], 'byteLength': len(parts[i])} for i in range(len(parts))],
+        'accessors': acc,
     }
     j = json.dumps(gltf, separators=(',', ':')).encode()
     j += b' ' * (-len(j) % 4)
