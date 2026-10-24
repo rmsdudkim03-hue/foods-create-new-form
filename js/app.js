@@ -692,7 +692,7 @@ leave.analyze = () => {
    분석된 특징을 도형 토큰으로 보여줌 (음식 사진 둘레에 A 5개, B 5개. 도형: js/glyphs.js)
    토큰을 끌어서 그릇에 놓거나, 눌러서 지금 고른 그릇에 담음 (다시 누르면 뺌)
    그릇마다 2~3개, A와 B에서 하나씩 이상. 그릇 1 → 기본 조합, 그릇 2 → 조형적 재해석
-   나머지 4개 조형은 AI가 고름. 'AI에게 맡기기'를 누르면 예전처럼 AI가 6개 다 고름
+   나머지 4개 조형은 AI가 제안함. 조합은 반드시 관람객이 직접 고름 ('AI에게 맡기기' 버튼은 없앰: 과정 속 결정을 AI에게 넘기지 않게)
    ========================================================= */
 // 화면에 보여줄 특징 목록 { A: [{id, title, desc, glyph}...], B: [...] }. 없으면 null
 function recipeFeatures() {
@@ -934,7 +934,6 @@ $('#recipeGo').addEventListener('click', () => {
   if (current !== 'recipe' || $('#recipeGo').disabled) return;
   startForms(recipe.combos.map((c) => [...c]));
 });
-$('#recipeSkip').addEventListener('click', () => current === 'recipe' && startForms(null));
 
 /* =========================================================
    화면 5: 새로운 조형 요리하기 (조각을 그릇에 드래그)
