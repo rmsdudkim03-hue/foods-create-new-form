@@ -11,13 +11,15 @@ const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const ease = (t) => t * t * (3 - 2 * t);
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
-// 스크롤 장면: 스크롤이 이 지점(전체 진행도 0~1)을 지나면 그 장면이 정해진 시간 동안 끝까지 재생됨
-// (스크롤을 빨리 내려도 장면이 건너뛰지 않고 차례로, 위로 올리면 거꾸로)
+// 장면: 1·2는 처음 열리면 저절로 이어서 재생 (조작 없이)
+//       3은 스크롤이 지점 at(전체 진행도 0~1)을 지나면 정해진 시간 동안 끝까지 재생, 위로 올리면 거꾸로
 const SCENES = [
-  { at: 0.03, ms: 2400 },   // 1. 검정 → 흰 화면 전환
-  { at: 0.30, ms: 1100 },   // 2. 괄호가 외곽선이 되며 넓어짐
-  { at: 0.55, ms: 1300 },   // 3. 로고가 작아지며 위로 + 소개글
+  { ms: 2400 },             // 1. 검정 → 흰 화면 전환 (저절로)
+  { ms: 1100 },             // 2. 괄호가 외곽선이 되며 넓어짐 (저절로)
+  { at: 0.12, ms: 1300 },   // 3. 로고가 작아지며 위로 + 소개글 (스크롤)
 ];
+const AUTO = 2;           // 저절로 재생되는 장면 수
+const AUTO_DELAY = 1200;  // 로고 해독이 끝나고(괄호가 깜빡이는 동안) 전환이 시작되기까지 기다리는 시간(ms)
 const TEXT_AT = 2.5;      // 3번 장면이 절반쯤 지나면 소개글이 떠오름
 const PAREN_GAP = 26.1;   // 괄호가 넓어지는 만큼 (로고 SVG 단위. 피그마 Frame 5에서 42px)
 const SMALL = 0.585;      // 작아진 로고 크기 (피그마 Frame 6 로고 폭 648px)
@@ -49,7 +51,8 @@ function show(slot, k, scrambled) {
 
 let logoRun = 0;
 function scrambleLogo() {
-  if (reduce || cur > 0) return;   // 첫 화면에서만
+  if (reduce) { startAuto(); return; }
+  if (cur > 0) return;   // 첫 화면에서만
   const run = ++logoRun;
   logo.classList.remove('done');     // 섞이는 동안은 깜빡임 멈춤
   const start = performance.now();
@@ -71,6 +74,7 @@ function scrambleLogo() {
     else {
       slots.forEach((s) => show(s, s.dataset.k, false));
       logo.classList.add('done');      // 다 맞춰지면 괄호 깜빡임 시작
+      startAuto();
     }
   })(start);
 }
@@ -184,12 +188,19 @@ function flipEl(el, t, prop) {
 // ── 스크롤 → 장면 ──
 // cur = 지금 재생 위치 (0 첫 화면, 1 흰 화면, 2 괄호 넓어짐, 3 로고 작아짐). 스크롤이 정한 목표(target)까지 시간에 맞춰 따라감
 const story = document.getElementById('story');
-let target = 0, cur = 0, raf = 0, last = 0;
+let target = 0, cur = 0, raf = 0, last = 0, auto = 0, autoTimer = 0;
+
+// 로고 해독이 끝나면 잠깐 뒤 전환 → 괄호 넓어짐까지 저절로 이어서 재생
+function startAuto() {
+  if (auto || autoTimer) return;
+  autoTimer = setTimeout(() => { auto = AUTO; readScroll(); }, reduce ? 0 : AUTO_DELAY);
+}
 
 function readScroll() {
   const r = story.getBoundingClientRect();
   const p = clamp(-r.top / Math.max(1, story.offsetHeight - innerHeight));
-  target = SCENES.filter((sc) => p >= sc.at).length;
+  if (p > 0.02 && !auto) { clearTimeout(autoTimer); auto = AUTO; }   // 기다리는 중에 스크롤하면 바로 이어서
+  target = auto ? AUTO + SCENES.slice(AUTO).filter((sc) => p >= sc.at).length : 0;
   if (!raf && cur !== target) { last = performance.now(); raf = requestAnimationFrame(step); }
 }
 function step(now) {
@@ -227,7 +238,7 @@ addEventListener('scroll', readScroll, { passive: true });
 addEventListener('resize', () => { layoutWipe(); render(cur); });
 layoutWipe();
 readScroll();
-cur = target;   // 새로고침했을 때 이미 내려가 있으면 그 장면부터
+if (scrollY > 0) { auto = AUTO; readScroll(); cur = target; }   // 새로고침했을 때 이미 내려가 있으면 그 장면부터
 render(cur);
 
 // 처음 열릴 때 + 로고에 마우스를 올릴 때 다시
