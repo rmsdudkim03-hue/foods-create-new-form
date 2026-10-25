@@ -147,3 +147,7 @@ a { color: inherit; text-decoration: none; }
 .form3d-svg svg { width: 100%; height: 100%; display: block; }
 .form3d-svg { opacity: calc(1 - var(--mix)); }
 .form3d-gl { opacity: var(--mix); pointer-events: none; }
+
+/* 조형을 누르면 히스토리로: 링크는 모양만 감쌈 (위치는 .form3d가 정함) */
+.form-link { color: inherit; }
+.form-link:focus-visible .form3d { outline: 1px solid var(--ink); outline-offset: 8px; }
