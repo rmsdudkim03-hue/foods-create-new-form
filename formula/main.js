@@ -250,3 +250,22 @@ scrambleLogo();
 const forms = document.getElementById('forms');
 forms.querySelectorAll('.forms-grid li').forEach((li, i) => li.style.setProperty('--i', i));
 new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isIntersecting) forms.classList.add('in'); }), { threshold: 0.2 }).observe(forms);
+
+// ── 전시용: 아무도 만지지 않으면 처음 화면으로 ──
+// 마우스·스크롤·키보드·터치가 IDLE_MS 동안 없으면 맨 위로 올라가서 첫 모션(로고 해독 → 전환)부터 다시 재생.
+// 이미 처음 화면에 있으면 그대로 둠. 시간을 바꾸려면 IDLE_MS만 고치면 됨 (2분 = 2 * 60 * 1000)
+const IDLE_MS = 2 * 60 * 1000;
+let idleTimer = 0;
+function goHome() {
+  if (scrollY < 2 && cur <= AUTO) return;        // 이미 처음 화면
+  clearTimeout(autoTimer); autoTimer = 0; auto = 0;
+  scrollTo({ top: 0, behavior: 'instant' });
+  cancelAnimationFrame(raf); raf = 0;
+  target = cur = 0; render(0);                    // 검정 첫 화면으로 되돌림
+  forms.classList.remove('in');                   // 조형도 다시 떠오르게
+  navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
+  scrambleLogo();                                 // 로고 해독 → 끝나면 전환까지 저절로
+}
+function wake() { clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }
+['pointermove', 'pointerdown', 'wheel', 'scroll', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
+wake();
