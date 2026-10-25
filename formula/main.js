@@ -11,17 +11,19 @@ const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const ease = (t) => t * t * (3 - 2 * t);
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
-// 스크롤 장면 구간 (스크롤 진행도 0~1 중 어디서 어디까지). 늘리면 그 장면이 천천히 넘어감
-const SCENE = {
-  wipe: [0.04, 0.40],     // 검정 → 흰 화면 전환
-  paren: [0.42, 0.56],    // 괄호가 외곽선이 되며 넓어짐
-  shrink: [0.58, 0.78],   // 로고가 작아지며 위로
-  text: 0.72,             // 여기를 지나면 소개글이 떠오름
-};
+// 장면: 1·2는 처음 열리면 저절로 이어서 재생 (조작 없이)
+//       3은 스크롤이 지점 at(전체 진행도 0~1)을 지나면 정해진 시간 동안 끝까지 재생, 위로 올리면 거꾸로
+const SCENES = [
+  { ms: 2400 },             // 1. 검정 → 흰 화면 전환 (저절로)
+  { ms: 1100 },             // 2. 괄호가 외곽선이 되며 넓어짐 (저절로)
+  { at: 0.12, ms: 1300 },   // 3. 로고가 작아지며 위로 + 소개글 (스크롤)
+];
+const AUTO = 2;           // 저절로 재생되는 장면 수
+const AUTO_DELAY = 1200;  // 로고 해독이 끝나고(괄호가 깜빡이는 동안) 전환이 시작되기까지 기다리는 시간(ms)
+const TEXT_AT = 2.5;      // 3번 장면이 절반쯤 지나면 소개글이 떠오름
 const PAREN_GAP = 26.1;   // 괄호가 넓어지는 만큼 (로고 SVG 단위. 피그마 Frame 5에서 42px)
 const SMALL = 0.585;      // 작아진 로고 크기 (피그마 Frame 6 로고 폭 648px)
 const SMALL_Y = -93;      // 작아진 로고가 올라가는 만큼 (피그마 px)
-const SMOOTH = 0.12;      // 스크롤을 부드럽게 따라가는 정도 (1이면 바로, 작을수록 미끄러지듯)
 
 const DARK = [0x1e, 0x1d, 0x1b], PAPER = [0xfa, 0xfa, 0xf8];
 const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
@@ -49,7 +51,8 @@ function show(slot, k, scrambled) {
 
 let logoRun = 0;
 function scrambleLogo() {
-  if (reduce || cur > SCENE.wipe[0]) return;   // 첫 화면에서만
+  if (reduce) { startAuto(); return; }
+  if (cur > 0) return;   // 첫 화면에서만
   const run = ++logoRun;
   logo.classList.remove('done');     // 섞이는 동안은 깜빡임 멈춤
   const start = performance.now();
@@ -67,10 +70,11 @@ function scrambleLogo() {
         show(slot, r, true);
       }
     });
-    if (k < 1.05 && cur <= SCENE.wipe[0]) requestAnimationFrame(tick);
+    if (k < 1.05 && cur <= 0) requestAnimationFrame(tick);
     else {
       slots.forEach((s) => show(s, s.dataset.k, false));
       logo.classList.add('done');      // 다 맞춰지면 괄호 깜빡임 시작
+      startAuto();
     }
   })(start);
 }
@@ -182,37 +186,51 @@ function flipEl(el, t, prop) {
 }
 
 // ── 스크롤 → 장면 ──
+// cur = 지금 재생 위치 (0 첫 화면, 1 흰 화면, 2 괄호 넓어짐, 3 로고 작아짐). 스크롤이 정한 목표(target)까지 시간에 맞춰 따라감
 const story = document.getElementById('story');
-const seg = ([a, b], p) => clamp((p - a) / (b - a));
-let target = 0, cur = 0, raf = 0;
+let target = 0, cur = 0, raf = 0, last = 0, auto = 0, autoTimer = 0;
+
+// 로고 해독이 끝나면 잠깐 뒤 전환 → 괄호 넓어짐까지 저절로 이어서 재생
+function startAuto() {
+  if (auto || autoTimer) return;
+  autoTimer = setTimeout(() => { auto = AUTO; readScroll(); }, reduce ? 0 : AUTO_DELAY);
+}
 
 function readScroll() {
   const r = story.getBoundingClientRect();
-  target = clamp(-r.top / Math.max(1, story.offsetHeight - innerHeight));
-  if (!raf) raf = requestAnimationFrame(step);
+  const p = clamp(-r.top / Math.max(1, story.offsetHeight - innerHeight));
+  if (p > 0.02 && !auto) { clearTimeout(autoTimer); auto = AUTO; }   // 기다리는 중에 스크롤하면 바로 이어서
+  target = auto ? AUTO + SCENES.slice(AUTO).filter((sc) => p >= sc.at).length : 0;
+  if (!raf && cur !== target) { last = performance.now(); raf = requestAnimationFrame(step); }
 }
-function step() {
+function step(now) {
   raf = 0;
-  cur = reduce ? target : cur + (target - cur) * SMOOTH;
-  if (Math.abs(target - cur) < 0.0004) cur = target;
+  const dt = Math.min(50, now - last);
+  last = now;
+  if (reduce) cur = target;
+  else {
+    const i = Math.min(SCENES.length - 1, Math.floor(target > cur ? cur : cur - 1e-6));   // 지금 재생 중인 장면
+    const d = dt / SCENES[Math.max(0, i)].ms;
+    cur = target > cur ? Math.min(target, cur + d) : Math.max(target, cur - d);
+  }
   render(cur);
   if (cur !== target) raf = requestAnimationFrame(step);
 }
-function render(p) {
-  const t = seg(SCENE.wipe, p);
+function render(c) {
+  const t = clamp(c);
   drawWipe(t);
   glyphs.forEach((g) => flipEl(g, t, 'transform'));
   navItems.forEach((a) => flipEl(a, t, 'transform'));
-  logo.classList.toggle('past', p > SCENE.wipe[0]);    // 첫 화면을 지나면 괄호 깜빡임 멈춤
+  logo.classList.toggle('past', c > 0);                // 첫 화면을 지나면 괄호 깜빡임 멈춤
   // 괄호: 속이 차 있다가(진한색) → 바탕색으로 비워지며 외곽선만 남고, 양옆으로 벌어짐
-  const k = ease(seg(SCENE.paren, p));
+  const k = ease(clamp(c - 1));
   logo.style.setProperty('--pfill', rgb(mix(DARK, PAPER, k)));
   sides.forEach((s) => { s.style.transform = k ? `translate(${(s.dataset.side * PAREN_GAP / 2 * k).toFixed(2)}px, 0)` : ''; });
   // 로고가 작아지며 위로
-  const s = ease(seg(SCENE.shrink, p));
+  const s = ease(clamp(c - 2));
   logo.style.setProperty('--ls', 1 + (SMALL - 1) * s);
   logo.style.setProperty('--ly', SMALL_Y * s);
-  intro.classList.toggle('show', p >= SCENE.text);
+  intro.classList.toggle('show', c >= TEXT_AT);
   document.documentElement.style.colorScheme = t >= 0.5 ? 'light' : 'dark';
 }
 
@@ -220,7 +238,7 @@ addEventListener('scroll', readScroll, { passive: true });
 addEventListener('resize', () => { layoutWipe(); render(cur); });
 layoutWipe();
 readScroll();
-cur = target;
+if (scrollY > 0) { auto = AUTO; readScroll(); cur = target; }   // 새로고침했을 때 이미 내려가 있으면 그 장면부터
 render(cur);
 
 // 처음 열릴 때 + 로고에 마우스를 올릴 때 다시
@@ -232,3 +250,22 @@ scrambleLogo();
 const forms = document.getElementById('forms');
 forms.querySelectorAll('.forms-grid li').forEach((li, i) => li.style.setProperty('--i', i));
 new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isIntersecting) forms.classList.add('in'); }), { threshold: 0.2 }).observe(forms);
+
+// ── 전시용: 아무도 만지지 않으면 처음 화면으로 ──
+// 마우스·스크롤·키보드·터치가 IDLE_MS 동안 없으면 맨 위로 올라가서 첫 모션(로고 해독 → 전환)부터 다시 재생.
+// 이미 처음 화면에 있으면 그대로 둠. 시간을 바꾸려면 IDLE_MS만 고치면 됨 (2분 = 2 * 60 * 1000)
+const IDLE_MS = 2 * 60 * 1000;
+let idleTimer = 0;
+function goHome() {
+  if (scrollY < 2 && cur <= AUTO) return;        // 이미 처음 화면
+  clearTimeout(autoTimer); autoTimer = 0; auto = 0;
+  scrollTo({ top: 0, behavior: 'instant' });
+  cancelAnimationFrame(raf); raf = 0;
+  target = cur = 0; render(0);                    // 검정 첫 화면으로 되돌림
+  forms.classList.remove('in');                   // 조형도 다시 떠오르게
+  navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
+  scrambleLogo();                                 // 로고 해독 → 끝나면 전환까지 저절로
+}
+function wake() { clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }
+['pointermove', 'pointerdown', 'wheel', 'scroll', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
+wake();

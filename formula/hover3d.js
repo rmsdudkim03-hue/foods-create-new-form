@@ -2,6 +2,9 @@
 // 쓰는 법 (HTML):
 //   <figure class="form3d" data-svg="forms/form_12.svg" data-model="forms/form_12.glb"></figure>
 //   data-model이 없으면 SVG만 보여줌, data-fit이면 SVG 여백을 잘라 모양을 칸에 꽉 채움
+//   data-face="top": SVG가 '위에서 본 모양'인 조형 (트레이처럼). 위에서 내려다보다가 비스듬히 세워지며 돎
+//   data-blend: SVG와 3D 윤곽이 조금 다를 때, 바꿔 끼우지 않고 0.35초 동안 겹쳐서 바꿈
+//   GLB에 모프 타깃이 있으면(unfold_glb.py로 만든 '펼친 → 접힌' 조형) 입체가 되며 모양도 접힘
 //   <script type="module" src="hover3d.js"></script>
 // - SVG는 3D 조형을 '정면'에서 본 실루엣. 3D도 정면에서 시작해서 SVG와 딱 겹친 상태로 바뀜
 // - 3D 질감은 data-material로 고름 (아래 MATERIALS). 색만 바꾸려면 data-color="#ffffff"
@@ -32,6 +35,7 @@ const ZOOM_OUT = 0.2;      // 입체가 되며 위에서 보이는 바닥면만�
 const VOL_MS = 1100;       // 평면 → 입체로 바뀌는 시간 (빛·그늘·원근·기울기가 함께)
 const TILT = 0.45;         // 돌 때 위에서 내려다보는 정도 (라디안. 0이면 정면 그대로)
 const FOV = 14;           // 카메라 화각(도). 작을수록 평면적, 클수록 원근이 강함
+const BLEND_MS = 350;      // data-blend: SVG ↔ 3D 겹쳐 바뀌는 시간
 const PAD = 0.35;          // 3D 무대를 SVG보다 위아래·양옆으로 넓혀서 돌 때 잘리지 않게 (SVG 크기 대비)
 const loader = new GLTFLoader();
 
@@ -94,7 +98,10 @@ async function setup(el) {
   const gltf = await loader.loadAsync(el.dataset.model);
   let geo = null;
   gltf.scene.traverse((o) => { if (o.isMesh && !geo) geo = o.geometry; });
-  geo = mergeVertices(geo);
+  const morph = !!geo.morphAttributes.position?.length;           // 펼친 모양 → 접힌 모양으로 바뀌는 조형
+  if (!morph) geo = mergeVertices(geo);
+  const topView = el.dataset.face === 'top';
+  if (topView) geo.rotateX(Math.PI / 2);                              // 윗면이 카메라(정면)를 보게 눕힘 → SVG(위에서 본 모양)와 같음
   geo.computeVertexNormals();                                     // 매끈하게 보이도록
   geo.computeBoundingBox();
   const bb = geo.boundingBox;
@@ -128,13 +135,37 @@ async function setup(el) {
   pivot.position.z = zc;
   mesh.position.z = flat.position.z = -zc;
 
+  // 기울 때 줄어드는 정도: 깊이(앞뒤) ÷ 높이가 클수록(납작하고 넓을수록) 위에서 보이는 바닥면이 커지니까 더 줄임
+  const depthRatio = (bb.max.y - bb.min.y) / (bb.max.z - bb.min.z);
+  // 위에서 본 조형은 세워지면 높이만큼 커 보이니까 처음 크기에 맞게 줄임
+  const zoom = topView
+    ? 1 - Math.min(1, (bb.max.z - bb.min.z) / ((bb.max.y - bb.min.y) * Math.cos(TILT) + (bb.max.z - bb.min.z) * Math.sin(TILT)))
+    : Math.min(ZOOM_OUT, 0.07 * depthRatio);
+  // 다 기울었을 때 각도: 정면 조형은 위가 살짝 앞으로(TILT), 위에서 본 조형은 누워 있다가 TILT만큼 내려다보는 각도로 세워짐
+  const tiltEnd = topView ? -(Math.PI / 2 - TILT) : TILT;
+  // 돌고 기울 때 조형이 차지하는 범위 (무대가 이보다 좁으면 잘리니까 넓힘)
+  //  돌아가는 축에서 가장 먼 점까지 거리(r) + 높이의 절반(hz)을 기울인 만큼
+  const pos = geo.attributes.position, dpos = morph ? geo.morphAttributes.position[0] : null;
+  let rMax = 0, hMax = 0;
+  for (let i = 0; i < pos.count; i++) for (const k of morph ? [0, 1] : [0]) {
+    const x = pos.getX(i) + (k ? dpos.getX(i) : 0), y = pos.getY(i) + (k ? dpos.getY(i) : 0), z = pos.getZ(i) + (k ? dpos.getZ(i) : 0) - zc;
+    rMax = Math.max(rMax, topView ? Math.hypot(x, z) : Math.hypot(x, y));
+    hMax = Math.max(hMax, Math.abs(topView ? y : z));
+  }
+  const sc = (1 - zoom) * 1.1;                                    // 다 기울었을 때 크기 + 원근으로 가까운 쪽이 커지는 만큼 여유
+  const needX = rMax * sc, needZ = (hMax * Math.cos(TILT) + rMax * Math.sin(TILT)) * sc;
+
   // 4. 카메라: 모델의 가로(X)·높이(Z)가 SVG 속 모양 자리에 딱 맞게
   const w = bb.max.x - bb.min.x;
   const s = box.width / w;                                        // SVG 1칸 = 모델 몇 mm
   const left = -w / 2 - (box.x - vb.x) / s;                      // 화면 왼쪽 끝(SVG viewBox 왼쪽)의 3D 위치
   const zMid = (bb.min.z + bb.max.z) / 2, boxMid = box.y + box.height / 2;
   const top = zMid + (boxMid - vb.y) / s;
-  const px = PAD * vb.width / s, py = PAD * vb.height / s * 2;   // 넓힌 만큼 (세로는 더 넉넉히)
+  // 넓힌 만큼: 기본 PAD(세로는 2배), 돌 때 조형이 더 멀리 나가면 그만큼 더
+  const halfW = vb.width / s / 2, halfH = vb.height / s / 2;
+  const px = Math.max(PAD * vb.width / s, needX + Math.abs(left + halfW) - halfW);
+  const py = Math.max(PAD * vb.height / s * 2, needZ + Math.abs(top - halfH - zc) - halfH);
+  const fx = px * s / vb.width, fy = py * s / vb.height;          // 캔버스를 SVG 칸보다 넓히는 비율
   const fL = left - px, fR = left + vb.width / s + px, fT = top + py, fB = top - vb.height / s - py;
   const W = fR - fL, H = fT - fB, dist = H / 2 / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
   const aim = new THREE.Vector3((fL + fR) / 2, 0, (fT + fB) / 2);
@@ -149,30 +180,31 @@ async function setup(el) {
     for (let i = 0; i < 16; i++) e[i] = a[i] + (b[i] - a[i]) * t;
     cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
   }
-  // 캔버스도 같은 비율로 넓힘 (가로는 양옆 PAD씩, 세로는 위아래 2×PAD씩)
-  Object.assign(canvas.style, { left: `${-PAD * 100}%`, width: `${(1 + 2 * PAD) * 100}%`, top: `${-PAD * 200}%`, height: `${(1 + 4 * PAD) * 100}%` });
+  // 캔버스도 같은 비율로 넓힘
+  Object.assign(canvas.style, { left: `${-fx * 100}%`, width: `${(1 + 2 * fx) * 100}%`, top: `${-fy * 100}%`, height: `${(1 + 2 * fy) * 100}%` });
 
   function resize() {
     const r = el.getBoundingClientRect();
-    renderer.setSize(r.width * (1 + 2 * PAD), r.height * (1 + 4 * PAD), false);
+    renderer.setSize(r.width * (1 + 2 * fx), r.height * (1 + 2 * fy), false);
   }
   resize();
   new ResizeObserver(resize).observe(el);
 
-  // 기울 때 줄어드는 정도: 깊이(앞뒤) ÷ 높이가 클수록(납작하고 넓을수록) 위에서 보이는 바닥면이 커지니까 더 줄임
-  const depthRatio = (bb.max.y - bb.min.y) / (bb.max.z - bb.min.z);
-  const zoom = Math.min(ZOOM_OUT, 0.07 * depthRatio);
+  const blend = 'blend' in el.dataset;
+  const volMs = +el.dataset.ms || VOL_MS;                          // data-ms로 조형마다 입체가 되는 시간을 바꿀 수 있음 (접히는 조형은 천천히)
 
   // 5. 움직임
   //  올리면: SVG와 똑같은 평면 3D로 바꿔 끼움 → 빛·그늘이 서서히 생기며(vol) 원근·기울기가 같이 들어옴 → 돌기 시작
   //  떼면: 정면으로 돌아옴 → 기울기·원근·그늘이 빠지며 평면으로 → SVG로 바꿔 끼움
   const ease = (t) => t * t * (3 - 2 * t);
-  let hover = false, angle = 0, speed = 0, vol = 0, last = 0, running = false;
+  let hover = false, angle = 0, speed = 0, vol = 0, mix = 0, last = 0, running = false;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
-    if (hover) {
-      vol = Math.min(1, vol + dt * 1000 / VOL_MS);
+    if (hover && blend && mix < 1) {
+      mix = Math.min(1, mix + dt * 1000 / BLEND_MS);               // 먼저 SVG → 평면 3D로 겹쳐 바뀜
+    } else if (hover) {
+      vol = Math.min(1, vol + dt * 1000 / volMs);
       if (vol > 0.45) {                                            // 입체가 반쯤 생기면 돌기 시작
         speed += (SPIN - speed) * Math.min(1, dt * 2);
         angle += speed * dt;
@@ -183,18 +215,22 @@ async function setup(el) {
       angle += (target - angle) * Math.min(1, dt * 5);
       if (Math.abs(target - angle) < 0.02) {
         angle = target;
-        vol = Math.max(0, vol - dt * 1000 / VOL_MS);
+        if (vol > 0) vol = Math.max(0, vol - dt * 1000 / volMs);
+        else mix = Math.max(0, mix - dt * 1000 / BLEND_MS);         // 평면이 되면 다시 SVG로 겹쳐 바뀜
       }
     }
     const v = ease(vol);
     flat.material.opacity = 1 - v;                                 // 평면 막이 걷힘
     flat.visible = v < 1;
     lens(v);                                                       // 평면 렌즈 → 원근 렌즈
-    pivot.rotation.set(TILT * v, 0, angle);                        // 앞으로 기울인 뒤 세로축으로 돌림
+    // 기울인 뒤 조형의 세로축으로 돌림 (위에서 본 조형은 누운 상태라 세로축이 Y)
+    pivot.rotation.set(tiltEnd * v, topView ? angle : 0, topView ? 0 : angle);
+    if (morph) mesh.morphTargetInfluences[0] = flat.morphTargetInfluences[0] = v;   // 펼친 판이 접힘
     pivot.scale.setScalar(1 - zoom * v);                           // 기울면 바닥면이 보이며 커지니까 그만큼 살짝 줄임
     renderer.render(scene, cam);
-    const on = hover || vol > 0;
-    el.style.setProperty('--mix', on ? 1 : 0);                     // 3D가 그려진 뒤 SVG와 바꿔 끼움 (모양이 같아서 티가 안 남)
+    const on = hover || vol > 0 || mix > 0;
+    // 3D가 그려진 뒤 SVG와 바꿔 끼움 (모양이 같아서 티가 안 남). data-blend면 겹쳐서 천천히
+    el.style.setProperty('--mix', blend ? mix : on ? 1 : 0);
     if (on) requestAnimationFrame(frame);
     else running = false;
   }

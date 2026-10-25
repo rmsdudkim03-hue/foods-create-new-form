@@ -55,7 +55,7 @@ a { color: inherit; text-decoration: none; }
 /* ── 1. 첫 화면 → 소개 ──
    .story 높이만큼 스크롤하는 동안 .stage가 화면에 붙어 있고, 스크롤 진행도에 따라 장면이 바뀜.
    길이를 바꾸면 장면이 빨리/천천히 넘어감 (main.js의 SCENE 구간과 함께) */
-.story { position: relative; height: 380vh; }
+.story { position: relative; height: 200vh; }
 .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 .wipe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
@@ -117,22 +117,16 @@ a { color: inherit; text-decoration: none; }
 
 /* ── 2. 조형 8개 (피그마 Frame 7) ── */
 .forms { position: relative; height: max(100vh, calc(1088 * var(--u))); background: var(--paper); color: #000; }
-.forms-title, .forms .no {
-  font: 600 calc(20 * var(--u)) / calc(26 * var(--u)) 'Bitcount Grid Single', ui-monospace, monospace;
-  font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0;
-}
-.forms-title { position: absolute; left: 0; right: 0; top: calc(160 * var(--u)); text-align: center; font-size: calc(32 * var(--u)); }
 .forms-grid { list-style: none; }
-.forms .no { position: absolute; left: calc(var(--lx) * var(--u)); top: calc(var(--ly) * var(--u)); }
 .forms .form3d { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); }
 /* 화면에 들어오면 차례로 떠오름 */
-.forms .no, .forms .form3d, .forms-title { opacity: 0; translate: 0 calc(24 * var(--u)); transition: opacity .8s ease, translate 1s cubic-bezier(.2, .8, .2, 1); }
-.forms.in .no, .forms.in .form3d, .forms.in .forms-title { opacity: 1; translate: 0 0; }
+.forms .form3d { opacity: 0; translate: 0 calc(24 * var(--u)); transition: opacity .8s ease, translate 1s cubic-bezier(.2, .8, .2, 1); }
+.forms.in .form3d { opacity: 1; translate: 0 0; }
 .forms-grid li:nth-child(n) > * { transition-delay: calc(var(--i, 0) * 70ms); }
 
 @media (prefers-reduced-motion: reduce) {
   .nav .ch, .intro .ch, .intro .ln { transform: none; transition: none; }
-  .forms .no, .forms .form3d, .forms-title { translate: none; transition: opacity .3s; }
+  .forms .form3d { translate: none; transition: opacity .3s; }
 }
 
 /* 휴대폰 세로 화면: 로고를 화면 폭에 맞게 키움 */
