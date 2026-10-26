@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FORMULA — Archive</title>
-<meta name="description" content="매일의 음식 두 개가 공식을 지나 조형이 된 기록">
+<meta name="description" content="매일 실험한 음식 두 개의 기록">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
@@ -25,13 +25,13 @@ BY GY.KIM</a>
 </nav>
 
 <!-- 카드 줄 (ramp.design처럼): 가운데 카드는 정면, 양옆으로 갈수록 3D로 돌아감
-     휠·끌기·화살표로 넘기고, 가운데 카드를 누르면 뒤집혀 두 음식의 특징 10개가 보임
-     카드는 archive.js의 CARDS 자료로 채움 -->
+     카드 하나 = 실험한 음식 짝: 앞면 음식 A, 뒷면 음식 B. 가운데 카드를 누르면 뒤집힘
+     카드는 foods.js의 FOODS 자료로 채움 -->
 <main class="arc" id="arc">
   <div class="arc-hint">
-    <p><span class="bit">Scroll or drag to browse · Click a card to flip</span><br>넘겨 보고, 카드를 누르면 뒤집혀요</p>
+    <p><span class="bit">Scroll or drag to browse · Click a card to flip</span><br>넘겨 보고, 카드를 누르면 다른 음식으로 뒤집혀요</p>
   </div>
-  <div class="arc-stage" id="arcStage" aria-roledescription="carousel" aria-label="조형 아카이브"></div>
+  <div class="arc-stage" id="arcStage" aria-roledescription="carousel" aria-label="실험 아카이브"></div>
   <div class="arc-cap">
     <p class="arc-no bit" id="arcNo">N 01</p>
     <p class="arc-title" id="arcTitle"></p>
@@ -39,6 +39,7 @@ BY GY.KIM</a>
     <p class="arc-count bit" id="arcCount">01 / 08</p>
   </div>
 </main>
+<script src="foods.js"></script>
 <script src="archive.js"></script>
 </body>
 </html>
