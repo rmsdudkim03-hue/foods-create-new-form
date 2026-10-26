@@ -248,7 +248,7 @@ async function setup(el) {
 // 3D 조형(8개, 약 20MB)은 첫 화면 모션이 끝난 뒤에 하나씩 불러옴
 // (처음 열자마자 한꺼번에 불러오면 로고 해독 모션이 버벅임)
 // 시작: 첫 화면 모션이 끝날 때쯤(LOAD_AFTER) 또는 조형 화면이 가까워지면(스크롤이 빠를 때) 중 먼저 오는 쪽
-const LOAD_AFTER = 6500;   // ms
+const LOAD_AFTER = 12000;   // ms
 let loading = false;
 async function loadAll() {
   if (loading) return;

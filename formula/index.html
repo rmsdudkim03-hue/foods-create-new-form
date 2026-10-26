@@ -34,6 +34,8 @@ BY GY.KIM</a>
 
 <!-- 1. 첫 화면 → 소개: 스크롤하는 동안 화면은 고정(sticky)되고 장면만 바뀜 (main.js)
      검정 화면 → 괄호 칸 전환(흰 화면) → 괄호 ( ) 가 외곽선이 되며 넓어짐 → 로고가 작아지며 소개글 -->
+<!-- 맨 처음 이미지 흐름 (prelude.js): 음식 사진 카드가 날아와 쌓이고 → 한 장이 커지며 걷힘 → 로고 -->
+<div class="prelude" id="prelude" aria-hidden="true" hidden></div>
 <section class="story" id="story">
   <div class="stage">
     <canvas class="wipe" id="wipe" aria-hidden="true"></canvas>
@@ -169,6 +171,8 @@ AI observes and suggests; choosing, interpreting, and completing are left to peo
   </ol>
   </div>
 </section>
+<script src="foods.js"></script>
+<script src="prelude.js"></script>
 <script src="lock.js"></script>
 <script src="main.js"></script>
 <script src="overview.js"></script>
