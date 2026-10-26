@@ -35,8 +35,11 @@
 .h-mix.a { left: calc(746 * var(--u)); }
 .h-mix.b { left: calc(1024 * var(--u)); }
 
-/* Create form: 완성 조형 (피그마 N 01 자리 기준 칸에 맞춤) */
-.hist .pr-obj { left: calc(710 * var(--u)); top: calc(400 * var(--u)); width: calc(500 * var(--u)); height: calc(350 * var(--u)); }
+/* Create form: 완성 조형 3D (피그마 N 01 자리 기준 칸 710,400 · 500×350 안에 모양 비율대로 가운데)
+   --ar(가로÷세로)은 hover3d.js가 SVG 모양에서 재서 넣음 */
+.hist .pr-obj { --bw: 500; --bh: 350; --fw: min(var(--bw), calc(var(--bh) * var(--ar, 1.43))); --fh: calc(var(--fw) / var(--ar, 1.43));
+  left: calc((710 + (var(--bw) - var(--fw)) / 2) * var(--u)); top: calc((400 + (var(--bh) - var(--fh)) / 2) * var(--u)); width: calc(var(--fw) * var(--u)); height: calc(var(--fh) * var(--u)); }
+.hist .pr-obj.form3d { cursor: default; }
 
 @media (max-width: 700px) {
   .h-btn { top: auto; bottom: 64px; }

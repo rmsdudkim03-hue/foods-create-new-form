@@ -5,6 +5,7 @@
 //   data-face="top": SVG가 '위에서 본 모양'인 조형 (트레이처럼). 위에서 내려다보다가 비스듬히 세워지며 돎
 //   data-blend: SVG와 3D 윤곽이 조금 다를 때, 바꿔 끼우지 않고 0.35초 동안 겹쳐서 바꿈
 //   GLB에 모프 타깃이 있으면(unfold_glb.py로 만든 '펼친 → 접힌' 조형) 입체가 되며 모양도 접힘
+//   data-auto: 마우스 없이 바로 입체가 되어 계속 돎 (히스토리 마지막 장). data-spin="0.35"로 빠르기(1초에 몇 라디안)
 //   <script type="module" src="hover3d.js"></script>
 // - SVG는 3D 조형을 '정면'에서 본 실루엣. 3D도 정면에서 시작해서 SVG와 딱 겹친 상태로 바뀜
 // - 3D 질감은 data-material로 고름 (아래 MATERIALS). 색만 바꾸려면 data-color="#ffffff"
@@ -53,6 +54,7 @@ async function setup(el) {
   const box = shape.getBBox();                                   // SVG 안에서 모양이 차지하는 칸
   // data-fit: SVG 여백을 잘라 모양이 칸(figure)에 꽉 차게 (피그마에서 잰 조형 크기에 그대로 맞출 때)
   if ('fit' in el.dataset) svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
+  el.style.setProperty('--ar', (box.width / box.height).toFixed(4));   // 칸 비율을 모양에 맞출 때 씀 (히스토리)
   // 3D 파일이 아직 없는 조형은 평면 SVG만 (원래 색 그대로)
   if (!el.dataset.model) { el.classList.add('ready'); return; }
   const svgColor = shape.getAttribute('fill') || '#ffffff';
@@ -191,7 +193,9 @@ async function setup(el) {
   new ResizeObserver(resize).observe(el);
 
   const blend = 'blend' in el.dataset;
-  const volMs = +el.dataset.ms || VOL_MS;                          // data-ms로 조형마다 입체가 되는 시간을 바꿀 수 있음 (접히는 조형은 천천히)
+  const volMs = +el.dataset.ms || VOL_MS;
+  const auto = 'auto' in el.dataset;
+  const spin = SPIN && el.dataset.spin ? +el.dataset.spin : SPIN;                          // data-ms로 조형마다 입체가 되는 시간을 바꿀 수 있음 (접히는 조형은 천천히)
 
   // 5. 움직임
   //  올리면: SVG와 똑같은 평면 3D로 바꿔 끼움 → 빛·그늘이 서서히 생기며(vol) 원근·기울기가 같이 들어옴 → 돌기 시작
@@ -206,7 +210,7 @@ async function setup(el) {
     } else if (hover) {
       vol = Math.min(1, vol + dt * 1000 / volMs);
       if (vol > 0.45) {                                            // 입체가 반쯤 생기면 돌기 시작
-        speed += (SPIN - speed) * Math.min(1, dt * 2);
+        speed += (spin - speed) * Math.min(1, dt * 2);
         angle += speed * dt;
       }
     } else {
@@ -240,8 +244,11 @@ async function setup(el) {
     last = performance.now();
     requestAnimationFrame(frame);
   }
-  el.addEventListener('pointerenter', () => { hover = true; start(); });
-  el.addEventListener('pointerleave', () => { hover = false; start(); });
+  if (auto) { hover = true; start(); }                             // 저절로: 바로 입체가 되어 계속 돎
+  else {
+    el.addEventListener('pointerenter', () => { hover = true; start(); });
+    el.addEventListener('pointerleave', () => { hover = false; start(); });
+  }
   el.classList.add('ready');
 }
 
