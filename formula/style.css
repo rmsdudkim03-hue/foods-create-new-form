@@ -234,7 +234,8 @@ a { color: inherit; text-decoration: none; }
 .pr-stage { position: sticky; top: 0; height: 100vh; overflow: hidden; }
 .pr-frame { position: absolute; left: 50%; top: 50%; width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); translate: -50% -50%; }
 .pr-title, .pr-name { position: absolute; left: 0; right: 0; text-align: center; font: 600 calc(24 * var(--u))/1.6 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; }
-.pr-title { top: calc(190 * var(--u)); }
+.pr-title { top: calc(190 * var(--u)); white-space: pre; opacity: 0; transition: opacity .3s; }
+.pr-title.in { opacity: 1; }
 .pr-name { top: calc(258 * var(--u)); }
 .pr-sub { position: absolute; left: 0; right: 0; top: calc(299 * var(--u)); text-align: center; font: 400 max(10px, calc(13 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: #9a968f; }
 .pr-ko { position: absolute; left: 0; right: 0; top: calc(853 * var(--u)); text-align: center; font: 600 max(12px, calc(16 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
@@ -243,6 +244,12 @@ a { color: inherit; text-decoration: none; }
 .pr-paren { position: absolute; top: calc(315 * var(--u)); width: calc(165 * var(--u)); height: calc(520 * var(--u)); color: var(--ink); overflow: visible; }
 .pr-paren.l { left: calc(364 * var(--u)); }
 .pr-paren.r { left: calc(1393 * var(--u)); scale: -1 1; }
+/* 장이 바뀔 때 괄호가 숨 쉬듯 벌어졌다 오므라듦 (process.js가 .breathe를 다시 붙임). 벌어지는 정도는 BREATHE */
+.pr-sec { --breathe: calc(46 * var(--u)); }
+.pr-paren.l.breathe { animation: pr-breathe-l 1s cubic-bezier(.45, 0, .2, 1); }
+.pr-paren.r.breathe { animation: pr-breathe-r 1s cubic-bezier(.45, 0, .2, 1); }
+@keyframes pr-breathe-l { 0%, 100% { translate: 0 0; } 42% { translate: calc(var(--breathe) * -1) 0; } }
+@keyframes pr-breathe-r { 0%, 100% { translate: 0 0; } 42% { translate: var(--breathe) 0; } }
 /* 단계 그림: 점선 칸(사진·조형 자리), 구슬 아이콘, 오브제 */
 .pr-box { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u));
   border: 1px dashed #c9c5bd; }
