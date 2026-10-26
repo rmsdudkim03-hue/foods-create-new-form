@@ -155,3 +155,42 @@ a { color: inherit; text-decoration: none; }
 .form-link:hover .form-cap, .form-link:focus-visible .form-cap { opacity: 1; translate: 0 0; }
 /* 마우스가 없는 기기(터치)는 늘 보임 */
 @media (hover: none) { .forms.in .form-cap { opacity: 1; translate: 0 0; } }
+
+/* ── 구슬 사이드 바 (rail.js) — 메인·ABOUT·히스토리 공통 ──
+   색은 배경과 반대로 자동으로 바뀜(mix-blend-mode: difference): 어두운 화면에선 밝게, 흰 화면에선 진하게 */
+.rail {
+  --b: max(9px, calc(12 * var(--u)));     /* 구슬 크기 */
+  --gap: max(16px, calc(26 * var(--u)));  /* 구슬 사이 */
+  position: fixed; right: max(14px, calc(44 * var(--u))); top: 50%; translate: 0 -50%; z-index: 11;
+  display: flex; flex-direction: column; align-items: center;
+  color: #fafaf8; mix-blend-mode: difference;
+}
+.rail-b { position: relative; width: var(--b); height: var(--b); padding: 0; border: 1.3px solid currentColor; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; transition: background .3s, scale .3s; }
+.rail-b::before { content: ''; position: absolute; inset: -8px; }   /* 누르기 쉽게 */
+.rail-b.on { background: currentColor; }
+.rail-b.cur { scale: 1.35; }
+/* 마우스를 올리면 장면 이름 */
+.rail-b::after {
+  content: attr(data-label); position: absolute; right: calc(100% + 12px); top: 50%; translate: 4px -50%;
+  font: 600 max(11px, calc(13 * var(--u))) 'DM Sans', sans-serif; letter-spacing: .02em; white-space: nowrap;
+  opacity: 0; transition: opacity .25s, translate .25s; pointer-events: none;
+}
+.rail-b:hover::after, .rail-b:focus-visible::after { opacity: 1; translate: 0 -50%; }
+.rail-b:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+/* 구슬 사이 선: 흐린 선 위에 진한 선이 스크롤만큼 차오름 */
+.rail-seg { position: relative; display: block; width: 1px; height: var(--gap); }
+.rail-seg::before { content: ''; position: absolute; inset: 0; background: currentColor; opacity: .3; }
+.rail-seg > i { position: absolute; inset: 0; background: currentColor; transform-origin: top; transform: scaleY(0); }
+/* 맨 위에서만 보이는 'SCROLL ↓' (처음 열리고 조금 뒤에 나타남) */
+.rail-hint {
+  position: absolute; top: calc(100% + 18px); left: 50%; translate: -50% 0;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  font: 600 max(10px, calc(12 * var(--u))) 'DM Sans', sans-serif; letter-spacing: .08em;
+  opacity: 0; transition: opacity .4s; pointer-events: none;
+}
+.rail-hint b { font: inherit; writing-mode: vertical-rl; }
+.rail-hint svg { animation: rail-bob 1.4s ease-in-out infinite; }
+.rail.top .rail-hint { opacity: 1; transition: opacity .8s 2.5s; }
+@keyframes rail-bob { 50% { translate: 0 5px; } }
+@media (prefers-reduced-motion: reduce) { .rail-hint svg { animation: none; } }
+@media (max-aspect-ratio: 1/1) { .rail { right: 10px; } }
