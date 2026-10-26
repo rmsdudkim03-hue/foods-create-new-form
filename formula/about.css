@@ -1,0 +1,65 @@
+/* ABOUT 페이지 (Why a Formula). 어두운 배경, 장마다 한 화면. 크기는 피그마 px × --u (style.css와 같음) */
+.about-page { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 400; }
+.about { --sub: #a8a39a; --mute: #6f6b64; --line: #3a3835; }
+.bit { font-family: 'Bitcount Grid Single', ui-monospace, monospace; font-weight: 600; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; }
+.about section { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: calc(160 * var(--u)) 24px; gap: calc(28 * var(--u)); }
+.nav .about[aria-current] { text-decoration: underline; text-underline-offset: 6px; }
+
+/* 0. 제목 */
+.a-hero h1 { font-size: calc(96 * var(--u)); line-height: 1; }
+.a-sub { font-size: max(14px, calc(20 * var(--u))); color: var(--sub); }
+.a-scroll { position: absolute; bottom: calc(60 * var(--u)); font-size: max(14px, calc(20 * var(--u))); color: var(--mute); }
+.a-hero { position: relative; }
+
+/* 장 공통 */
+.a-num { font-size: max(12px, calc(16 * var(--u))); color: #ec5b3b; letter-spacing: .02em; }
+.a-lead { font-size: max(20px, calc(40 * var(--u))); font-weight: 500; line-height: 1.45; word-break: keep-all; }
+.a-body { font-size: max(15px, calc(20 * var(--u))); line-height: 1.8; color: var(--text); word-break: keep-all; }
+.a-en { font: 400 max(12px, calc(15 * var(--u)))/1.7 'DM Sans', sans-serif; color: var(--mute); }
+
+/* 2. 사전처럼 풀어 쓴 두 단어 */
+.words { display: grid; grid-template-columns: repeat(2, minmax(0, calc(480 * var(--u)))); gap: calc(40 * var(--u)); margin: calc(30 * var(--u)) 0; }
+.word { text-align: left; border-top: 1px solid var(--text); padding-top: calc(24 * var(--u)); }
+.word h2 { font-size: max(26px, calc(56 * var(--u))); font-weight: 600; }
+.word h2 span { font: 400 max(12px, calc(18 * var(--u))) 'DM Sans', sans-serif; color: var(--mute); margin-left: calc(10 * var(--u)); vertical-align: middle; }
+.word .def { font-size: max(14px, calc(18 * var(--u))); color: var(--sub); margin-top: calc(16 * var(--u)); }
+.word .now { font-size: max(15px, calc(20 * var(--u))); margin-top: calc(12 * var(--u)); }
+
+/* 3. 실제 대화 (캡처 대신 글자로 다시 씀) */
+.chat { word-break: keep-all; width: min(100%, calc(760 * var(--u))); min-width: min(100%, 320px); background: #fafaf8; color: #1e1d1b; border-radius: calc(14 * var(--u)); padding: calc(28 * var(--u)) calc(32 * var(--u)); text-align: left; font-size: max(13px, calc(16 * var(--u))); line-height: 1.65; margin: calc(20 * var(--u)) 0; }
+.chat time { display: block; text-align: center; font-size: max(11px, calc(13 * var(--u))); color: #9a968f; }
+.chat .q { margin: calc(16 * var(--u)) 0 calc(22 * var(--u)) auto; width: fit-content; max-width: 78%; background: #e8eefb; border-radius: calc(16 * var(--u)); padding: calc(12 * var(--u)) calc(18 * var(--u)); }
+.chat .r b { font-weight: 700; }
+
+/* 4. 누가 무엇을 (○ AI / ● 사람) */
+.roles { display: flex; gap: calc(120 * var(--u)); margin: calc(30 * var(--u)) 0; }
+.role { display: flex; flex-direction: column; align-items: center; gap: calc(14 * var(--u)); }
+.role b { font-size: max(16px, calc(28 * var(--u))); }
+.role p { font-size: max(15px, calc(22 * var(--u))); line-height: 1.5; }
+.dot { display: inline-block; width: calc(16 * var(--u)); height: calc(16 * var(--u)); min-width: 10px; min-height: 10px; border-radius: 50%; border: 1.5px solid var(--text); vertical-align: middle; }
+.dot.on { background: var(--text); }
+
+/* 5. 공식의 단계 + NO.(FOOD) */
+.steps { list-style: none; display: flex; align-items: center; gap: calc(18 * var(--u)); font-size: max(13px, calc(18 * var(--u))); margin-top: calc(30 * var(--u)); flex-wrap: wrap; justify-content: center; }
+.steps li { display: flex; align-items: center; gap: calc(10 * var(--u)); }
+.steps li + li::before { content: '→'; color: var(--mute); margin-right: calc(8 * var(--u)); }
+.legend { font-size: max(12px, calc(14 * var(--u))); color: var(--sub); }
+.legend .dot { width: calc(11 * var(--u)); height: calc(11 * var(--u)); min-width: 8px; min-height: 8px; margin: 0 calc(6 * var(--u)) 0 calc(14 * var(--u)); }
+.a-food { font-size: calc(72 * var(--u)); margin-top: calc(40 * var(--u)); }
+.a-go { font: 600 max(13px, calc(18 * var(--u))) 'DM Sans', sans-serif; border-bottom: 1px solid currentColor; padding-bottom: 4px; margin-top: calc(10 * var(--u)); }
+.a-go:hover { color: #fff; }
+
+/* 화면에 들어오면 차례로 떠오름 (about.js가 .in을 붙임) */
+.rv { opacity: 0; translate: 0 calc(24 * var(--u)); transition: opacity .9s ease, translate 1s cubic-bezier(.2, .8, .2, 1); transition-delay: calc(var(--i, 0) * 110ms); }
+.rv.in { opacity: 1; translate: 0 0; }
+@media (prefers-reduced-motion: reduce) { .rv { translate: none; transition: opacity .3s; } }
+
+/* 휴대폰 세로 */
+@media (max-aspect-ratio: 1/1) {
+  .about { --u: calc(100vw / 900); }
+  .about section { padding: 120px 16px; gap: 20px; }
+  .a-hero h1 { font-size: 44px; }
+  .a-food { font-size: 40px; }
+  .words { grid-template-columns: 1fr; width: 100%; }
+  .roles { gap: 48px; }
+}
