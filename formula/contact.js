@@ -1,9 +1,9 @@
-// CONTACT: 들어오면 공식 한 줄이 로고처럼 왼쪽부터 해독되고(text scramble), 괄호가 숨 쉬듯 한 번 벌어짐 → 연락처가 차례로 떠오름
+// CONTACT: 들어오면 이름이 로고처럼 왼쪽부터 해독되고(text scramble), 괄호가 숨 쉬듯 한 번 벌어짐 → 연락처가 차례로 떠오름
 const frame = document.querySelector('.c-frame');
-const el = document.getElementById('formula');
+const el = document.getElementById('name');
 const TEXT = el.textContent;
-const MS = 1100;   // 해독에 걸리는 시간
-const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ=×';
+const MS = 900;    // 해독에 걸리는 시간
+const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function decode() {
@@ -30,7 +30,7 @@ requestAnimationFrame(() => {
   decode();
   setTimeout(breathe, reduce ? 0 : 500);
 });
-// 공식에 마우스를 올리면 다시 해독
+// 이름에 마우스를 올리면 다시 해독
 el.addEventListener('mouseenter', () => { decode(); breathe(); });
 
 // 전시용: 2분 무조작 → 첫 화면
