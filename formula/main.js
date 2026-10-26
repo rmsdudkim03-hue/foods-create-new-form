@@ -223,7 +223,7 @@ function readScroll() {
   const p = clamp(-r.top / Math.max(1, story.offsetHeight - innerHeight));
   const before = target;
   target = auto ? AUTO + SCENES.slice(AUTO).filter((sc) => p >= sc.at).length : 0;
-  if (target > before && target > AUTO && LOCK) LOCK.hold('scene', scrollY);   // 장면 3 재생 중엔 붙잡음
+  if (target > before && target > AUTO && LOCK && r.bottom > innerHeight * 0.5) LOCK.hold('scene', scrollY);   // 장면 3 재생 중엔 붙잡음 (첫 화면에 있을 때만)
   if (!raf && cur !== target) { last = performance.now(); raf = requestAnimationFrame(step); }
 }
 function step(now) {

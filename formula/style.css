@@ -40,10 +40,10 @@ a { color: inherit; text-decoration: none; }
 }
 .nav a.light { color: var(--text-light); }   /* 흰 화면으로 바뀐 뒤 */
 .nav .brand { left: calc(46 * var(--u)); top: calc(38 * var(--u)); }
-.nav .archive { left: calc(301 * var(--u)); top: calc(39 * var(--u)); }
-.nav .process { left: calc(1531 * var(--u)); top: calc(44 * var(--u)); }
-.nav .about { right: calc(37 * var(--u)); top: calc(46 * var(--u)); }
-.nav .contact { right: calc(37 * var(--u)); top: calc(78 * var(--u)); }
+.nav .archive { left: calc(301 * var(--u)); top: calc(38 * var(--u)); }
+.nav .process { left: calc(1531 * var(--u)); top: calc(38 * var(--u)); }
+.nav .about { right: calc(37 * var(--u)); top: calc(38 * var(--u)); }
+.nav .contact { right: calc(37 * var(--u)); top: calc(64 * var(--u)); }
 .nav a:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
 
 /* 메뉴 글자 솟아오르기: 글자마다 span(.ch), 줄(.line)은 넘치는 부분을 가려서 아래에서 올라오는 것처럼 보임 */
@@ -89,6 +89,7 @@ a { color: inherit; text-decoration: none; }
   top: calc(564 * var(--u));
   font: 600 calc(24 * var(--u)) / calc(26 * var(--u)) 'Bitcount Grid Single', ui-monospace, monospace;
   font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0;
+  letter-spacing: .05em;   /* 피그마 자간 5% */
   color: #000;
 }
 .intro .ko {
@@ -151,7 +152,7 @@ a { color: inherit; text-decoration: none; }
 /* 조형 화면 안내 (피그마 완성본 Frame 7): 괄호 ( ) 사이에 영어(Bitcount)와 한글 두 줄 */
 .forms-hint { position: absolute; left: calc(768 * var(--u)); width: calc(388 * var(--u)); top: calc(123 * var(--u)); height: calc(49 * var(--u)); display: flex; align-items: center; justify-content: space-between; color: var(--ink); opacity: 0; transition: opacity .8s ease .6s; }
 .forms-hint p { text-align: center; line-height: 1.5; font-size: max(11px, calc(15 * var(--u))); }
-.forms-hint .en { display: block; font-family: 'Bitcount Grid Single', monospace; font-weight: 600; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; }
+.forms-hint .en { display: block; font-family: 'Bitcount Grid Single', monospace; font-weight: 600; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; }
 .forms-hint .ko { display: block; font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 400; }
 .hint-paren { width: calc(16 * var(--u)); height: calc(49 * var(--u)); flex: none; }
 .hint-paren.r { scale: -1 1; }
@@ -226,6 +227,36 @@ a { color: inherit; text-decoration: none; }
   .ov-stop { left: auto; right: 50px; width: 13px; height: 13px; }
   .ov-mic { left: auto; right: 18px; width: 14px; height: 22px; }
 }
+
+/* ── HOW THE FORMULA WORKS (피그마 완성본 PROCESS 다섯 장) — process.js가 지금 장(.on)을 정함 ──
+   조형 화면처럼 1920×1080 판을 화면 한 장에 꼭 맞게 가운데에 */
+.process { position: relative; height: 420vh; background: var(--paper); color: var(--ink); --u: min(calc(100vw / 1920), calc(100vh / 1080)); }
+.pr-stage { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+.pr-frame { position: absolute; left: 50%; top: 50%; width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); translate: -50% -50%; }
+.pr-title, .pr-name { position: absolute; left: 0; right: 0; text-align: center; font: 600 calc(24 * var(--u))/1.6 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; }
+.pr-title { top: calc(190 * var(--u)); }
+.pr-name { top: calc(258 * var(--u)); }
+.pr-sub { position: absolute; left: 0; right: 0; top: calc(299 * var(--u)); text-align: center; font: 400 max(10px, calc(13 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: #9a968f; }
+.pr-ko { position: absolute; left: 0; right: 0; top: calc(853 * var(--u)); text-align: center; font: 600 max(12px, calc(16 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+.pr-en { position: absolute; left: 0; right: 0; top: calc(885 * var(--u)); text-align: center; font: 400 max(12px, calc(16 * var(--u)))/1.6 'DM Sans', sans-serif; color: #9a968f; }
+/* 큰 괄호 ( ) — 오른쪽은 뒤집어서 */
+.pr-paren { position: absolute; top: calc(315 * var(--u)); width: calc(165 * var(--u)); height: calc(520 * var(--u)); color: var(--ink); overflow: visible; }
+.pr-paren.l { left: calc(364 * var(--u)); }
+.pr-paren.r { left: calc(1393 * var(--u)); scale: -1 1; }
+/* 단계 그림: 점선 칸(사진·조형 자리), 구슬 아이콘, 오브제 */
+.pr-box { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u));
+  border: 1px dashed #c9c5bd; }
+.pr-ic { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--u)); height: calc(var(--w) * var(--u)); }
+.pr-plus { position: absolute; left: calc(921 * var(--u)); width: calc(77 * var(--u)); top: calc(548 * var(--u)); text-align: center; font: 400 calc(96 * var(--u))/1 'DM Sans', sans-serif; translate: 0 -30%; }
+.pr-obj { position: absolute; left: calc(769 * var(--u)); top: calc(466 * var(--u)); width: calc(383 * var(--u)); height: calc(204 * var(--u)); object-fit: contain; }
+/* 장 바뀜: 지금 장만 보이고, 살짝 떠오르며 바뀜 */
+.pr-step { position: absolute; inset: 0; opacity: 0; translate: 0 calc(16 * var(--u)); transition: opacity .55s ease, translate .7s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
+.pr-step.on { opacity: 1; translate: 0 0; }
+/* 진행 점 ●○○○○ */
+.pr-dots { position: absolute; left: calc(916 * var(--u)); top: calc(960 * var(--u)); display: flex; gap: calc(12 * var(--u)); list-style: none; }
+.pr-dots li { width: calc(8 * var(--u)); height: calc(8 * var(--u)); min-width: 6px; min-height: 6px; border: 1px solid var(--ink); border-radius: 50%; transition: background .3s; }
+.pr-dots li.on { background: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .pr-step { translate: none; transition: opacity .2s; } }
 
 /* ── 구슬 사이드 바 (rail.js) — 메인·ABOUT·히스토리 공통 ──
    색은 배경과 반대로 자동으로 바뀜(mix-blend-mode: difference): 어두운 화면에선 밝게, 흰 화면에선 진하게 */
