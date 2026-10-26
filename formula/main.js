@@ -1,5 +1,5 @@
 // FORMULA 모션
-//  1) 첫 화면: 로고 글자 해독(text scramble) + 괄호 깜빡임, 메뉴 글자 솟아오르기
+//  1) 첫 화면: 로고 글자 해독(text scramble), 메뉴 글자 솟아오르기
 //  2) 스크롤하면 (화면은 고정된 채 장면만 바뀜)
 //     검정 → 흰 화면 전환: 칸마다 구슬이 무작위로 찍히고(QR처럼) → 대각선 물결을 따라 칸이 괄호 ( ) 모양으로 벌어지며 흰색으로
 //                         로고 글자·메뉴도 물결이 지나갈 때 가로로 한 번 뒤집히며 진한 색으로
@@ -19,7 +19,7 @@ const SCENES = [
   { at: 0.12, ms: 1300 },   // 3. 로고가 작아지며 위로 + 소개글 (스크롤)
 ];
 const AUTO = 2;           // 저절로 재생되는 장면 수
-const AUTO_DELAY = 1200;  // 로고 해독이 끝나고(괄호가 깜빡이는 동안) 전환이 시작되기까지 기다리는 시간(ms)
+const AUTO_DELAY = 1200;  // 로고 해독이 끝나고 전환이 시작되기까지 기다리는 시간(ms)
 const TEXT_AT = 2.5;      // 3번 장면이 절반쯤 지나면 소개글이 떠오름
 const PAREN_GAP = 26.1;   // 괄호가 넓어지는 만큼 (로고 SVG 단위. 피그마 Frame 5에서 42px)
 const SMALL = 0.585;      // 작아진 로고 크기 (피그마 Frame 6 로고 폭 648px)
@@ -40,13 +40,34 @@ const KEYS = slots.map((s) => s.dataset.k);
 // 글자마다 원래 칸 크기 (무작위 글자를 넣을 때 그 글자 크기로 보여주기 위해)
 const BOX = Object.fromEntries(slots.map((s) => [s.dataset.k, s.getAttribute('viewBox')]));
 
-function show(slot, k, scrambled) {
-  const use = slot.firstElementChild;
-  if (use.getAttribute('href') !== `#g-${k}`) {
+// 칸마다 8글자를 미리 다 넣어 두고(안 보이게) 보여줄 글자만 켬.
+// (예전엔 바꿀 때마다 <use> 주소·viewBox를 갈아 끼워서 브라우저가 매번 다시 계산 → 버벅임)
+const NS = 'http://www.w3.org/2000/svg';
+slots.forEach((slot) => {
+  const [x, y, w, h] = BOX[slot.dataset.k].split(' ');
+  slot.replaceChildren();
+  slot._g = {};
+  KEYS.forEach((k) => {
+    const inner = document.createElementNS(NS, 'svg');
+    Object.entries({ x, y, width: w, height: h, viewBox: BOX[k], preserveAspectRatio: 'xMidYMid meet', overflow: 'visible' })
+      .forEach(([a, v]) => inner.setAttribute(a, v));
+    const use = document.createElementNS(NS, 'use');
     use.setAttribute('href', `#g-${k}`);
-    slot.setAttribute('viewBox', BOX[k]);
+    inner.appendChild(use);
+    inner.style.display = k === slot.dataset.k ? '' : 'none';
+    slot.appendChild(inner);
+    slot._g[k] = inner;
+  });
+  slot._on = slot.dataset.k;
+});
+
+function show(slot, k, scrambled) {
+  if (slot._on !== k) {
+    slot._g[slot._on].style.display = 'none';
+    slot._g[k].style.display = '';
+    slot._on = k;
   }
-  slot.classList.toggle('r', scrambled);
+  if (slot.classList.contains('r') !== scrambled) slot.classList.toggle('r', scrambled);
 }
 
 let logoRun = 0;
@@ -54,7 +75,6 @@ function scrambleLogo() {
   if (reduce) { startAuto(); return; }
   if (cur > 0) return;   // 첫 화면에서만
   const run = ++logoRun;
-  logo.classList.remove('done');     // 섞이는 동안은 깜빡임 멈춤
   const start = performance.now();
   let frame = 0;
   (function tick(now) {
@@ -73,7 +93,6 @@ function scrambleLogo() {
     if (k < 1.05 && cur <= 0) requestAnimationFrame(tick);
     else {
       slots.forEach((s) => show(s, s.dataset.k, false));
-      logo.classList.add('done');      // 다 맞춰지면 괄호 깜빡임 시작
       startAuto();
     }
   })(start);
@@ -221,7 +240,6 @@ function render(c) {
   drawWipe(t);
   glyphs.forEach((g) => flipEl(g, t, 'transform'));
   navItems.forEach((a) => flipEl(a, t, 'transform'));
-  logo.classList.toggle('past', c > 0);                // 첫 화면을 지나면 괄호 깜빡임 멈춤
   // 괄호: 속이 차 있다가(진한색) → 바탕색으로 비워지며 외곽선만 남고, 양옆으로 벌어짐
   const k = ease(clamp(c - 1));
   logo.style.setProperty('--pfill', rgb(mix(DARK, PAPER, k)));

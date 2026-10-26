@@ -245,4 +245,22 @@ async function setup(el) {
   el.classList.add('ready');
 }
 
-document.querySelectorAll('.form3d').forEach((el) => setup(el).catch((err) => console.warn('3D 조형을 불러오지 못했어요', err)));
+// 3D 조형(8개, 약 20MB)은 첫 화면 모션이 끝난 뒤에 하나씩 불러옴
+// (처음 열자마자 한꺼번에 불러오면 로고 해독 모션이 버벅임)
+// 시작: 첫 화면 모션이 끝날 때쯤(LOAD_AFTER) 또는 조형 화면이 가까워지면(스크롤이 빠를 때) 중 먼저 오는 쪽
+const LOAD_AFTER = 6500;   // ms
+let loading = false;
+async function loadAll() {
+  if (loading) return;
+  loading = true;
+  for (const el of document.querySelectorAll('.form3d')) {
+    await setup(el).catch((err) => console.warn('3D 조형을 불러오지 못했어요', err));
+    await new Promise((r) => setTimeout(r, 30));   // 하나씩 쉬어 가며 (화면이 멈추지 않게)
+  }
+}
+const formsSec = document.querySelector('.forms');
+if (formsSec && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); loadAll(); } }, { rootMargin: '0px 0px 50% 0px' });
+  io.observe(formsSec);
+  setTimeout(loadAll, LOAD_AFTER);
+} else loadAll();
