@@ -7,6 +7,7 @@
 - 작업자는 디자이너(웹 개발 초보). 디자인은 피그마에서 하고, 코드는 Claude가 맡는다.
 - 설명은 한국어 반말로 짧고 구조적으로. 전문 용어는 풀어서.
 - 코드 주석도 한국어로, 디자이너가 읽을 수 있게.
+- 작업을 마치고 답할 때마다 웹사이트 링크를 같이 보냄: 실제 사이트 https://foods-create-new-form.vercel.app/formula/ + 머지 전 미리보기 https://foods-create-new-form-git-claude-wonderful-a86d86-food-kitchen.vercel.app/formula/ (바꾼 페이지가 있으면 그 페이지 주소로)
 
 ## 디자인 기준
 - 피그마: https://www.figma.com/design/DmWZA6oER0ZTUp7JDaE61a/%EC%A1%B8%EC%97%85%EC%9E%91%ED%92%88?node-id=498-88 (`web` 페이지, 1440×1024 프레임 10개)
