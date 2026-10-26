@@ -63,16 +63,27 @@
     input.classList.remove('busy');
   }
 
+  // 대화가 나오는 동안은 아래로 스크롤 못 함 (lock.js). 첫 질문은 이 구간 맨 위에 맞춘 뒤 붙잡음
+  const LOCK = window.FORMULA_LOCK;
   async function pump() {
     if (running) return;
     running = true;
     const id = run;
-    while (started < goal && id === run) await play(started++, id);
+    while (started < goal && id === run) {
+      if (LOCK && !beyond && !reduce) {
+        const y = started === 0 ? sec.offsetTop : scrollY;
+        if (started === 0 && Math.abs(scrollY - y) > 2) scrollTo({ top: y, behavior: 'smooth' });
+        LOCK.hold('overview', y);
+      }
+      await play(started++, id);
+      if (LOCK) LOCK.release('overview');
+    }
     if (id === run) running = false;
   }
 
   function reset() {
     run++; goal = 0; started = 0; running = false; beyond = false;
+    if (LOCK) LOCK.release('overview');
     typed.textContent = '';
     input.classList.remove('busy');
     exs.forEach((ex) => {

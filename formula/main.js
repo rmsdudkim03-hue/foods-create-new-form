@@ -19,7 +19,7 @@ const SCENES = [
   { at: 0.12, ms: 1300 },   // 3. 로고가 작아지며 위로 + 소개글 (스크롤)
 ];
 const AUTO = 2;           // 저절로 재생되는 장면 수
-const AUTO_DELAY = 1200;  // 로고 해독이 끝나고 전환이 시작되기까지 기다리는 시간(ms)
+const AUTO_DELAY = 1200;  // 로고 해독이 끝나고 전환이 시작되기까지 기다리는 시간(ms). 이 동안은 스크롤 잠김
 const TEXT_AT = 2.5;      // 3번 장면이 절반쯤 지나면 소개글이 떠오름
 const PAREN_GAP = 26.1;   // 괄호가 넓어지는 만큼 (로고 SVG 단위. 피그마 Frame 5에서 42px)
 const SMALL = 0.585;      // 작아진 로고 크기 (피그마 Frame 6 로고 폭 648px)
@@ -215,11 +215,15 @@ function startAuto() {
   autoTimer = setTimeout(() => { auto = AUTO; readScroll(); }, reduce ? 0 : AUTO_DELAY);
 }
 
+// 모션이 끝나야 다음으로 스크롤할 수 있음 (lock.js): 처음 모션(로고 해독 → 전환 → 괄호)이 다 끝날 때까지,
+// 그리고 장면 3이 재생되는 동안은 아래로 못 내려감
+const LOCK = window.FORMULA_LOCK;
 function readScroll() {
   const r = story.getBoundingClientRect();
   const p = clamp(-r.top / Math.max(1, story.offsetHeight - innerHeight));
-  if (p > 0.02 && !auto) { clearTimeout(autoTimer); auto = AUTO; }   // 기다리는 중에 스크롤하면 바로 이어서
+  const before = target;
   target = auto ? AUTO + SCENES.slice(AUTO).filter((sc) => p >= sc.at).length : 0;
+  if (target > before && target > AUTO && LOCK) LOCK.hold('scene', scrollY);   // 장면 3 재생 중엔 붙잡음
   if (!raf && cur !== target) { last = performance.now(); raf = requestAnimationFrame(step); }
 }
 function step(now) {
@@ -234,6 +238,7 @@ function step(now) {
   }
   render(cur);
   if (cur !== target) raf = requestAnimationFrame(step);
+  else if (LOCK) { LOCK.release('scene'); if (cur >= AUTO) LOCK.release('intro'); }   // 다 끝나면 풀어 줌
 }
 function render(c) {
   const t = clamp(c);
@@ -257,6 +262,7 @@ addEventListener('resize', () => { layoutWipe(); render(cur); });
 layoutWipe();
 readScroll();
 if (scrollY > 0) { auto = AUTO; readScroll(); cur = target; }   // 새로고침했을 때 이미 내려가 있으면 그 장면부터
+else if (LOCK && !reduce) LOCK.hold('intro', 0);                // 처음 모션이 끝날 때까지 맨 위에 붙잡음
 render(cur);
 
 // 처음 열릴 때 + 로고에 마우스를 올릴 때 다시
@@ -277,6 +283,7 @@ let idleTimer = 0;
 function goHome() {
   if (scrollY < 2 && cur <= AUTO) return;        // 이미 처음 화면
   clearTimeout(autoTimer); autoTimer = 0; auto = 0;
+  if (LOCK) { LOCK.clear(); LOCK.hold('intro', 0); }
   scrollTo({ top: 0, behavior: 'instant' });
   cancelAnimationFrame(raf); raf = 0;
   target = cur = 0; render(0);                    // 검정 첫 화면으로 되돌림

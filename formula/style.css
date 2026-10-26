@@ -110,7 +110,7 @@ a { color: inherit; text-decoration: none; }
 .intro:not(.show) .ch, .intro:not(.show) .ln { transition-delay: 0s !important; transition-duration: .25s; }
 
 /* ── 2. 조형 8개 (피그마 Frame 7) ── */
-.forms { position: relative; height: max(100vh, calc(1088 * var(--u))); background: var(--paper); color: #000; }
+.forms { position: relative; height: calc(max(100vh, calc(1088 * var(--u))) + 280 * var(--u)); background: var(--paper); color: #000; }   /* 맨 아래 조형 밑에 여백(280) */
 .forms-grid { list-style: none; }
 .forms .form3d { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); rotate: var(--r, 0deg); }   /* --r: 피그마에서 기울인 각도 */
 /* 화면에 들어오면 차례로 떠오름 */
