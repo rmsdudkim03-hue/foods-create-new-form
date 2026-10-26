@@ -76,12 +76,6 @@ a { color: inherit; text-decoration: none; }
 .logo .glyph.light { --glyph: var(--ink); }               /* 흰 화면에서는 진한 글자 */
 .logo .glyph, .logo .side { transform-box: fill-box; transform-origin: center; }
 
-/* 해독이 끝나면 괄호 ( ) 만 커서처럼 깜빡임 (첫 화면에서만). 속도는 1.1s, 꺼졌을 때 밝기는 opacity 값으로 */
-.logo.done:not(.past) .slot[data-k^="paren"] { animation: paren-blink 1.1s steps(1, end) infinite; }
-@keyframes paren-blink {
-  0%, 55% { opacity: 1; }
-  55.01%, 100% { opacity: .12; }
-}
 /* 흰 화면에서 괄호: 속이 빈 외곽선으로 (main.js가 --pfill 색을 진한색 → 바탕색으로 바꿈) */
 .logo .glyph.light[data-k^="paren"] .slot {
   fill: var(--pfill, var(--ink)); stroke: var(--ink);
@@ -154,12 +148,10 @@ a { color: inherit; text-decoration: none; }
 /* 조형 화면 안내: 위 가운데 한 줄 + 조형에 마우스를 올리면 아래에 '과정 보기' */
 .forms-hint { position: absolute; left: 0; right: 0; top: calc(130 * var(--u)); text-align: center; font: 400 max(12px, calc(16 * var(--u))) 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--en); opacity: 0; transition: opacity .8s ease .6s; }
 .forms-hint .en { font-family: 'DM Sans', sans-serif; margin-left: calc(10 * var(--u)); }
-.forms-hint .paren { font-family: 'Bitcount Grid Single', monospace; font-weight: 600; color: var(--ink); display: inline-block; animation: hint-blink 1.6s steps(1) infinite; }
-@keyframes hint-blink { 50% { opacity: .15; } }
+.forms-hint .paren { font-family: 'Bitcount Grid Single', monospace; font-weight: 600; color: var(--ink); display: inline-block; }
 .forms.in .forms-hint { opacity: 1; }
 .form-cap { position: absolute; left: calc(var(--x) * var(--u)); top: calc((var(--y) + var(--h)) * var(--u) + max(10px, calc(18 * var(--u)))); white-space: nowrap; font: 600 max(11px, calc(14 * var(--u))) 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; color: var(--ink); opacity: 0; translate: 0 6px; transition: opacity .3s, translate .3s; pointer-events: none; }
 .form-cap b { font: 400 max(11px, calc(14 * var(--u))) 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; margin-left: 8px; color: var(--en); }
 .form-link:hover .form-cap, .form-link:focus-visible .form-cap { opacity: 1; translate: 0 0; }
 /* 마우스가 없는 기기(터치)는 늘 보임 */
 @media (hover: none) { .forms.in .form-cap { opacity: 1; translate: 0 0; } }
-@media (prefers-reduced-motion: reduce) { .forms-hint .paren { animation: none; } }
