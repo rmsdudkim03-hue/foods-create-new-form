@@ -86,19 +86,19 @@ a { color: inherit; text-decoration: none; }
 .intro { position: absolute; left: 0; right: 0; top: 0; text-align: center; color: var(--ink); pointer-events: none; }
 .intro p { position: absolute; left: 0; right: 0; }
 .intro .tagline {
-  top: calc(564 * var(--u));
+  top: calc(534 * var(--u));   /* 피그마 Frame 6 */
   font: 600 calc(24 * var(--u)) / calc(26 * var(--u)) 'Bitcount Grid Single', ui-monospace, monospace;
   font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0;
   letter-spacing: .05em;   /* 피그마 자간 5% */
   color: #000;
 }
 .intro .ko {
-  top: calc(626.6 * var(--u));
+  top: calc(596.6 * var(--u));
   font: 400 calc(16 * var(--u)) / 1.5 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
 .intro .ko b { font-weight: 700; }
 .intro .en {
-  top: calc(746 * var(--u));
+  top: calc(741 * var(--u));
   font: 400 calc(16 * var(--u)) / 1.5 'DM Sans', sans-serif;
   font-variation-settings: 'opsz' 14;
   color: var(--en);
@@ -303,13 +303,3 @@ a { color: inherit; text-decoration: none; }
 @keyframes rail-bob { 50% { translate: 0 5px; } }
 @media (prefers-reduced-motion: reduce) { .rail-hint svg { animation: none; } }
 @media (max-aspect-ratio: 1/1) { .rail { right: 10px; } }
-
-/* ── 맨 처음 이미지 흐름 (prelude.js) ── 첫 화면과 같은 검정 위에 음식 사진 카드가 날아와 쌓였다가 한 장이 커짐 */
-.prelude { position: fixed; inset: 0; z-index: 30; background: var(--bg); overflow: hidden; cursor: pointer; }
-.prelude[hidden] { display: none; }
-.pl-card { position: absolute; left: 50%; top: 50%; translate: -50% -50%; background: #efeae0; color: var(--ink); overflow: hidden; will-change: transform, filter; box-shadow: 0 2px 10px rgba(0, 0, 0, .25); }
-.pl-card > img:only-child { width: 100%; height: 100%; object-fit: cover; display: block; }   /* 실제 사진 */
-/* 사진이 없을 때 대신 쓰는 카드: 번호 · 특징 구슬 하나 · 음식 이름 */
-.pl-no { position: absolute; left: 8%; top: 6%; font: 600 calc(9 * var(--u)) 'Bitcount Grid Single', monospace; letter-spacing: .05em; white-space: nowrap; }
-.pl-bead { position: absolute; left: 50%; top: 48%; width: 46%; translate: -50% -50%; }
-.pl-name { position: absolute; left: 8%; bottom: 7%; font: 600 calc(13 * var(--u)) 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; white-space: nowrap; }

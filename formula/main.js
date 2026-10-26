@@ -19,7 +19,7 @@ const SCENES = [
   { at: 0.12, ms: 1300 },   // 3. 로고가 작아지며 위로 + 소개글 (스크롤)
 ];
 const AUTO = 2;           // 저절로 재생되는 장면 수
-const AUTO_DELAY = 1200;  // 로고 해독이 끝나고 전환이 시작되기까지 기다리는 시간(ms). 이 동안은 스크롤 잠김
+const AUTO_DELAY = 500;   // 로고 해독이 끝나고 전환이 시작되기까지 기다리는 시간(ms). 이 동안은 스크롤 잠김
 const TEXT_AT = 2.5;      // 3번 장면이 절반쯤 지나면 소개글이 떠오름
 const PAREN_GAP = 26.1;   // 괄호가 넓어지는 만큼 (로고 SVG 단위. 피그마 Frame 5에서 42px)
 const SMALL = 0.585;      // 작아진 로고 크기 (피그마 Frame 6 로고 폭 648px)
@@ -71,9 +71,11 @@ function show(slot, k, scrambled) {
 }
 
 let logoRun = 0;
+let decoding = false, decoded = false;   // 해독은 처음 한 번만 (끝나면 바로 전환). 처음 화면으로 돌아가면(goHome) 다시 한 번
 function scrambleLogo() {
   if (reduce) { startAuto(); return; }
-  if (cur > 0) return;   // 첫 화면에서만
+  if (cur > 0 || decoding || decoded) return;   // 첫 화면에서, 한 번만
+  decoding = true;
   const run = ++logoRun;
   const start = performance.now();
   let frame = 0;
@@ -93,6 +95,7 @@ function scrambleLogo() {
     if (k < 1.05 && cur <= 0) requestAnimationFrame(tick);
     else {
       slots.forEach((s) => show(s, s.dataset.k, false));
+      decoding = false; decoded = true;
       startAuto();
     }
   })(start);
@@ -265,13 +268,10 @@ if (scrollY > 0) { auto = AUTO; readScroll(); cur = target; }   // 새로고침�
 else if (LOCK && !reduce) LOCK.hold('intro', 0);                // 처음 모션이 끝날 때까지 맨 위에 붙잡음
 render(cur);
 
-// 처음 열릴 때 + 로고에 마우스를 올릴 때 다시
+// 처음 열릴 때 한 번 (마우스를 올려도 해독이 끝나기 전·후로 다시 돌지 않음)
 logo.addEventListener('mouseenter', scrambleLogo);
 logo.addEventListener('click', scrambleLogo);
-// 맨 위에서 열렸으면 이미지 흐름(prelude.js)을 먼저 보여주고, 끝나면 로고 해독
-const PRELUDE = window.FORMULA_PRELUDE;
-if (PRELUDE && scrollY < 2) PRELUDE.play(() => { navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY)); scrambleLogo(); });
-else scrambleLogo();
+scrambleLogo();
 
 // ── 조형 8개: 화면에 들어오면 차례로 떠오름 ──
 const forms = document.getElementById('forms');
@@ -290,9 +290,10 @@ function goHome() {
   scrollTo({ top: 0, behavior: 'instant' });
   cancelAnimationFrame(raf); raf = 0;
   target = cur = 0; render(0);                    // 검정 첫 화면으로 되돌림
+  decoding = decoded = false;                     // 로고 해독을 다시 한 번
   forms.classList.remove('in');                   // 조형도 다시 떠오르게
-  const again = () => { navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY)); scrambleLogo(); };   // 로고 해독 → 끝나면 전환까지 저절로
-  if (PRELUDE) PRELUDE.play(again); else again();   // 이미지 흐름부터 다시
+  navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
+  scrambleLogo();                                 // 로고 해독 → 끝나면 전환까지 저절로
 }
 function wake() { clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }
 ['pointermove', 'pointerdown', 'wheel', 'scroll', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
