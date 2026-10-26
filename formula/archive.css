@@ -18,21 +18,21 @@ body.arc-page { background: var(--paper); color: var(--ink); overflow: hidden; h
 .card .face { position: absolute; inset: 0; border-radius: calc(var(--cw) * .045); overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 calc(18 * var(--u)) calc(40 * var(--u)) rgba(30, 29, 27, .16), 0 calc(2 * var(--u)) calc(6 * var(--u)) rgba(30, 29, 27, .12); }
 .card .back { transform: rotateY(180deg); }
 
-/* 앞면: 어두운 바탕 + 조형 (조형마다 고유 색) */
-.front { background: var(--ink); color: var(--text); }
-.front img { position: absolute; left: 50%; top: 52%; translate: -50% -50%; max-width: 54%; max-height: 66%; }
+/* 한 면 = 음식 하나. 앞면 A는 밝은 바탕, 뒷면 B는 어두운 바탕 (사진이 오면 사진이 꽉 참) */
+.front { background: #efeae0; color: var(--ink); }
+.back { background: var(--ink); color: var(--text); }
+.face .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.face.has-photo .no, .face.has-photo .mark { color: #fff; mix-blend-mode: difference; }
 .face .no { position: absolute; left: 6%; top: 8%; font-size: max(10px, calc(var(--cw) * .032)); }
-.face .mark { position: absolute; right: 6%; top: 8%; font-size: max(9px, calc(var(--cw) * .024)); opacity: .55; }
-/* 앞면 가장자리 빛 (카드가 돌 때 스치는 반사) */
-.front::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, var(--sheen, 0)) 48%, transparent 66%); pointer-events: none; }
-
-/* 뒷면: 조형 색 바탕 + 두 음식의 특징 구슬 10개 */
-.back { background: var(--c); color: var(--ink); }
-.back .foods { position: absolute; left: 6%; right: 6%; top: 20%; font: 600 max(13px, calc(var(--cw) * .05)) 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
-.back .rows { position: absolute; left: 6%; right: 6%; bottom: 9%; display: grid; gap: calc(var(--ch) * .05); }
-.back .row { display: grid; grid-template-columns: auto repeat(5, 1fr); align-items: center; gap: calc(var(--cw) * .02); }
-.back .row b { font-size: max(9px, calc(var(--cw) * .026)); opacity: .6; width: calc(var(--cw) * .04); }
-.back .row img { width: 100%; max-width: calc(var(--cw) * .11); aspect-ratio: 1; justify-self: center; }
+.face .mark { position: absolute; right: 6%; top: 8%; font: 600 max(10px, calc(var(--cw) * .03)) 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; opacity: .6; }
+/* 사진이 없을 때: 음식 이름 크게 + 특징 구슬 5개 */
+.face .food { position: absolute; left: 6%; right: 6%; top: 30%; font: 600 max(20px, calc(var(--cw) * .1)) / 1.1 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+.face .beads { position: absolute; left: 6%; right: 6%; bottom: 11%; display: grid; grid-template-columns: repeat(5, 1fr); gap: calc(var(--cw) * .03); }
+.face .beads img { width: 100%; max-width: calc(var(--cw) * .12); aspect-ratio: 1; justify-self: center; }
+.back .beads img { filter: invert(.93); }
+.face:not(.has-photo) .mark { display: none; }   /* 사진이 없으면 큰 이름이 있으니 오른쪽 위 이름은 숨김 */   /* 구슬 그림(진한색)을 어두운 바탕에선 밝게 */
+/* 카드가 돌 때 스치는 빛 */
+.face::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, var(--sheen, 0)) 48%, transparent 66%); pointer-events: none; }
 
 /* 아래 설명 (ramp.design처럼 왼쪽 정렬 + 밑줄) */
 .arc-cap { position: absolute; left: 50%; top: calc(48% + var(--ch) / 2 + 9vh); width: min(calc(1060 * var(--u)), 88vw); translate: -50% 0; display: grid; grid-template-columns: auto 1fr auto auto; align-items: baseline; gap: calc(28 * var(--u)); padding-bottom: calc(18 * var(--u)); border-bottom: 1px solid rgba(30, 29, 27, .2); }
@@ -41,7 +41,10 @@ body.arc-page { background: var(--paper); color: var(--ink); overflow: hidden; h
 .arc-go { font-size: max(11px, calc(15 * var(--u))); }
 .arc-go:hover { text-decoration: underline; text-underline-offset: 4px; }
 .arc-count { font-size: max(11px, calc(15 * var(--u))); color: #9a968f; }
-.arc-title .w { display: inline-block; animation: arc-rise .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 30ms); }
+.arc-title .f0 { color: var(--ink); }
+.arc-title.show-b .f0 { color: inherit; }
+.arc-title.show-b .f1 { color: var(--ink); }
+.arc-title .w { display: inline-block; transition: color .5s ease; animation: arc-rise .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 30ms); }
 @keyframes arc-rise { from { opacity: 0; transform: translateY(40%); } }
 
 @media (max-width: 700px) {
