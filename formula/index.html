@@ -21,7 +21,7 @@
 } }
 </script>
 </head>
-<body data-rail='[["FORMULA", "#story", 0], ["EVERY DAY, A NEW FORM", "#story", 1], ["8 FORMS", "#forms", 0]]'>
+<body data-rail='[["FORMULA", "#story", 0], ["EVERY DAY, A NEW FORM", "#story", 1], ["WHO IS THINKING ?", "#overview", 0], ["WHO DECIDES ?", "#overview", 0.6], ["8 FORMS", "#forms", 0]]'>
 <!-- 메뉴 (피그마 좌표 그대로, 화면에 고정). 글자가 아래에서 솟아오르는 모션 -->
 <nav class="nav" aria-label="메뉴">
   <a class="brand" href="./">FORMULA
@@ -53,30 +53,74 @@ BY GY.KIM</a>
   </div>
 </section>
 
+<!-- 1-2. OVERVIEW (피그마 완성본 Frame 12·15·16·17·13): AI 대화창을 쓰듯이
+     빈 입력창 → 질문이 타이핑됨 → 보내면 말풍선이 위로 → 점 세 개(생각 중) → 답이 한 글자씩 나옴.
+     두 번째 질문은 조금 더 내리면 이어짐 (overview.js). 글을 바꾸려면 아래 data-q / .ov-a 안의 글만 고치면 됨 -->
+<section class="overview" id="overview" aria-label="Overview">
+  <div class="ov-stage">
+    <div class="ov-frame">
+      <div class="ov-ex" data-q="Who Is Thinking ?">
+        <p class="ov-q"></p>
+        <i class="ov-dots" aria-hidden="true"><b></b><b></b><b></b></i>
+        <div class="ov-a">
+          <p class="ov-ko">2026, 우리는 AI와 함께하는 시대를 살아가고 있습니다.
+무언가를 만들 때, AI에게 질문하고 그 답을 받으며 생각합니다. 점점 더 많은 결정을 AI와 함께 내리고, 편리함 속에서 생각은 조금씩 AI에게 맡겨집니다.
+어느새 우리는 AI가 내놓은 답에 기대어 생각하게 됩니다. 이 과정에서, 우리의 사고는 부작용을 겪습니다.
+결정권은 여전히 우리 손에 있지만, 결정에 이르는 생각은 점점 AI의 것이 됩니다.</p>
+          <p class="ov-en" lang="en">It is 2026, and we live alongside AI. When we make things, we think by asking AI and receiving its answers. More and more, we make decisions together with AI. In that convenience,
+our thinking is slowly handed over to it, until we find ourselves thinking by leaning on its answers. Along the way, our thinking begins to suffer side effects.
+We still hold the final say, but the thinking behind it slowly becomes AI’s.</p>
+        </div>
+      </div>
+      <div class="ov-ex" data-q="Then, who decides ?">
+        <p class="ov-q"></p>
+        <i class="ov-dots" aria-hidden="true"><b></b><b></b><b></b></i>
+        <div class="ov-a">
+          <p class="ov-ko">FORMULA는 이 부작용을 넘어서기 위해 만든 공식입니다.
+AI가 답을 대신 내리는 도구가 아니라,
+사람의 생각을 넓히는 동료가 될 수 있는지 묻습니다.
+AI는 관찰하고 제안하며, 고르고 해석하고 완성하는 것은 사람입니다.</p>
+          <p class="ov-en" lang="en">FORMULA is a formula made to get past these side effects.
+It asks whether AI can be not a tool that decides for us, but a colleague that widens our thinking.
+AI observes and suggests; choosing, interpreting, and completing are left to people.</p>
+        </div>
+      </div>
+      <!-- 입력창: + / 타이핑되는 글 + 커서 / 답하는 동안은 ■(멈춤) / 마이크 -->
+      <div class="ov-input" aria-hidden="true">
+        <svg class="ov-plus" viewBox="0 0 20 21"><path d="M10 1.5v18M1 10.5h18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+        <span class="ov-typed"></span><i class="ov-caret"></i>
+        <i class="ov-stop"></i>
+        <svg class="ov-mic" viewBox="0 0 19 30"><rect x="6" y="1" width="7" height="17" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M1 12.5c0 4.7 3.8 8.5 8.5 8.5s8.5-3.8 8.5-8.5M9.5 22v6M4.5 28.5h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- 2. 조형 8개 (피그마 Frame 7 좌표, 번호·제목 없음). 마우스를 올리면 3D로 바뀌고(hover3d.js), 누르면 그 조형의 히스토리(history.html?n=번호)로 -->
 <section class="forms" id="forms">
-  <!-- 안내: 조형을 누르면 히스토리를 볼 수 있음 -->
-  <p class="forms-hint"><span class="paren">(</span> 조형을 누르면 만들어진 과정을 볼 수 있어요 <span class="en">Click a form to see how it was made</span> <span class="paren">)</span></p>
+  <!-- 안내 (피그마 완성본 Frame 7): 괄호 사이에 영어(Bitcount) + 한글 -->
+  <div class="forms-hint"><svg class="hint-paren" viewBox="0 0 16 49" aria-hidden="true"><path d="M12.0791 0.5C13.981 0.500167 15.4998 1.99785 15.5 3.81738C15.5 5.36594 14.4018 6.6803 12.9004 7.03906L12.8877 7.04199C10.6528 7.63596 8.69663 8.94909 7.3291 10.7578L7.30957 10.7188L6.8418 11.46C6.79624 11.5322 6.74794 11.6028 6.69727 11.6709L6.10254 12.4697H6.37695C6.36816 12.5394 6.3623 12.6099 6.3623 12.6807C6.36236 12.9987 6.45228 13.3089 6.62012 13.5771L6.69727 13.6895C7.10391 14.2358 7.34277 14.9052 7.34277 15.6289C7.34276 16.3518 7.10426 17.0203 6.69824 17.5664L6.69629 17.5693C6.4799 17.8646 6.36232 18.2203 6.3623 18.5859C6.36232 18.952 6.47953 19.3081 6.69629 19.6035L6.69824 19.6055C7.10417 20.1515 7.34276 20.8201 7.34277 21.543C7.34276 22.2658 7.10425 22.9344 6.69824 23.4805L6.69629 23.4834C6.47992 23.7786 6.3623 24.1343 6.3623 24.5C6.3623 24.8657 6.48009 25.2205 6.69629 25.5156L6.69824 25.5186C7.10446 26.0647 7.34276 26.7339 7.34277 27.457C7.34276 28.1798 7.10416 28.8484 6.69824 29.3945L6.69629 29.3965C6.47938 29.692 6.36232 30.048 6.3623 30.4141C6.36232 30.7797 6.48009 31.1346 6.69629 31.4297L6.69824 31.4326C7.10446 31.9788 7.34277 32.648 7.34277 33.3711C7.34277 34.0948 7.10402 34.7641 6.69727 35.3105L6.10254 36.1094H6.37695C6.3682 36.1788 6.36232 36.2488 6.3623 36.3193C6.36233 36.6828 6.48044 37.0359 6.69727 37.3281V37.3291C6.74762 37.3968 6.79551 37.4664 6.84082 37.5381V37.5391C8.20855 39.7124 10.3745 41.2911 12.8916 41.959L12.9033 41.9619C14.4031 42.3217 15.5 43.6351 15.5 45.1826C15.4998 47.0022 13.981 48.4998 12.0791 48.5C10.8395 48.5 9.75804 47.8617 9.1582 46.9111L8.60059 46.0264L8.5791 46.0889C7.2153 44.3403 5.29416 43.0714 3.10645 42.4912L3.09473 42.4883L2.81836 42.4092C1.46319 41.9622 0.500166 40.7185 0.5 39.2686L0.510742 39C0.561892 38.3795 0.789576 37.8073 1.14551 37.3291V37.3281C1.36244 37.0358 1.48044 36.6825 1.48047 36.3193C1.48045 36.2488 1.47457 36.1788 1.46582 36.1094H1.74023L1.14551 35.3105C0.738736 34.7641 0.5 34.0948 0.5 33.3711L0.510742 33.1035C0.561623 32.4848 0.787553 31.9139 1.1416 31.4365L1.14844 31.4268L1.17676 31.3867L1.18262 31.3789C1.37581 31.0943 1.48046 30.7588 1.48047 30.4141C1.48046 30.0694 1.37587 29.7339 1.18262 29.4492L1.17676 29.4404L1.14844 29.4004L1.1416 29.3916C0.737084 28.8461 0.500012 28.1786 0.5 27.457L0.510742 27.1895C0.561617 26.5707 0.78756 25.9999 1.1416 25.5225L1.14258 25.5215C1.36135 25.2253 1.48047 24.8679 1.48047 24.5C1.48047 24.1321 1.36135 23.7747 1.14258 23.4785L1.1416 23.4775C0.737068 22.9321 0.500012 22.2645 0.5 21.543L0.510742 21.2754C0.561621 20.6567 0.787581 20.0858 1.1416 19.6084L1.14258 19.6074C1.36131 19.3112 1.48046 18.9538 1.48047 18.5859C1.48046 18.2181 1.36135 17.8607 1.14258 17.5645L1.1416 17.5635C0.737052 17.018 0.50001 16.3505 0.5 15.6289L0.510742 15.3604C0.554624 14.8286 0.728307 14.3324 1.00098 13.9004L1.14551 13.6895C1.36245 13.3971 1.4804 13.0438 1.48047 12.6807C1.48047 12.6099 1.47461 12.5394 1.46582 12.4697H1.74023L1.14551 11.6709C0.738791 11.1245 0.5 10.4551 0.5 9.73145L0.512695 9.44434C0.630312 8.11903 1.55343 7.00694 2.81836 6.58984L3.09473 6.51172L3.10645 6.50879C5.42284 5.89453 7.43907 4.50718 8.8125 2.59668L8.82812 2.61133L9.1582 2.08887C9.72058 1.1977 10.7062 0.581358 11.8486 0.507812L12.0791 0.5Z" fill="none" stroke="currentColor"/></svg><p><span class="en" lang="en">Click a form to see how it was made</span><span class="ko">조형을 누르면 만들어진 과정을 볼 수 있어요.</span></p><svg class="hint-paren r" viewBox="0 0 16 49" aria-hidden="true"><path d="M12.0791 0.5C13.981 0.500167 15.4998 1.99785 15.5 3.81738C15.5 5.36594 14.4018 6.6803 12.9004 7.03906L12.8877 7.04199C10.6528 7.63596 8.69663 8.94909 7.3291 10.7578L7.30957 10.7188L6.8418 11.46C6.79624 11.5322 6.74794 11.6028 6.69727 11.6709L6.10254 12.4697H6.37695C6.36816 12.5394 6.3623 12.6099 6.3623 12.6807C6.36236 12.9987 6.45228 13.3089 6.62012 13.5771L6.69727 13.6895C7.10391 14.2358 7.34277 14.9052 7.34277 15.6289C7.34276 16.3518 7.10426 17.0203 6.69824 17.5664L6.69629 17.5693C6.4799 17.8646 6.36232 18.2203 6.3623 18.5859C6.36232 18.952 6.47953 19.3081 6.69629 19.6035L6.69824 19.6055C7.10417 20.1515 7.34276 20.8201 7.34277 21.543C7.34276 22.2658 7.10425 22.9344 6.69824 23.4805L6.69629 23.4834C6.47992 23.7786 6.3623 24.1343 6.3623 24.5C6.3623 24.8657 6.48009 25.2205 6.69629 25.5156L6.69824 25.5186C7.10446 26.0647 7.34276 26.7339 7.34277 27.457C7.34276 28.1798 7.10416 28.8484 6.69824 29.3945L6.69629 29.3965C6.47938 29.692 6.36232 30.048 6.3623 30.4141C6.36232 30.7797 6.48009 31.1346 6.69629 31.4297L6.69824 31.4326C7.10446 31.9788 7.34277 32.648 7.34277 33.3711C7.34277 34.0948 7.10402 34.7641 6.69727 35.3105L6.10254 36.1094H6.37695C6.3682 36.1788 6.36232 36.2488 6.3623 36.3193C6.36233 36.6828 6.48044 37.0359 6.69727 37.3281V37.3291C6.74762 37.3968 6.79551 37.4664 6.84082 37.5381V37.5391C8.20855 39.7124 10.3745 41.2911 12.8916 41.959L12.9033 41.9619C14.4031 42.3217 15.5 43.6351 15.5 45.1826C15.4998 47.0022 13.981 48.4998 12.0791 48.5C10.8395 48.5 9.75804 47.8617 9.1582 46.9111L8.60059 46.0264L8.5791 46.0889C7.2153 44.3403 5.29416 43.0714 3.10645 42.4912L3.09473 42.4883L2.81836 42.4092C1.46319 41.9622 0.500166 40.7185 0.5 39.2686L0.510742 39C0.561892 38.3795 0.789576 37.8073 1.14551 37.3291V37.3281C1.36244 37.0358 1.48044 36.6825 1.48047 36.3193C1.48045 36.2488 1.47457 36.1788 1.46582 36.1094H1.74023L1.14551 35.3105C0.738736 34.7641 0.5 34.0948 0.5 33.3711L0.510742 33.1035C0.561623 32.4848 0.787553 31.9139 1.1416 31.4365L1.14844 31.4268L1.17676 31.3867L1.18262 31.3789C1.37581 31.0943 1.48046 30.7588 1.48047 30.4141C1.48046 30.0694 1.37587 29.7339 1.18262 29.4492L1.17676 29.4404L1.14844 29.4004L1.1416 29.3916C0.737084 28.8461 0.500012 28.1786 0.5 27.457L0.510742 27.1895C0.561617 26.5707 0.78756 25.9999 1.1416 25.5225L1.14258 25.5215C1.36135 25.2253 1.48047 24.8679 1.48047 24.5C1.48047 24.1321 1.36135 23.7747 1.14258 23.4785L1.1416 23.4775C0.737068 22.9321 0.500012 22.2645 0.5 21.543L0.510742 21.2754C0.561621 20.6567 0.787581 20.0858 1.1416 19.6084L1.14258 19.6074C1.36131 19.3112 1.48046 18.9538 1.48047 18.5859C1.48046 18.2181 1.36135 17.8607 1.14258 17.5645L1.1416 17.5635C0.737052 17.018 0.50001 16.3505 0.5 15.6289L0.510742 15.3604C0.554624 14.8286 0.728307 14.3324 1.00098 13.9004L1.14551 13.6895C1.36245 13.3971 1.4804 13.0438 1.48047 12.6807C1.48047 12.6099 1.47461 12.5394 1.46582 12.4697H1.74023L1.14551 11.6709C0.738791 11.1245 0.5 10.4551 0.5 9.73145L0.512695 9.44434C0.630312 8.11903 1.55343 7.00694 2.81836 6.58984L3.09473 6.51172L3.10645 6.50879C5.42284 5.89453 7.43907 4.50718 8.8125 2.59668L8.82812 2.61133L9.1582 2.08887C9.72058 1.1977 10.7062 0.581358 11.8486 0.507812L12.0791 0.5Z" fill="none" stroke="currentColor"/></svg></div>
   <ol class="forms-grid">
-    <li style="--x:214.9; --y:279.7; --w:174.9; --h:206.7">
-      <a class="form-link" href="history.html?n=1" aria-label="N 01 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/form_02.svg" data-model="forms/form_02.glb" data-material="svg-satin"></figure><span class="form-cap">N 01 <b>과정 보기 →</b></span></a></li>
-    <li style="--x:543.3; --y:347.8; --w:331.2; --h:104.1">
-      <a class="form-link" href="history.html?n=2" aria-label="N 02 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/form_12.svg" data-model="forms/form_12.glb" data-material="pantone-602c"></figure><span class="form-cap">N 02 <b>과정 보기 →</b></span></a></li>
-    <li style="--x:1024.3; --y:260.1; --w:256.7; --h:259.1">
-      <a class="form-link" href="history.html?n=3" aria-label="N 03 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_03.svg" data-model="forms/no_03.glb" data-material="svg-satin" data-face="top" data-blend></figure><span class="form-cap">N 03 <b>과정 보기 →</b></span></a></li>
-    <li style="--x:1511.4; --y:266.3; --w:194.6; --h:254.7">
-      <a class="form-link" href="history.html?n=4" aria-label="N 04 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_04.svg" data-model="forms/no_04.glb" data-material="svg-satin" data-face="top" data-blend></figure><span class="form-cap">N 04 <b>과정 보기 →</b></span></a></li>
-    <li style="--x:258.5; --y:637.7; --w:84.7; --h:348.0">
-      <a class="form-link" href="history.html?n=5" aria-label="N 05 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_05.svg" data-model="forms/no_05.glb" data-material="svg-satin" data-blend data-ms="2000"></figure><span class="form-cap">N 05 <b>과정 보기 →</b></span></a></li>
-    <li style="--x:630.9; --y:713.9; --w:152.0; --h:156.8">
-      <a class="form-link" href="history.html?n=6" aria-label="N 06 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_06.svg" data-model="forms/no_06.glb" data-material="svg-satin" data-blend></figure><span class="form-cap">N 06 <b>과정 보기 →</b></span></a></li>
-    <li style="--x:978.5; --y:722.5; --w:344.7; --h:184.8">
-      <a class="form-link" href="history.html?n=7" aria-label="N 07 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_07.svg" data-model="forms/no_07.glb" data-material="svg-satin"></figure><span class="form-cap">N 07 <b>과정 보기 →</b></span></a></li>
-    <li style="--x:1507.0; --y:765.0; --w:200.9; --h:105.7">
-      <a class="form-link" href="history.html?n=8" aria-label="N 08 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_08.svg" data-model="forms/no_08.glb" data-material="svg-satin"></figure><span class="form-cap">N 08 <b>과정 보기 →</b></span></a></li>
+    <li style="--x:311.1; --y:236; --w:174; --h:206; --lx:290.9; --ly:514">
+      <a class="form-link" href="history.html?n=1" aria-label="N 01 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/form_02.svg" data-model="forms/form_02.glb" data-material="svg-satin"></figure><span class="form-no">→ NO .01</span></a></li>
+    <li style="--x:602.1; --y:300; --w:330; --h:102; --lx:634.9; --ly:515.5">
+      <a class="form-link" href="history.html?n=2" aria-label="N 02 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/form_12.svg" data-model="forms/form_12.glb" data-material="pantone-602c"></figure><span class="form-no">→ NO .02</span></a></li>
+    <li style="--x:1071.1; --y:255; --w:211; --h:212; --lx:1048.9; --ly:517.3">
+      <a class="form-link" href="history.html?n=3" aria-label="N 03 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_03.svg" data-model="forms/no_03.glb" data-material="svg-satin" data-face="top" data-blend></figure><span class="form-no">→ NO .03</span></a></li>
+    <li style="--x:1488.1; --y:255; --w:153; --h:201; --lx:1435.9; --ly:518.9">
+      <a class="form-link" href="history.html?n=4" aria-label="N 04 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_04.svg" data-model="forms/no_04.glb" data-material="svg-satin" data-face="top" data-blend></figure><span class="form-no">→ NO .04</span></a></li>
+    <li style="--x:354.1; --y:573.9; --w:83; --h:345; --r:-140.9deg; --lx:289; --ly:965.9">
+      <a class="form-link" href="history.html?n=5" aria-label="N 05 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_05.svg" data-model="forms/no_05.glb" data-material="svg-satin" data-blend data-ms="2000"></figure><span class="form-no">→ NO .05</span></a></li>
+    <li style="--x:698.1; --y:662.8; --w:133; --h:136; --lx:633; --ly:967.3">
+      <a class="form-link" href="history.html?n=6" aria-label="N 06 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_06.svg" data-model="forms/no_06.glb" data-material="svg-satin" data-blend></figure><span class="form-no">→ NO .06</span></a></li>
+    <li style="--x:1005.1; --y:654.8; --w:343; --h:182; --lx:1047; --ly:969.1">
+      <a class="form-link" href="history.html?n=7" aria-label="N 07 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_07.svg" data-model="forms/no_07.glb" data-material="svg-satin"></figure><span class="form-no">→ NO .07</span></a></li>
+    <li style="--x:1468.1; --y:694.8; --w:200; --h:104; --lx:1434; --ly:970.8">
+      <a class="form-link" href="history.html?n=8" aria-label="N 08 만들어진 과정 보기"><figure class="form3d" data-fit data-svg="forms/no_08.svg" data-model="forms/no_08.glb" data-material="svg-satin"></figure><span class="form-no">→ NO .08</span></a></li>
   </ol>
 </section>
 <script src="main.js"></script>
+<script src="overview.js"></script>
 <script src="rail.js"></script>
 <script type="module" src="hover3d.js"></script>
 </body>
