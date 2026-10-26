@@ -10,7 +10,7 @@ body.arc-page { background: var(--paper); color: var(--ink); overflow: hidden; h
 .arc-hint .bit { color: var(--ink); }
 
 /* 카드 무대: 원근 3D */
-.arc-stage { position: absolute; left: 0; right: 0; top: 48%; height: 0; perspective: calc(1800 * var(--u)); perspective-origin: 50% 50%; cursor: grab; }
+.arc-stage { position: absolute; left: 0; right: 0; top: 52%; height: 0; perspective: calc(1800 * var(--u)); perspective-origin: 50% 50%; cursor: grab; }
 .arc-stage.drag { cursor: grabbing; }
 .card { position: absolute; left: 50%; top: 0; width: var(--cw); height: var(--ch); margin: calc(var(--ch) / -2) 0 0 calc(var(--cw) / -2); transform-style: preserve-3d; will-change: transform; }
 .card .flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .9s cubic-bezier(.2, .8, .2, 1); }
@@ -34,26 +34,11 @@ body.arc-page { background: var(--paper); color: var(--ink); overflow: hidden; h
 /* 카드가 돌 때 스치는 빛 */
 .face::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, var(--sheen, 0)) 48%, transparent 66%); pointer-events: none; }
 
-/* 아래 설명 (ramp.design처럼 왼쪽 정렬 + 밑줄) */
-.arc-cap { position: absolute; left: 50%; top: calc(48% + var(--ch) / 2 + 9vh); width: min(calc(1060 * var(--u)), 88vw); translate: -50% 0; display: grid; grid-template-columns: auto 1fr auto auto; align-items: baseline; gap: calc(28 * var(--u)); padding-bottom: calc(18 * var(--u)); border-bottom: 1px solid rgba(30, 29, 27, .2); }
-.arc-no { font-size: max(12px, calc(18 * var(--u))); }
-.arc-title { font: 500 max(16px, calc(28 * var(--u))) 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: #6f6b64; }
-.arc-go { font-size: max(11px, calc(15 * var(--u))); }
-.arc-go:hover { text-decoration: underline; text-underline-offset: 4px; }
-.arc-count { font-size: max(11px, calc(15 * var(--u))); color: #9a968f; }
-.arc-title .f0 { color: var(--ink); }
-.arc-title.show-b .f0 { color: inherit; }
-.arc-title.show-b .f1 { color: var(--ink); }
-.arc-title .w { display: inline-block; transition: color .5s ease; animation: arc-rise .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 30ms); }
-@keyframes arc-rise { from { opacity: 0; transform: translateY(40%); } }
-
 @media (max-width: 700px) {
   .arc { --cw: 74vw; }
   .arc-stage { perspective: 900px; }
   .arc-hint { top: 70px; white-space: normal; width: 86vw; }
-  .arc-cap { width: 86vw; grid-template-columns: auto 1fr; gap: 10px 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .card .flip { transition: none; }
-  .arc-title .w { animation: none; }
 }
