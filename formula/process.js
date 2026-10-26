@@ -6,12 +6,40 @@
   if (!sec) return;
   const HOLD_MS = 1100;   // 한 장을 보여주는 최소 시간
   const steps = [...sec.querySelectorAll('.pr-step')];
+  const parens = [...sec.querySelectorAll('.pr-paren')];
+  const title = sec.querySelector('.pr-title');
+  const TITLE = title.textContent;
+  const TITLE_MS = 900;   // 제목 해독에 걸리는 시간 (첫 장을 잡아 두는 HOLD_MS 안에 끝나게)
+  const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz()';
   const dots = [...sec.querySelectorAll('.pr-dots li')];
   const LOCK = window.FORMULA_LOCK;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let cur = -1, raf = 0, timer = 0, wasInside = false;
   const span = () => Math.max(1, sec.offsetHeight - innerHeight);
+  // 괄호 ( ) 가 숨 쉬듯 양옆으로 벌어졌다 오므라듦 — 장이 바뀔 때마다
+  function breathe() {
+    if (reduce) return;
+    parens.forEach((p) => { p.classList.remove('breathe'); void p.getBoundingClientRect(); p.classList.add('breathe'); });
+  }
+  // 제목 'How the Formula Works' 해독: 로고처럼 무작위 글자가 왼쪽부터 제자리를 찾음 (구간에 들어올 때마다)
+  let titleRun = 0;
+  function decodeTitle() {
+    const run = ++titleRun;
+    title.classList.add('in');
+    if (reduce) { title.textContent = TITLE; return; }
+    const start = performance.now();
+    let frame = 0;
+    (function tick(now) {
+      if (run !== titleRun) return;
+      const k = (now - start) / TITLE_MS;
+      if (frame++ % 3 === 0 || k >= 1) {
+        title.textContent = [...TITLE].map((ch, i) => (ch === ' ' || i < k * TITLE.length ? ch : GLYPHS[Math.random() * GLYPHS.length | 0])).join('');
+      }
+      if (k < 1) requestAnimationFrame(tick); else title.textContent = TITLE;
+    })(start);
+  }
   function show(i) {
+    if (i !== cur) breathe();
     cur = i;
     steps.forEach((s, k) => { s.classList.toggle('on', k === i); s.setAttribute('aria-hidden', k === i ? 'false' : 'true'); });
     dots.forEach((d, k) => d.classList.toggle('on', k === i));
@@ -25,6 +53,8 @@
     const entered = inside && !wasInside && r.top > -innerHeight;   // 위에서 막 들어옴 → 첫 장에서 잠깐 멈춤
     wasInside = inside;
     if (entered && cur <= 0) i = 0;
+    if (entered) decodeTitle();
+    if (r.top > innerHeight * 0.5 && title.classList.contains('in')) { titleRun++; title.classList.remove('in'); title.textContent = TITLE; cur = -1; }   // 위로 벗어나면 다음에 다시
     if (i === cur && !entered) return;
     if (cur >= 0 && i > cur + 1 && inside) i = cur + 1;          // 한 번에 한 장씩만
     show(i);
