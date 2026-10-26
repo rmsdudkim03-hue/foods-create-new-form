@@ -268,7 +268,10 @@ render(cur);
 // 처음 열릴 때 + 로고에 마우스를 올릴 때 다시
 logo.addEventListener('mouseenter', scrambleLogo);
 logo.addEventListener('click', scrambleLogo);
-scrambleLogo();
+// 맨 위에서 열렸으면 이미지 흐름(prelude.js)을 먼저 보여주고, 끝나면 로고 해독
+const PRELUDE = window.FORMULA_PRELUDE;
+if (PRELUDE && scrollY < 2) PRELUDE.play(() => { navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY)); scrambleLogo(); });
+else scrambleLogo();
 
 // ── 조형 8개: 화면에 들어오면 차례로 떠오름 ──
 const forms = document.getElementById('forms');
@@ -288,8 +291,8 @@ function goHome() {
   cancelAnimationFrame(raf); raf = 0;
   target = cur = 0; render(0);                    // 검정 첫 화면으로 되돌림
   forms.classList.remove('in');                   // 조형도 다시 떠오르게
-  navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
-  scrambleLogo();                                 // 로고 해독 → 끝나면 전환까지 저절로
+  const again = () => { navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY)); scrambleLogo(); };   // 로고 해독 → 끝나면 전환까지 저절로
+  if (PRELUDE) PRELUDE.play(again); else again();   // 이미지 흐름부터 다시
 }
 function wake() { clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }
 ['pointermove', 'pointerdown', 'wheel', 'scroll', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));

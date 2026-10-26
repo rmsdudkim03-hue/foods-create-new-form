@@ -42,25 +42,9 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const start = clamp((parseInt(location.hash.slice(1), 10) || 1) - 1, 0, N - 1);
 let pos = start, target = start, cur = -1;
 
-// ── 아래 설명 갱신 (가운데 카드가 바뀔 때) ──
-const capNo = document.getElementById('arcNo'), capTitle = document.getElementById('arcTitle');
-const capGo = document.getElementById('arcGo'), capCount = document.getElementById('arcCount');
-function caption(i) {
-  const c = CARDS[i];
-  capNo.textContent = 'N ' + pad(i + 1);
-  capTitle.innerHTML = `<span class="w f0" style="--i:0">${esc(c.foods[0])}</span> <span class="w" style="--i:1">×</span> <span class="w f1" style="--i:2">${esc(c.foods[1])}</span>`;
-  side();
-  capGo.href = 'history.html?n=' + (i + 1);
-  capCount.textContent = pad(i + 1) + ' / ' + pad(N);
-  history.replaceState(null, '', '#' + (i + 1));
-}
-
-// 지금 보이는 면(A·B)의 음식 이름을 진하게
-function side() {
-  const b = cur >= 0 && cards[cur].classList.contains('flipped');
-  capTitle.classList.toggle('show-b', b);
-}
-const flip = (el) => { el.classList.toggle('flipped'); side(); };
+// 가운데 카드가 바뀌면 주소 끝 번호만 바꿈 (#3 → 새로고침해도 그 카드부터)
+function caption(i) { history.replaceState(null, '', '#' + (i + 1)); }
+const flip = (el) => el.classList.toggle('flipped');
 
 // ── 그리기: 카드마다 가운데에서 떨어진 정도(d)로 위치·각도·깊이 ──
 function render() {
