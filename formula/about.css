@@ -58,7 +58,7 @@
 @media (max-aspect-ratio: 1/1) {
   .about { --u: calc(100vw / 900); }
   .about section { padding: 120px 16px; gap: 20px; }
-  .a-hero h1 { font-size: 44px; }
+  .a-hero h1 { font-size: 36px; }
   .a-food { font-size: 40px; }
   .words { grid-template-columns: 1fr; width: 100%; }
   .roles { gap: 48px; }
