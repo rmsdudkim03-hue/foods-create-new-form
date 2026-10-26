@@ -86,19 +86,19 @@ a { color: inherit; text-decoration: none; }
 .intro { position: absolute; left: 0; right: 0; top: 0; text-align: center; color: var(--ink); pointer-events: none; }
 .intro p { position: absolute; left: 0; right: 0; }
 .intro .tagline {
-  top: calc(564 * var(--u));
+  top: calc(534 * var(--u));   /* 피그마 Frame 6 */
   font: 600 calc(24 * var(--u)) / calc(26 * var(--u)) 'Bitcount Grid Single', ui-monospace, monospace;
   font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0;
   letter-spacing: .05em;   /* 피그마 자간 5% */
   color: #000;
 }
 .intro .ko {
-  top: calc(626.6 * var(--u));
+  top: calc(596.6 * var(--u));
   font: 400 calc(16 * var(--u)) / 1.5 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
 .intro .ko b { font-weight: 700; }
 .intro .en {
-  top: calc(746 * var(--u));
+  top: calc(741 * var(--u));
   font: 400 calc(16 * var(--u)) / 1.5 'DM Sans', sans-serif;
   font-variation-settings: 'opsz' 14;
   color: var(--en);
