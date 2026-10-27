@@ -72,7 +72,11 @@ function show(slot, k, scrambled) {
 
 let logoRun = 0;
 let decoding = false, decoded = false;   // 해독은 처음 한 번만 (끝나면 바로 전환). 처음 화면으로 돌아가면(goHome) 다시 한 번
+// 맨 처음 화면(pre.js, 피그마 Frame 20)이 끝난 뒤에 메뉴·로고 해독 시작
+const preDone = window.FORMULA_PRE || Promise.resolve();
+let preOver = false; preDone.then(() => { preOver = true; });
 function scrambleLogo() {
+  if (!preOver) return;                           // 맨 처음 화면이 끝나기 전엔 X
   if (reduce) { startAuto(); return; }
   if (cur > 0 || decoding || decoded) return;   // 첫 화면에서, 한 번만
   decoding = true;
@@ -124,7 +128,7 @@ function rise(a) {
 }
 // 처음 열릴 때 차례로 + 마우스를 올리면 그 메뉴만 다시
 navItems.forEach((a, n) => {
-  setTimeout(() => rise(a), 150 + n * ITEM_DELAY);
+  preDone.then(() => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
   a.addEventListener('mouseenter', () => rise(a));
   a.addEventListener('focus', () => rise(a));
 });
@@ -271,7 +275,7 @@ render(cur);
 // 처음 열릴 때 한 번 (마우스를 올려도 해독이 끝나기 전·후로 다시 돌지 않음)
 logo.addEventListener('mouseenter', scrambleLogo);
 logo.addEventListener('click', scrambleLogo);
-scrambleLogo();
+preDone.then(scrambleLogo);
 
 // ── 조형 8개: 화면에 들어오면 차례로 떠오름 ──
 const forms = document.getElementById('forms');
