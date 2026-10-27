@@ -12,6 +12,12 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="history.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
 </head>
 <body class="hist-page">
 <!-- 메뉴: 첫 페이지와 같은 자리 (흰 화면용 진한 글자) -->
@@ -39,5 +45,6 @@ BY GY.KIM</a>
 </main>
 <script src="foods.js"></script>
 <script src="history.js"></script>
+<script type="module" src="hover3d.js"></script>
 </body>
 </html>
