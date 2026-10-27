@@ -2,7 +2,7 @@
 //  카드가 저절로 계속 바뀌며 나옴: 아래에서 올라와 가운데 → HOLD_MS 머문 뒤 위로 빠지고 다음 카드
 //  순서: N 01 음식 A → N 01 음식 B → N 02 A → … → N 08 B → 처음부터
 //  마우스를 올리면 멈춤(구슬에 올리면 특징 이름), 카드를 누르면 그 조형의 과정(history.html), 휠·← →로 직접 넘김
-//  자료는 foods.js의 FOODS (사진은 photos, 없으면 어두운 카드에 음식 이름)
+//  자료는 foods.js의 FOODS. 사진(photos)이 있는 카드만 나옴 (사진이 하나도 없을 때만 어두운 카드에 음식 이름)
 const HOLD_MS = 2800;    // 카드 한 장이 머무는 시간
 const BX = [66, 179, 292, 404, 520];   // 피그마: 카드 안 구슬 x 자리
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -12,7 +12,10 @@ const pad = (n) => String(n).padStart(2, '0');
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // 카드 목록: 실험(음식 짝) 하나에 음식 A·B 두 장
-const LIST = window.FOODS.flatMap((f, i) => [0, 1].map((k) => ({ f, i, k })));
+const ALL = window.FOODS.flatMap((f, i) => [0, 1].map((k) => ({ f, i, k })));
+// 사진이 있는 카드만 돌림 (foods.js에 사진을 넣으면 저절로 늘어남). 하나도 없으면 전부(음식 이름 카드)
+const WITH_PHOTO = ALL.filter(({ f, k }) => f.photos[k]);
+const LIST = WITH_PHOTO.length ? WITH_PHOTO : ALL;
 const cards = LIST.map(({ f, i, k }) => {
   const side = k ? 'B' : 'A', dir = 'archive/' + pad(i + 1) + '/';
   const beads = BX.map((x, j) => { const name = f.names[k * 5 + j];
