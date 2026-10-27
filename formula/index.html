@@ -34,6 +34,15 @@ BY GY.KIM</a>
 
 <!-- 1. 첫 화면 → 소개: 스크롤하는 동안 화면은 고정(sticky)되고 장면만 바뀜 (main.js)
      검정 화면 → 괄호 칸 전환(흰 화면) → 괄호 ( ) 가 외곽선이 되며 넓어짐 → 로고가 작아지며 소개글 -->
+<!-- 0. 맨 처음 화면 (피그마 Frame 20): 외곽선 로고 + 문구 → 로고가 커지며 채워져 첫 화면으로 (pre.js) -->
+<div class="pre" id="pre" aria-hidden="true">
+  <svg class="pre-logo" viewBox="0 0.2 713.7 186.8" overflow="visible">
+    <defs><filter id="pre-outline" x="-5%" y="-5%" width="110%" height="110%"><feMorphology in="SourceAlpha" operator="dilate" radius="1.4" result="d"/><feComposite in="d" in2="SourceAlpha" operator="out" result="o"/><feFlood flood-color="#fafaf8"/><feComposite in2="o" operator="in"/></filter></defs>
+    <g class="pre-line" filter="url(#pre-outline)"></g>
+    <g class="pre-fill"></g>
+  </svg>
+  <p class="pre-tag">Every Day, a New Form</p>
+</div>
 <section class="story" id="story">
   <div class="stage">
     <canvas class="wipe" id="wipe" aria-hidden="true"></canvas>
@@ -60,7 +69,7 @@ BY GY.KIM</a>
 <section class="overview" id="overview" aria-label="Overview">
   <div class="ov-stage">
     <div class="ov-frame">
-      <div class="ov-ex" data-q="Who Is Thinking ?">
+      <div class="ov-ex" data-q="overview">
         <p class="ov-q"></p>
         <i class="ov-dots" aria-hidden="true"><b></b><b></b><b></b></i>
         <div class="ov-a">
@@ -72,7 +81,7 @@ BY GY.KIM</a>
 our thinking is slowly handed over to it, until we find ourselves thinking by leaning on its answers. Along the way, our thinking begins to suffer side effects. Along the way, we hand over our thinking and come to lean on it. We still hold the final say, but the thinking behind it slowly becomes AI’s.</p>
         </div>
       </div>
-      <div class="ov-ex" data-q="Then, who decides ?">
+      <div class="ov-ex" data-q="What is different ?">
         <p class="ov-q"></p>
         <i class="ov-dots" aria-hidden="true"><b></b><b></b><b></b></i>
         <div class="ov-a">
@@ -170,6 +179,7 @@ AI observes and suggests; choosing, interpreting, and completing are left to peo
   </div>
 </section>
 <script src="lock.js"></script>
+<script src="pre.js"></script>
 <script src="main.js"></script>
 <script src="overview.js"></script>
 <script src="process.js"></script>
