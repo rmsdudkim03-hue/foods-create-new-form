@@ -24,14 +24,10 @@ BY GY.KIM</a>
   <a class="contact light" href="contact.html">CONTACT</a>
 </nav>
 
-<!-- 카드 줄 (ramp.design처럼): 가운데 카드는 정면, 양옆으로 갈수록 3D로 돌아감
-     카드 하나 = 실험한 음식 짝: 앞면 음식 A, 뒷면 음식 B. 가운데 카드를 누르면 뒤집힘
-     카드는 foods.js의 FOODS 자료로 채움 -->
+<!-- 아카이브 (피그마 Frame 18·19): 가운데 음식 사진 카드 + 흰 특징 구슬 5개, 카드가 저절로 계속 바뀜
+     카드는 foods.js의 FOODS 자료로 archive.js가 채움 -->
 <main class="arc" id="arc">
-  <div class="arc-hint">
-    <p><span class="bit">Scroll or drag to browse · Click a card to flip</span><br>넘겨 보고, 카드를 누르면 다른 음식으로 뒤집혀요</p>
-  </div>
-  <div class="arc-stage" id="arcStage" aria-roledescription="carousel" aria-label="실험 아카이브"></div>
+  <div class="arc-stage" id="arcStage" aria-live="polite" aria-label="실험 아카이브"></div>
 </main>
 <script src="foods.js"></script>
 <script src="archive.js"></script>
