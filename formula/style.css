@@ -323,3 +323,6 @@ html.pre-on, html.pre-on body { overflow: hidden; }
   .pre-logo { width: 60vw; }
   .pre-tag { top: calc(50% + 11vw); }
 }
+
+/* 괄호 선 모서리를 둥글게: 구슬이 이어지는 오목한 꼭짓점에서 선이 뾰족하게 튀어나오지 않게 (피그마도 같은 설정으로 바꿈) */
+.pr-paren path, .c-paren path, .hint-paren path, .pre-logo path { stroke-linejoin: round; }
