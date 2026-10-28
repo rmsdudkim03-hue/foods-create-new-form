@@ -11,25 +11,22 @@
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!pre || !logo || reduce || scrollY > 0) { pre?.remove(); window.FORMULA_PRE = Promise.resolve(); return; }
 
-  // 로고 글자 칸을 그대로 복사 (외곽선용 한 벌 + 채워질 한 벌)
   const svg = pre.querySelector('.pre-logo');
-  const slots = [...logo.querySelectorAll('.slot')];
-  const line = svg.querySelector('.pre-line'), fill = svg.querySelector('.pre-fill');
-  slots.forEach((s, i) => {
-    const a = s.cloneNode(true); a.removeAttribute('class'); a.style.setProperty('--i', i); line.appendChild(a);
-    const b = s.cloneNode(true); b.removeAttribute('class'); fill.appendChild(b);
-  });
-  // 외곽선 굵기 = 화면에서 1px (피그마 선 1) → 로고 크기에 맞춰 필터 굵기를 계산
-  const dil = svg.querySelector('feMorphology');
-  const fit = () => dil.setAttribute('radius', (713.7 / Math.max(1, svg.getBoundingClientRect().width)).toFixed(3));
-  fit(); addEventListener('resize', fit);
+
+  // 진짜 로고(Frame 4)의 글자 8개가 화면에서 차지하는 칸 (SVG 여백 없이 글자만)
+  function glyphBox() {
+    const rs = [...logo.querySelectorAll('.slot')].map((s) => s.getBoundingClientRect());
+    const l = Math.min(...rs.map((r) => r.left)), t = Math.min(...rs.map((r) => r.top));
+    const r = Math.max(...rs.map((r) => r.right)), b = Math.max(...rs.map((r) => r.bottom));
+    return { left: l, top: t, width: r - l, height: b - t };
+  }
 
   document.documentElement.classList.add('pre-on');
   window.FORMULA_PRE = new Promise((done) => {
     requestAnimationFrame(() => pre.classList.add('in'));          // 글자·문구가 차례로 떠오름
     setTimeout(() => {
       // 커지기: 지금 자리 → 진짜 로고(Frame 4) 자리로 (화면 크기가 달라도 맞게, 실제 위치를 재서 옮김)
-      const a = svg.getBoundingClientRect(), b = logo.getBoundingClientRect();
+      const a = svg.getBoundingClientRect(), b = glyphBox();
       const k = b.width / a.width;
       const dx = (b.left + b.width / 2) - (a.left + a.width / 2), dy = (b.top + b.height / 2) - (a.top + a.height / 2);
       svg.style.transition = `transform ${GROW_MS}ms cubic-bezier(.65, 0, .25, 1)`;
