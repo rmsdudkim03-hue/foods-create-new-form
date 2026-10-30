@@ -19,10 +19,11 @@
 .pr-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pr-step.on { pointer-events: auto; }
 
+/* 마우스 반응은 빠르게 (흐려짐 0.12초, 커짐 0.16초, 이름 0.1초) */
 /* Extract: 특징 구슬 10개 (A 위 줄, B 아래 줄). 마우스를 올리면 아래에 특징 이름 */
-.h-feat { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(130 * var(--u)); height: calc(130 * var(--u)); display: grid; place-items: center; transition: opacity .3s ease; }
-.h-feat img { width: 100%; height: 100%; transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
-.h-feat span { position: absolute; top: 100%; left: 50%; translate: -50% 0; white-space: nowrap; font: 600 max(11px, calc(14 * var(--u)))/1.4 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+.h-feat { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(130 * var(--u)); height: calc(130 * var(--u)); display: grid; place-items: center; transition: opacity .12s ease-out; }
+.h-feat img { width: 100%; height: 100%; transition: transform .16s cubic-bezier(.2, .8, .2, 1); }
+.h-feat span { position: absolute; top: 100%; left: 50%; translate: -50% 0; white-space: nowrap; font: 600 max(11px, calc(14 * var(--u)))/1.4 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; opacity: 0; transition: opacity .1s ease-out; pointer-events: none; }
 .h-feats:hover .h-feat:not(:hover) { opacity: .28; }
 .h-feat:hover img { transform: scale(1.08); }
 .h-feat:hover span, .h-feat:focus-visible span { opacity: 1; }
