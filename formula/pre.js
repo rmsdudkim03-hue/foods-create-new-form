@@ -9,7 +9,8 @@
   const pre = document.getElementById('pre');
   const logo = document.getElementById('logo');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!pre || !logo || reduce || scrollY > 0) { pre?.remove(); window.FORMULA_PRE = Promise.resolve(); return; }
+  if (!pre || !logo || reduce || scrollY > 0 || /[?&]check\b/.test(location.search) || location.hash) {   // 확인용·주소에 #장면이 있으면 건너뜀
+  pre?.remove(); window.FORMULA_PRE = Promise.resolve(); return; }
 
   const svg = pre.querySelector('.pre-logo');
 

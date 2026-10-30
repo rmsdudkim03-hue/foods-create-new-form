@@ -36,6 +36,7 @@ el.addEventListener('mouseenter', () => { decode(); breathe(); });
 // 전시용: 2분 무조작 → 첫 화면
 const IDLE_MS = 2 * 60 * 1000;
 let idleTimer = 0;
-const wake = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => { location.href = './'; }, IDLE_MS); };
+const CHECK = /[?&]check\b/.test(location.search);   // 확인용(check.html에서 열 때): 2분 무조작이어도 첫 화면으로 안 돌아감
+const wake = () => { if (CHECK) return; clearTimeout(idleTimer); idleTimer = setTimeout(() => { location.href = './'; }, IDLE_MS); };
 ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
 wake();
