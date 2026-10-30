@@ -24,7 +24,7 @@ const SPIN3D = 0.35;   // 돌아가는 빠르기 (1초에 몇 라디안. 0.35면
 const LOOK3D = [
   'data-material="svg-satin"', 'data-material="pantone-602c"',
   'data-material="svg-satin" data-face="top" data-blend', 'data-material="svg-satin" data-face="top" data-blend',
-  'data-material="svg-satin" data-blend data-ms="2000"', 'data-material="svg-satin" data-blend',
+  'data-material="svg-satin" data-blend data-ms="1100"', 'data-material="svg-satin" data-blend',
   'data-material="svg-satin"', 'data-material="svg-satin"',
 ];
 
