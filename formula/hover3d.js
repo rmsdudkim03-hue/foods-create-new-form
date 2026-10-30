@@ -33,10 +33,10 @@ const COOL = '#e3dbff';       // 반사광·그늘 쪽에 아주아주 살짝 �
 
 const SPIN = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.9;   // 돌아가는 빠르기 (1초에 몇 라디안. 6.28이면 1초에 한 바퀴). 움직임 줄이기 설정이면 돌지 않음
 const ZOOM_OUT = 0.2;      // 입체가 되며 위에서 보이는 바닥면만큼 조금 작아지게 (최대값. 납작하고 넓은 조형일수록 많이, 세로로 긴 조형은 거의 안 줄어듦)
-const VOL_MS = 1100;       // 평면 → 입체로 바뀌는 시간 (빛·그늘·원근·기울기가 함께)
+const VOL_MS = 600;        // 평면 → 입체로 바뀌는 시간 (빛·그늘·원근·기울기가 함께). 예전 1.1초 → 빠르게
 const TILT = 0.45;         // 돌 때 위에서 내려다보는 정도 (라디안. 0이면 정면 그대로)
 const FOV = 14;           // 카메라 화각(도). 작을수록 평면적, 클수록 원근이 강함
-const BLEND_MS = 350;      // data-blend: SVG ↔ 3D 겹쳐 바뀌는 시간
+const BLEND_MS = 180;      // data-blend: SVG ↔ 3D 겹쳐 바뀌는 시간
 const PAD = 0.35;          // 3D 무대를 SVG보다 위아래·양옆으로 넓혀서 돌 때 잘리지 않게 (SVG 크기 대비)
 const loader = new GLTFLoader();
 
@@ -209,14 +209,14 @@ async function setup(el) {
       mix = Math.min(1, mix + dt * 1000 / BLEND_MS);               // 먼저 SVG → 평면 3D로 겹쳐 바뀜
     } else if (hover) {
       vol = Math.min(1, vol + dt * 1000 / volMs);
-      if (vol > 0.45) {                                            // 입체가 반쯤 생기면 돌기 시작
-        speed += (spin - speed) * Math.min(1, dt * 2);
+      if (vol > 0.25) {                                            // 입체가 조금 생기면 바로 돌기 시작
+        speed += (spin - speed) * Math.min(1, dt * 4);
         angle += speed * dt;
       }
     } else {
       speed = 0;
       const target = Math.round(angle / (Math.PI * 2)) * Math.PI * 2;   // 가장 가까운 정면
-      angle += (target - angle) * Math.min(1, dt * 5);
+      angle += (target - angle) * Math.min(1, dt * 8);
       if (Math.abs(target - angle) < 0.02) {
         angle = target;
         if (vol > 0) vol = Math.max(0, vol - dt * 1000 / volMs);
@@ -248,6 +248,7 @@ async function setup(el) {
   else {
     el.addEventListener('pointerenter', () => { hover = true; start(); });
     el.addEventListener('pointerleave', () => { hover = false; start(); });
+    if (el.matches(':hover')) { hover = true; start(); }            // 준비되는 동안 이미 마우스가 올라가 있었으면 바로 시작
   }
   // 그리는 프로그램(셰이더)을 미리 준비해 둠 → 처음 마우스를 올렸을 때 멈칫하지 않게 (가능하면 화면을 멈추지 않고 따로 준비)
   await (renderer.compileAsync ? renderer.compileAsync(scene, cam) : Promise.resolve(renderer.compile(scene, cam)));
@@ -265,10 +266,15 @@ async function loadAll() {
   if (loading) return;
   loading = true;
   for (const el of document.querySelectorAll('.form3d')) {
+    if (el._prep) continue;                         // 마우스를 올려서 이미 준비 중이면 건너뜀
     await idle();                                   // 브라우저가 한가할 때 하나씩 (스크롤·모션 중이면 기다림)
-    await setup(el).catch((err) => console.warn('3D 조형을 불러오지 못했어요', err));
+    await prep(el);
   }
 }
+// 조형 하나 준비 (한 번만)
+const prep = (el) => (el._prep ||= setup(el).catch((err) => console.warn('3D 조형을 불러오지 못했어요', err)));
+// 아직 준비 안 된 조형에 마우스를 올리면 기다리지 않고 그 조형부터 바로 준비
+document.querySelectorAll('.form3d[data-model]').forEach((el) => el.addEventListener('pointerenter', () => prep(el), { once: true }));
 const formsSec = document.querySelector('.forms');
 if (formsSec && 'IntersectionObserver' in window) {
   const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); loadAll(); } }, { rootMargin: '0px 0px 50% 0px' });
