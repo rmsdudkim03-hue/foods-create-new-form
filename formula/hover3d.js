@@ -275,6 +275,8 @@ async function loadAll() {
 const prep = (el) => (el._prep ||= setup(el).catch((err) => console.warn('3D 조형을 불러오지 못했어요', err)));
 // 아직 준비 안 된 조형에 마우스를 올리면 기다리지 않고 그 조형부터 바로 준비
 document.querySelectorAll('.form3d[data-model]').forEach((el) => el.addEventListener('pointerenter', () => prep(el), { once: true }));
+// 확인용 작은 미리보기(check.html의 ?thumb)는 3D를 불러오지 않고 SVG만 (미리보기가 여러 개라 무거워짐)
+if (/[?&]thumb\b/.test(location.search)) document.querySelectorAll('.form3d').forEach((el) => delete el.dataset.model);
 const formsSec = document.querySelector('.forms');
 if (formsSec && 'IntersectionObserver' in window) {
   const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); loadAll(); } }, { rootMargin: '0px 0px 50% 0px' });

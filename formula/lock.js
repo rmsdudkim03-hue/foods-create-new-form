@@ -2,11 +2,12 @@
 //   FORMULA_LOCK.hold('이름', y)  → 화면을 y 위치에 붙잡음 (아래로 내리는 휠·터치·키 막음, 위로는 됨)
 //   FORMULA_LOCK.release('이름')  → 풀어 줌 (모든 잠금이 풀려야 다시 내려감)
 (() => {
+  const CHECK = /[?&]check\b/.test(location.search);   // 확인용(check.html): 스크롤을 잠그지 않음
   const holds = new Map();
   const limit = () => Math.min(...holds.values());
   const locked = () => holds.size > 0;
   window.FORMULA_LOCK = {
-    hold(key, y = scrollY) { holds.set(key, Math.max(0, Math.round(y))); },
+    hold(key, y = scrollY) { if (CHECK) return; holds.set(key, Math.max(0, Math.round(y))); },   // 확인용이면 잠그지 않음
     release(key) { holds.delete(key); },
     clear() { holds.clear(); },
     get locked() { return locked(); },

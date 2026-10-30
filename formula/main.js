@@ -299,6 +299,7 @@ function goHome() {
   navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
   scrambleLogo();                                 // 로고 해독 → 끝나면 전환까지 저절로
 }
-function wake() { clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }
+const CHECK = /[?&]check\b/.test(location.search);   // 확인용(check.html에서 열 때): 2분 무조작이어도 첫 화면으로 안 돌아감
+function wake() { if (CHECK) return; clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }
 ['pointermove', 'pointerdown', 'wheel', 'scroll', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
 wake();
