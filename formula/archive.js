@@ -42,6 +42,7 @@ function show(i, dir = 1) {
   const first = cur < 0;
   const face = faces[first ? 0 : (turn + 1) % 2];                  // 지금 뒤쪽(안 보이는 쪽)에 있는 면
   face.innerHTML = faceHTML(LIST[i]);
+  face.classList.toggle('side-a', LIST[i].k === 0);
   faces.forEach((el) => el.classList.toggle('on', el === face && first));
   if (!first) {
     turn += 1;
