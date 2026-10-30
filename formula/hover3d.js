@@ -101,10 +101,10 @@ async function setup(el) {
   let geo = null;
   gltf.scene.traverse((o) => { if (o.isMesh && !geo) geo = o.geometry; });
   const morph = !!geo.morphAttributes.position?.length;           // 펼친 모양 → 접힌 모양으로 바뀌는 조형
-  if (!morph) geo = mergeVertices(geo);
+  if (!morph && !geo.index) geo = mergeVertices(geo);             // 꼭짓점 합치기 (GLB가 이미 합쳐져 있으면 건너뜀 — 무거운 계산이라 화면이 멈춤)
   const topView = el.dataset.face === 'top';
   if (topView) geo.rotateX(Math.PI / 2);                              // 윗면이 카메라(정면)를 보게 눕힘 → SVG(위에서 본 모양)와 같음
-  geo.computeVertexNormals();                                     // 매끈하게 보이도록
+  if (!geo.attributes.normal) geo.computeVertexNormals();         // 매끈하게 보이도록 (GLB에 미리 넣어 둔 NORMAL이 있으면 그대로 씀, tools/bake_normals.py)
   geo.computeBoundingBox();
   const bb = geo.boundingBox;
   const cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2;
@@ -249,20 +249,24 @@ async function setup(el) {
     el.addEventListener('pointerenter', () => { hover = true; start(); });
     el.addEventListener('pointerleave', () => { hover = false; start(); });
   }
+  // 그리는 프로그램(셰이더)을 미리 준비해 둠 → 처음 마우스를 올렸을 때 멈칫하지 않게 (가능하면 화면을 멈추지 않고 따로 준비)
+  await (renderer.compileAsync ? renderer.compileAsync(scene, cam) : Promise.resolve(renderer.compile(scene, cam)));
   el.classList.add('ready');
 }
 
 // 3D 조형(8개, 약 20MB)은 첫 화면 모션이 끝난 뒤에 하나씩 불러옴
 // (처음 열자마자 한꺼번에 불러오면 로고 해독 모션이 버벅임)
 // 시작: 첫 화면 모션이 끝날 때쯤(LOAD_AFTER) 또는 조형 화면이 가까워지면(스크롤이 빠를 때) 중 먼저 오는 쪽
-const LOAD_AFTER = 6500;   // ms
+const LOAD_AFTER = 11000;  // ms — 맨 처음 화면 → 로고 해독 → 흰 화면 전환이 다 끝난 뒤 (그 전에 준비하면 모션이 뚝뚝 끊김)
 let loading = false;
+// 브라우저가 한가할 때까지 기다림 (최대 1.5초)
+const idle = () => new Promise((r) => ('requestIdleCallback' in window ? requestIdleCallback(() => r(), { timeout: 1500 }) : setTimeout(r, 200)));
 async function loadAll() {
   if (loading) return;
   loading = true;
   for (const el of document.querySelectorAll('.form3d')) {
+    await idle();                                   // 브라우저가 한가할 때 하나씩 (스크롤·모션 중이면 기다림)
     await setup(el).catch((err) => console.warn('3D 조형을 불러오지 못했어요', err));
-    await new Promise((r) => setTimeout(r, 30));   // 하나씩 쉬어 가며 (화면이 멈추지 않게)
   }
 }
 const formsSec = document.querySelector('.forms');
