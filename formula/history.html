@@ -45,6 +45,7 @@ BY GY.KIM</a>
 </main>
 <script src="foods.js"></script>
 <script src="history.js"></script>
-<script type="module" src="hover3d.js"></script>
+<!-- 3D: 확인용 작은 미리보기(?thumb)에선 불러오지 않음 (가볍게) -->
+<script type="module">if (!/[?&]thumb\b/.test(location.search)) import('./hover3d.js');</script>
 </body>
 </html>
