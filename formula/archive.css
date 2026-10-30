@@ -14,9 +14,10 @@ body.arc-page { background: var(--paper); color: var(--ink); overflow: hidden; h
 .aface.back { transform: rotateY(180deg); }
 .aface .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 /* 사진이 아직 없는 카드: 어두운 바탕에 음식 이름 */
+.aface.side-a { --by: 370; }   /* 피그마: 음식 A 카드(Frame 22)는 구슬이 y 370, B 카드(Frame 21)는 382 */
 .aface .food { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font: 600 max(16px, calc(44 * var(--u)))/1.2 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
 /* 특징 구슬 5개 (피그마: 81×81, 카드 안 x 66·179·292·404·520, y 382), 흰색 */
-.aface .beads { position: absolute; left: 0; top: calc(382 * var(--u)); width: 100%; height: calc(81 * var(--u)); }
+.aface .beads { position: absolute; left: 0; top: calc(var(--by, 382) * var(--u)); width: 100%; height: calc(81 * var(--u)); }
 .aface .beads img { position: absolute; left: calc(var(--bx) * var(--u)); top: 0; width: calc(81 * var(--u)); height: calc(81 * var(--u)); filter: brightness(0) invert(1) drop-shadow(0 0 calc(6 * var(--u)) rgba(0, 0, 0, .25));
   opacity: 0; translate: 0 calc(14 * var(--u)); scale: .6; transition: opacity .5s ease, translate .7s cubic-bezier(.2, .8, .2, 1), scale .7s cubic-bezier(.3, 1.6, .5, 1); transition-delay: calc(.2s + var(--i) * .09s); }
 .aface.on .beads img { opacity: 1; translate: 0 0; scale: 1; }
