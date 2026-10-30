@@ -5,11 +5,11 @@ body.contact-page { background: var(--bg); color: var(--text); overflow: hidden;
 .c-frame { position: fixed; left: 50%; top: 50%; translate: -50% -50%; --u: min(calc(100vw / 1920), calc(100vh / 1080)); width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); --sub: #8f8a80; --breathe: calc(46 * var(--u)); }
 .c-name, .c-k, .c-foot { font-family: 'Bitcount Grid Single', ui-monospace, monospace; font-weight: 600; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; }
 
-/* 큰 괄호 ( ) — 피그마: 왼쪽 x 361, 오른쪽 x 1561, y 329, 폭 137 · 높이 420, 선 2.5 */
-.c-paren { position: absolute; top: calc(329 * var(--u)); width: calc(137 * var(--u)); height: calc(420 * var(--u)); color: var(--text); overflow: visible; }
+/* 큰 괄호 ( ) — 화면 가운데(960)를 기준으로 좌우 대칭: 왼쪽 ( 는 x 359~496, 오른쪽 ) 는 x 1424~1561 (피그마 괄호 사이 간격 그대로), y 330, 폭 137 · 높이 420, 선 2.5 */
+.c-paren { position: absolute; top: calc(330 * var(--u)); width: calc(137 * var(--u)); height: calc(420 * var(--u)); color: var(--text); overflow: visible; }
 .c-paren path { stroke-width: 2.5; vector-effect: non-scaling-stroke; }
-.c-paren.l { left: calc(361 * var(--u)); }
-.c-paren.r { left: calc(1561 * var(--u)); scale: -1 1; }
+.c-paren.l { left: calc(359 * var(--u)); }
+.c-paren.r { left: calc(1424 * var(--u)); scale: -1 1; }   /* 왼쪽 괄호를 좌우로 뒤집음 */
 .c-paren.l.breathe { animation: pr-breathe-l 1.2s cubic-bezier(.45, 0, .2, 1); }
 .c-paren.r.breathe { animation: pr-breathe-r 1.2s cubic-bezier(.45, 0, .2, 1); }
 
