@@ -14,7 +14,7 @@ body.contact-page { background: var(--bg); color: var(--text); overflow: hidden;
 .c-paren.r.breathe { animation: pr-breathe-r 1.2s cubic-bezier(.45, 0, .2, 1); }
 
 /* 이름 (가운데, y 386, Bitcount 20 자간 5%, #fafaf8) */
-.c-name { position: absolute; left: 0; right: 0; top: calc(386 * var(--u)); text-align: center; font-size: max(13px, calc(20 * var(--u))); line-height: 1.2; color: var(--paper); white-space: pre; }
+.c-name { position: absolute; left: 0; right: 0; top: calc(378 * var(--u)); text-align: center; font-size: max(14px, calc(24 * var(--u))); line-height: normal;   /* 피그마 Bitcount 24 */ color: var(--paper); white-space: pre; }
 .c-name .s { opacity: .38; }   /* 해독 중인 글자 */
 
 /* 연락처 세 줄 (x 777, 라벨 y 477·557·637 / 값은 라벨 +28) */
