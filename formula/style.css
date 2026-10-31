@@ -150,11 +150,11 @@ a { color: inherit; text-decoration: none; }
 .form-link { color: inherit; }
 .form-link:focus-visible .form3d { outline: 1px solid var(--ink); outline-offset: 8px; }
 /* 조형 화면 안내 (피그마 완성본 Frame 7): 괄호 ( ) 사이에 영어(Bitcount)와 한글 두 줄 */
-.forms-hint { position: absolute; left: calc(768 * var(--u)); width: calc(388 * var(--u)); top: calc(123 * var(--u)); height: calc(49 * var(--u)); display: flex; align-items: center; justify-content: space-between; color: var(--ink); opacity: 0; transition: opacity .8s ease .6s; }
-.forms-hint p { text-align: center; line-height: 1.5; font-size: max(11px, calc(15 * var(--u))); }
+.forms-hint { position: absolute; left: calc(687 * var(--u)); width: calc(549 * var(--u)); top: calc(145 * var(--u)); height: calc(59 * var(--u)); display: flex; align-items: center; justify-content: space-between; color: var(--ink); opacity: 0; transition: opacity .8s ease .6s; }
+.forms-hint p { text-align: center; line-height: calc(26 * var(--u)); font-size: max(12px, calc(20 * var(--u))); }   /* 피그마 Frame 7: 영어 Bitcount 20/26 · 한글 Pretendard 20/26 */
 .forms-hint .en { display: block; font-family: 'Bitcount Grid Single', monospace; font-weight: 600; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; }
 .forms-hint .ko { display: block; font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 400; }
-.hint-paren { width: calc(16 * var(--u)); height: calc(49 * var(--u)); flex: none; }
+.hint-paren { width: calc(19 * var(--u)); height: calc(59 * var(--u)); flex: none; }
 .hint-paren.r { scale: -1 1; }
 /* 괄호 ( ) 가 커서처럼 깜빡임 (속도 1.1s, 꺼졌을 때 밝기는 opacity 값으로) */
 .forms.in .hint-paren { animation: hint-blink 1.1s steps(1, end) infinite; }
@@ -162,7 +162,7 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .forms.in .hint-paren { animation: none; } }
 .forms.in .forms-hint { opacity: 1; }
 /* 조형 아래 번호 '→ NO .01' (늘 보임). 마우스를 올리면 화살표가 살짝 앞으로 */
-.form-no { position: absolute; left: calc(var(--lx) * var(--u)); top: calc(var(--ly) * var(--u)); white-space: pre; font: 600 max(11px, calc(15 * var(--u)))/1.7 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; color: #000; opacity: 0; transition: opacity .8s ease, translate .3s; }
+.form-no { position: absolute; left: calc(var(--lx) * var(--u)); top: calc(var(--ly) * var(--u)); white-space: pre; font: 600 max(12px, calc(20 * var(--u)))/calc(26 * var(--u)) 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: 0; color: #000; opacity: 0; transition: opacity .8s ease, translate .3s; }
 .forms.in .form-no { opacity: 1; transition-delay: calc(var(--i, 0) * 70ms + .3s), 0s; }
 .form-link:hover .form-no, .form-link:focus-visible .form-no { translate: calc(6 * var(--u)) 0; }
 
@@ -238,9 +238,9 @@ a { color: inherit; text-decoration: none; }
 .pr-title { top: calc(190 * var(--u)); white-space: pre; opacity: 0; transition: opacity .3s; }
 .pr-title.in { opacity: 1; }
 .pr-name { top: calc(258 * var(--u)); }
-.pr-sub { position: absolute; left: 0; right: 0; top: calc(299 * var(--u)); text-align: center; font: 400 max(10px, calc(13 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: #9a968f; }
-.pr-ko { position: absolute; left: 0; right: 0; top: calc(853 * var(--u)); text-align: center; font: 600 max(12px, calc(16 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
-.pr-en { position: absolute; left: 0; right: 0; top: calc(885 * var(--u)); text-align: center; font: 400 max(12px, calc(16 * var(--u)))/1.6 'DM Sans', sans-serif; color: #9a968f; }
+.pr-sub { position: absolute; left: 0; right: 0; top: calc(299 * var(--u)); text-align: center; font: 400 max(11px, calc(16 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: #9a968f; }
+.pr-ko { position: absolute; left: 0; right: 0; top: calc(853 * var(--u)); text-align: center; font: 600 max(13px, calc(20 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+.pr-en { position: absolute; left: 0; right: 0; top: calc(885 * var(--u)); text-align: center; font: 400 max(13px, calc(20 * var(--u)))/1.6 'DM Sans', sans-serif; color: #9a968f; }
 /* 큰 괄호 ( ) — 오른쪽은 뒤집어서 */
 .pr-paren { position: absolute; top: calc(315 * var(--u)); width: calc(165 * var(--u)); height: calc(520 * var(--u)); color: var(--ink); overflow: visible; }
 .pr-paren.l { left: calc(364 * var(--u)); }
