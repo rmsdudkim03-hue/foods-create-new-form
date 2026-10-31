@@ -202,7 +202,12 @@ async function setup(el) {
   //  떼면: 정면으로 돌아옴 → 기울기·원근·그늘이 빠지며 평면으로 → SVG로 바꿔 끼움
   const ease = (t) => t * t * (3 - 2 * t);
   let hover = false, angle = 0, speed = 0, vol = 0, mix = 0, last = 0, running = false;
+  // 저절로 도는 조형(히스토리 마지막 장)은 그 장이 보일 때만 그림. 안 보이는 장에서 계속 그리면
+  // 다른 장(Extract 구슬 등)의 마우스 반응이 느려짐
+  const hostStep = el.closest('.pr-step');
+  const shown = () => !document.hidden && (!hostStep || hostStep.classList.contains('on'));
   function frame(now) {
+    if (auto && !shown()) { running = false; return; }
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
     if (hover && blend && mix < 1) {
@@ -244,7 +249,12 @@ async function setup(el) {
     last = performance.now();
     requestAnimationFrame(frame);
   }
-  if (auto) { hover = true; start(); }                             // 저절로: 바로 입체가 되어 계속 돎
+  if (auto) {
+    hover = true; start();
+    const wake = () => { if (shown()) start(); };
+    if (hostStep) new MutationObserver(wake).observe(hostStep, { attributes: true, attributeFilter: ['class'] });
+    document.addEventListener('visibilitychange', wake);
+  }                             // 저절로: 바로 입체가 되어 계속 돎
   else {
     el.addEventListener('pointerenter', () => { hover = true; start(); });
     el.addEventListener('pointerleave', () => { hover = false; start(); });
