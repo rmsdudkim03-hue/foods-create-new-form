@@ -11,6 +11,15 @@ body.about-page { background: var(--bg); color: var(--text); overflow: hidden; h
 /* 구슬 격자 그림 (피그마 Frame 23: x 387 · y 235, 1181×500) */
 .ab-logo { position: absolute; left: calc(387 * var(--u)); top: calc(235 * var(--u)); width: calc(1181 * var(--u)); height: calc(500 * var(--u)); overflow: hidden; }
 
+/* 설명 두 줄: 그림 아래 가운데 (그림 가운데 x 977.5 기준). 글꼴은 HOW IT WORKS 설명과 같게: 한글 Pretendard SemiBold 20 / 영어 DM Sans 20 회색
+   피그마에 자리가 생기면 top 값을 피그마 y로 바꿈 */
+.ab-ko, .ab-en { position: absolute; left: calc(477.5 * var(--u)); width: calc(1000 * var(--u)); margin: 0; text-align: center; line-height: 1.6; }
+.ab-ko { top: calc(800 * var(--u)); font: 600 max(13px, calc(20 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--paper); }
+.ab-en { top: calc(832 * var(--u)); font: 400 max(13px, calc(20 * var(--u)))/1.6 'DM Sans', sans-serif; color: #8f8a80; }
+.ab-ko, .ab-en { opacity: 0; translate: 0 calc(10 * var(--u)); transition: opacity .9s ease 2.4s, translate 1s cubic-bezier(.2, .8, .2, 1) 2.4s; }
+.ab-en { transition-delay: 2.55s; }
+.in .ab-ko, .in .ab-en { opacity: 1; translate: 0 0; }
+
 /* 들어올 때: 빈 원이 무작위로 하나씩 찍히고(첫 화면처럼) → 기준선이 그어지고 → 로고 글자가 떠오름 (about.js가 원마다 --d 지연을 줌) */
 .ab-grid circle { opacity: 0; transition: opacity .35s ease var(--d, 0s); }
 .ab-lines path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.1s cubic-bezier(.6, 0, .2, 1) 1s; }
@@ -22,7 +31,7 @@ body.about-page { background: var(--bg); color: var(--text); overflow: hidden; h
 .in .ab-grid circle, .in .ab-glyphs path { opacity: 1; translate: 0 0; }
 .in .ab-lines path { stroke-dashoffset: 0; }
 @media (prefers-reduced-motion: reduce) {
-  .ab-grid circle, .ab-lines path, .ab-glyphs path { transition: none; }
+  .ab-grid circle, .ab-lines path, .ab-glyphs path, .ab-ko, .ab-en { transition: none; }
 }
 
 /* 휴대폰: 판 대신 가운데에 세로로 */
@@ -30,4 +39,6 @@ body.about-page { background: var(--bg); color: var(--text); overflow: hidden; h
   .ab-frame { position: relative; left: auto; top: auto; translate: none; width: auto; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 28px; padding: 0 16px; }
   .ab-title { position: static; font-size: 16px; }
   .ab-logo { position: static; width: 100%; height: auto; }
+  .ab-ko, .ab-en { position: static; width: auto; font-size: 14px; word-break: keep-all; }
+  .ab-en { font-size: 13px; margin-top: -16px; }
 }
