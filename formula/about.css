@@ -1,8 +1,11 @@
 /* ABOUT (피그마 '웹사이트 디자인 완성본' ABOUT 프레임 147:525): 어두운 화면, 1920×1080 판을 화면에 꼭 맞게. 좌표는 피그마 px × --u
    --u = min(폭÷1920, 높이÷1080) */
-body.about-page { background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+/* 화면 두 장(LOGO → ICON)을 위아래로, 한 장씩 딱 맞게 넘어감 (scroll-snap) */
+html:has(body.about-page) { scroll-snap-type: y mandatory; }
+body.about-page { background: var(--bg); color: var(--text); }
+.ab-sec { position: relative; height: 100vh; overflow: hidden; scroll-snap-align: start; --u: min(calc(100vw / 1920), calc(100vh / 1080)); }
 .about-page .nav .about[aria-current] { text-decoration: underline; text-underline-offset: 6px; }
-.ab-frame { position: fixed; left: 50%; top: 50%; translate: -50% -50%; --u: min(calc(100vw / 1920), calc(100vh / 1080)); width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); }
+.ab-frame { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); }
 
 /* 제목 LOGO (피그마 x 965 · y 179, Bitcount SemiBold 24 자간 5%, #fafaf8) */
 .ab-title { position: absolute; left: calc(965 * var(--u)); top: calc(179 * var(--u)); margin: 0; font: 600 max(14px, calc(24 * var(--u)))/normal 'Bitcount Grid Single', ui-monospace, monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; color: var(--paper); white-space: pre; }
@@ -34,11 +37,37 @@ body.about-page { background: var(--bg); color: var(--text); overflow: hidden; h
   .ab-grid circle, .ab-lines path, .ab-glyphs path, .ab-ko, .ab-en { transition: none; }
 }
 
+/* ── ICON: 흐르는 띠 (피그마 시안 4) ──
+   제목은 LOGO와 같은 자리. 줄 가운데 y 360·540·720, 아이콘 120, 간격 170 (피그마 px × --u). 띠는 화면 폭 전체를 씀 */
+.ab-icons .ab-title { left: calc(50% + (965 - 960) * var(--u)); top: calc(50% + (179 - 540) * var(--u)); }
+.ic-row { position: absolute; left: 0; right: 0; top: calc(50% + (var(--y) - 540 - 60) * var(--u)); height: calc(120 * var(--u)); }
+.ic-track { display: flex; width: max-content; height: 100%; animation: ic-left var(--dur) linear infinite; }
+.ic-row[data-dir="right"] .ic-track { animation-name: ic-right; }
+@keyframes ic-left { from { translate: 0 0; } to { translate: -50% 0; } }     /* 같은 줄을 두 번 이어 붙였으니 절반만큼 가면 처음과 같은 모습 */
+@keyframes ic-right { from { translate: -50% 0; } to { translate: 0 0; } }
+.ic-row:hover .ic-track, .ic-row:focus-within .ic-track { animation-play-state: paused; }   /* 마우스를 올리면 그 줄만 멈춤 */
+.ic { position: relative; flex: none; width: calc(120 * var(--u)); height: calc(120 * var(--u)); margin-right: calc(50 * var(--u)); outline: none; }
+/* 아이콘 그림(진한색 SVG)을 모양만 따서 흰색으로 칠함 */
+.ic i { position: absolute; inset: 0; background: var(--paper); -webkit-mask: var(--src) center / contain no-repeat; mask: var(--src) center / contain no-repeat; opacity: .45; transition: opacity .15s ease-out; }
+.ic span { position: absolute; top: calc(100% + 12 * var(--u)); left: 50%; translate: -50% 0; white-space: nowrap; font: 600 max(12px, calc(16 * var(--u)))/1.4 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--paper); opacity: 0; transition: opacity .12s ease-out; pointer-events: none; }
+.ic:hover i, .ic:focus-visible i { opacity: 1; }
+.ic:hover span, .ic:focus-visible span { opacity: 1; }
+/* 양 끝이 어둠 속으로 사라지듯 (폭 340, 맨 끝 85는 완전히 안 보임): 줄 자체를 가장자리에서 투명하게 */
+.ic-row { --fade: calc(340 * var(--u)); -webkit-mask: linear-gradient(90deg, transparent 0 calc(var(--fade) * .25), #000 var(--fade), #000 calc(100% - var(--fade)), transparent calc(100% - var(--fade) * .25)); mask: linear-gradient(90deg, transparent 0 calc(var(--fade) * .25), #000 var(--fade), #000 calc(100% - var(--fade)), transparent calc(100% - var(--fade) * .25)); }
+/* 들어올 때: 띠가 차례로 떠오름 */
+.ic-row { opacity: 0; transition: opacity 1s ease; }
+.ab-icons.in .ic-row { opacity: 1; }
+.ab-icons.in .ic-row:nth-of-type(2) { transition-delay: .15s; } .ab-icons.in .ic-row:nth-of-type(3) { transition-delay: .3s; }
+@media (prefers-reduced-motion: reduce) { .ic-track { animation: none; } }
+
 /* 휴대폰: 판 대신 가운데에 세로로 */
 @media (max-width: 700px) {
-  .ab-frame { position: relative; left: auto; top: auto; translate: none; width: auto; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 28px; padding: 0 16px; }
+  .ab-frame { position: relative; left: auto; top: auto; translate: none; width: auto; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 28px; padding: 0 16px; }
   .ab-title { position: static; font-size: 16px; }
   .ab-logo { position: static; width: 100%; height: auto; }
+  .ab-sec { --u: .5px; }
+  .ab-icons .ab-title { left: 0; right: 0; text-align: center; top: 22vh; position: absolute; }
+  .ic-row { top: calc(50% + (var(--y) - 600) * .6px); --fade: 70px; }
   .ab-ko, .ab-en { position: static; width: auto; font-size: 14px; word-break: keep-all; }
   .ab-en { font-size: 13px; margin-top: -16px; }
 }
