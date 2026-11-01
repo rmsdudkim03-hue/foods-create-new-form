@@ -26,6 +26,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
+/* 전시용: 글자를 눌러도 깜빡이는 글자 커서(|)가 생기지 않게, 끌어도 글자가 파랗게 선택되지 않게 (사이트 전체)
+   입력칸이 생기면 그 칸만 커서·선택이 보이게 되돌림 */
+html { caret-color: transparent; -webkit-tap-highlight-color: transparent; }
+body { -webkit-user-select: none; user-select: none; }
+input, textarea, [contenteditable="true"] { caret-color: auto; -webkit-user-select: text; user-select: text; }
 
 /* 메뉴: 화면에 고정, 피그마 좌표(1920 기준) 그대로 */
 .nav { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
