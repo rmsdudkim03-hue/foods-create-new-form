@@ -7,16 +7,16 @@ body.about-page { background: var(--bg); color: var(--text); }
 .about-page .nav .about[aria-current] { text-decoration: underline; text-underline-offset: 6px; }
 .ab-frame { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); }
 
-/* 제목 LOGO (피그마 x 965 · y 179, Bitcount SemiBold 24 자간 5%, #fafaf8) */
-.ab-title { position: absolute; left: calc(965 * var(--u)); top: calc(179 * var(--u)); margin: 0; font: 600 max(14px, calc(24 * var(--u)))/normal 'Bitcount Grid Single', ui-monospace, monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; color: var(--paper); white-space: pre; }
+/* 제목 LOGO·ICON: 화면 가운데 정렬 (y 179, Bitcount SemiBold 24 자간 5%, #fafaf8) */
+.ab-title { position: absolute; left: 0; right: 0; text-align: center; text-indent: .05em; top: calc(179 * var(--u)); margin: 0; font: 600 max(14px, calc(24 * var(--u)))/normal 'Bitcount Grid Single', ui-monospace, monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; color: var(--paper); white-space: pre; }
 .ab-title .s { opacity: .38; }   /* 해독 중인 글자 */
 
-/* 구슬 격자 그림 (피그마 Frame 23: x 387 · y 235, 1181×500) */
-.ab-logo { position: absolute; left: calc(387 * var(--u)); top: calc(235 * var(--u)); width: calc(1181 * var(--u)); height: calc(500 * var(--u)); overflow: hidden; }
+/* 구슬 격자 그림 (피그마 Frame 23: 1181×500, y 235) — 화면 가운데 정렬 */
+.ab-logo { position: absolute; left: calc((960 - 1181 / 2) * var(--u)); top: calc(235 * var(--u)); width: calc(1181 * var(--u)); height: calc(500 * var(--u)); overflow: hidden; }
 
-/* 설명 두 줄: 그림 아래 가운데 (그림 가운데 x 977.5 기준). 글꼴은 HOW IT WORKS 설명과 같게: 한글 Pretendard SemiBold 20 / 영어 DM Sans 20 회색
+/* 설명 두 줄: 그림 아래, 화면 가운데(960) 정렬. 글꼴은 HOW IT WORKS 설명과 같게: 한글 Pretendard SemiBold 20 / 영어 DM Sans 20 회색
    피그마에 자리가 생기면 top 값을 피그마 y로 바꿈 */
-.ab-ko, .ab-en { position: absolute; left: calc(477.5 * var(--u)); width: calc(1000 * var(--u)); margin: 0; text-align: center; line-height: 1.6; }
+.ab-ko, .ab-en { position: absolute; left: calc(460 * var(--u)); width: calc(1000 * var(--u)); margin: 0; text-align: center; line-height: 1.6; }
 .ab-ko { top: calc(800 * var(--u)); font: 600 max(13px, calc(20 * var(--u)))/1.6 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--paper); }
 .ab-en { top: calc(832 * var(--u)); font: 400 max(13px, calc(20 * var(--u)))/1.6 'DM Sans', sans-serif; color: #8f8a80; }
 .ab-ko, .ab-en { opacity: 0; translate: 0 calc(10 * var(--u)); transition: opacity .9s ease 2.4s, translate 1s cubic-bezier(.2, .8, .2, 1) 2.4s; }
@@ -39,7 +39,7 @@ body.about-page { background: var(--bg); color: var(--text); }
 
 /* ── ICON: 흐르는 띠 (피그마 시안 4) ──
    제목은 LOGO와 같은 자리. 줄 가운데 y 360·540·720, 아이콘 120, 간격 170 (피그마 px × --u). 띠는 화면 폭 전체를 씀 */
-.ab-icons .ab-title { left: calc(50% + (965 - 960) * var(--u)); top: calc(50% + (179 - 540) * var(--u)); }
+.ab-icons .ab-title { top: calc(50% + (179 - 540) * var(--u)); }
 .ic-row { position: absolute; left: 0; right: 0; top: calc(50% + (var(--y) - 540 - 60) * var(--u)); height: calc(120 * var(--u)); }
 .ic-track { display: flex; width: max-content; height: 100%; animation: ic-left var(--dur) linear infinite; }
 .ic-row[data-dir="right"] .ic-track { animation-name: ic-right; }
