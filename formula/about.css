@@ -40,8 +40,8 @@ body.about-page { background: var(--bg); color: var(--text); }
 /* ── ICON: 흐르는 띠 (피그마 시안 4) ──
    제목은 LOGO와 같은 자리. 줄 가운데 y 360·540·720, 아이콘 120, 간격 170 (피그마 px × --u). 띠는 화면 폭 전체를 씀 */
 .ab-icons .ab-title { top: calc(50% + (179 - 540) * var(--u)); }
-.ic-row { position: absolute; left: 0; right: 0; top: calc(50% + (var(--y) - 540 - 60) * var(--u)); height: calc(120 * var(--u)); }
-.ic-track { display: flex; width: max-content; height: 100%; animation: ic-left var(--dur) linear infinite; }
+.ic-row { position: absolute; left: 0; right: 0; top: calc(50% + (var(--y) - 540 - 60) * var(--u)); height: calc(170 * var(--u)); }   /* 아이콘 120 + 아래 이름 자리 50 (양 끝 흐림 mask가 이름까지 덮도록) */
+.ic-track { display: flex; width: max-content; height: calc(120 * var(--u)); animation: ic-left var(--dur) linear infinite; }
 .ic-row[data-dir="right"] .ic-track { animation-name: ic-right; }
 @keyframes ic-left { from { translate: 0 0; } to { translate: -50% 0; } }     /* 같은 줄을 두 번 이어 붙였으니 절반만큼 가면 처음과 같은 모습 */
 @keyframes ic-right { from { translate: -50% 0; } to { translate: 0 0; } }
@@ -49,7 +49,7 @@ body.about-page { background: var(--bg); color: var(--text); }
 .ic { position: relative; flex: none; width: calc(120 * var(--u)); height: calc(120 * var(--u)); margin-right: calc(50 * var(--u)); outline: none; }
 /* 아이콘 그림(진한색 SVG)을 모양만 따서 흰색으로 칠함 */
 .ic i { position: absolute; inset: 0; background: var(--paper); -webkit-mask: var(--src) center / contain no-repeat; mask: var(--src) center / contain no-repeat; opacity: .45; transition: opacity .15s ease-out; }
-.ic span { position: absolute; top: calc(100% + 12 * var(--u)); left: 50%; translate: -50% 0; white-space: nowrap; font: 600 max(12px, calc(16 * var(--u)))/1.4 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--paper); opacity: 0; transition: opacity .12s ease-out; pointer-events: none; }
+.ic span { position: absolute; top: calc(100% + 12 * var(--u)); left: 50%; transform: translateX(-50%); text-align: center; white-space: nowrap; font: 600 max(12px, calc(16 * var(--u)))/1.4 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--paper); opacity: 0; transition: opacity .12s ease-out; pointer-events: none; }
 .ic:hover i, .ic:focus-visible i { opacity: 1; }
 .ic:hover span, .ic:focus-visible span { opacity: 1; }
 /* 양 끝이 어둠 속으로 사라지듯 (폭 340, 맨 끝 85는 완전히 안 보임): 줄 자체를 가장자리에서 투명하게 */
