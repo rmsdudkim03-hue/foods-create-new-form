@@ -11,12 +11,22 @@ const dir = 'archive/' + pad(n) + '/';
 const icon = (k) => dir + (k < 5 ? 'A' + (k + 1) : 'B' + (k - 4)) + '.svg';
 document.title = `FORMULA — N ${pad(n)} ${F.foods.join(' × ')}`;
 document.getElementById('hNo').textContent = `N. ${pad(n)} =`;
+document.getElementById('hist').style.setProperty('--food', F.color || '#1e1d1b');   // 구슬 아이콘 색
 
 // 점선 칸 (사진·이미지가 있으면 꽉 차게)
 const box = (x, y, w, h, src, alt) => `<i class="pr-box${src ? ' has-img' : ''}" style="--x:${x}; --y:${y}; --w:${w}; --h:${h}">${src ? `<img src="${esc(src)}" alt="${esc(alt)}">` : ''}</i>`;
 const FX = [529, 708, 889, 1069, 1253], FY = [419, 600];   // 피그마 Extract 구슬 자리
-const feats = F.names.map((name, k) => `<span class="h-feat" tabindex="0" style="--x:${FX[k % 5]}; --y:${FY[k < 5 ? 0 : 1]}"><img src="${icon(k)}" alt="${esc(name)}"><span>${esc(name)}</span></span>`).join('');
-const mix = F.mix ? `<span class="h-mix a"><img src="${icon(F.mix[0])}" alt="${esc(F.names[F.mix[0]])}" title="${esc(F.names[F.mix[0]])}"></span><span class="h-mix b"><img src="${icon(5 + F.mix[1])}" alt="${esc(F.names[5 + F.mix[1]])}" title="${esc(F.names[5 + F.mix[1]])}"></span>` : '';
+// 구슬 아이콘: SVG 모양을 mask로 쓰고 음식 색(F.color)으로 칠함 (피그마 PROCESS 3과 같게)
+const glyph = (k) => `<i class="h-ic" style="--src:url('${icon(k)}')"></i>`;
+const feats = F.names.map((name, k) => `<span class="h-feat" tabindex="0" style="--x:${FX[k % 5]}; --y:${FY[k < 5 ? 0 : 1]}">${glyph(k)}<span>${esc(name)}</span></span>`).join('');
+// Mix: 특징 짝 6개 (왼쪽 줄 3 · 오른쪽 줄 3, 가운데 세로선). 자리는 피그마 PROCESS 3 Mix 그대로
+const MY = [357, 513, 660], MA = [585, 1005], MB = [791, 1221], PX = [711, 1137], PY = [395, 550, 695];
+const pairs = (F.pairs || []).map(([a, b], i) => {
+  const c = i < 3 ? 0 : 1, r = i % 3;
+  const one = (k, x) => `<span class="h-mix" style="--x:${x}; --y:${MY[r]}" title="${esc(F.names[k])}">${glyph(k)}</span>`;
+  return one(a, MA[c]) + `<span class="h-plus" style="--x:${PX[c]}; --y:${PY[r]}">+</span>` + one(5 + b, MB[c]);
+}).join('');
+const mix = pairs ? `${pairs}<i class="h-mixline"></i>` : '<span class="pr-plus">+</span>';
 const six = [[632, 352], [857, 352], [1082, 352], [632, 579], [857, 579], [1082, 579]].map(([x, y], i) => box(x, y, 206, 219, F.ai[i], `AI 조형 ${i + 1}`)).join('');
 
 // Create form: 완성 조형을 3D로 천천히 계속 돌림 (hover3d.js의 data-auto). 질감·방향은 메인 조형 화면과 같게
@@ -35,7 +45,7 @@ const STEPS = [
     ko: `${esc(F.foods[0])} × ${esc(F.foods[1])}`, en: '' },
   { name: 'Extract', sub: '뽑아낸 조형적 특징 (특징 도형)', body: `<div class="h-feats">${feats}</div><span class="h-side" style="--y:419">A</span><span class="h-side" style="--y:600">B</span>`,
     ko: '마우스를 올려 특징을 확인해 보세요', en: 'Hover over an icon to see its feature' },
-  { name: 'Mix', sub: '조형 특징 두 가지 선정', body: `${mix}<span class="pr-plus">+</span>`,
+  { name: 'Mix', sub: '조형 특징 두 가지 선정', body: mix,
     ko: '사용자는 어떤 특징을 섞어야 좋을지 생각하고, 직접 골라 넣습니다.', en: 'I think about which traits to mix, and choose them myself.' },
   { name: 'Six Forms', sub: '6개 조형 생성', body: six,
     ko: '고른 조합을 바탕으로 AI가 조형 여섯 개를 도출합니다.', en: 'From the chosen mix, AI draws out six forms.' },

@@ -23,7 +23,7 @@
   }
 
   document.documentElement.classList.add('pre-on');
-  window.FORMULA_PRE = new Promise((done) => {
+  window.FORMULA_PRE = new Promise((done) => (window.FORMULA_ATTRACT || Promise.resolve()).then(() => {   // 시작 화면(attract.js)이 닫힌 뒤에
     requestAnimationFrame(() => pre.classList.add('in'));          // 글자·문구가 차례로 떠오름
     setTimeout(() => {
       // 커지기: 지금 자리 → 진짜 로고(Frame 4) 자리로 (화면 크기가 달라도 맞게, 실제 위치를 재서 옮김)
@@ -40,5 +40,5 @@
         done();
       }, GROW_MS);
     }, IN_MS + HOLD_MS);
-  });
+  }));
 })();

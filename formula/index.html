@@ -34,6 +34,10 @@ BY GY.KIM</a>
 
 <!-- 1. 첫 화면 → 소개: 스크롤하는 동안 화면은 고정(sticky)되고 장면만 바뀜 (main.js)
      검정 화면 → 괄호 칸 전환(흰 화면) → 괄호 ( ) 가 외곽선이 되며 넓어짐 → 로고가 작아지며 소개글 -->
+<!-- 시작 화면 (피그마 Frame 28): 그림 한 장. 마우스를 움직이면 사라지고 맨 처음 로고 화면으로 (attract.js) -->
+<div class="attract" id="attract" aria-hidden="true">
+  <div class="attract-frame"><img class="attract-img" src="start.jpg" alt=""></div>
+</div>
 <!-- 0. 맨 처음 화면 (피그마 Frame 20): 외곽선 로고 + 문구 → 로고가 커지며 채워져 첫 화면으로 (pre.js) -->
 <div class="pre" id="pre" aria-hidden="true">
   <!-- 외곽선 로고: 피그마 Frame 20 벡터 그대로 (글자 8개, 501×122). 커질 때 같은 모양 속이 채워짐 -->
@@ -127,28 +131,28 @@ AI observes and suggests; choosing, interpreting, and completing are left to peo
       <div class="pr-step" data-step="0">
         <h3 class="pr-name">Today's Food</h3>
         <p class="pr-sub">그날 먹은 음식 사진</p>
-        <i class="pr-box" style="--x:572; --y:424; --w:380; --h:319"></i><i class="pr-box" style="--x:967; --y:424; --w:380; --h:319"></i>
-        <p class="pr-ko">그날 먹은 음식의 이미지를 넣습니다.</p>
+        <i class="pr-box" style="--x:568; --y:424; --w:380; --h:319"></i><i class="pr-box" style="--x:963; --y:424; --w:380; --h:319"></i><span class="pr-ab" style="--x:751">A</span><span class="pr-ab" style="--x:1147">B</span>
+        <p class="pr-ko">일상 속 조형을 찾아 A와 B 이미지를 넣습니다.</p>
         <p class="pr-en" lang="en">I put in an image of the food I ate that day.</p>
       </div>
       <div class="pr-step" data-step="1" aria-hidden="true">
         <h3 class="pr-name">Extract</h3>
         <p class="pr-sub">뽑아낸 조형적 특징 (특징 도형)</p>
-        <i class="pr-box" style="--x:572; --y:424; --w:380; --h:300"></i><i class="pr-box" style="--x:967; --y:424; --w:380; --h:300"></i><img class="pr-ic" src="process/09-pair.svg" alt="" style="--x:612; --y:432; --w:155"><img class="pr-ic" src="process/13-triangle.svg" alt="" style="--x:774; --y:464; --w:105"><img class="pr-ic" src="process/12-square.svg" alt="" style="--x:626; --y:577; --w:110"><img class="pr-ic" src="process/57-waves.svg" alt="" style="--x:742; --y:543; --w:170"><img class="pr-ic" src="process/15-flower.svg" alt="" style="--x:1023; --y:463; --w:108"><img class="pr-ic" src="process/11-wave.svg" alt="" style="--x:1157; --y:449; --w:137"><img class="pr-ic" src="process/18-grid.svg" alt="" style="--x:1016; --y:576; --w:121"><img class="pr-ic" src="process/21-menu.svg" alt="" style="--x:1167; --y:574; --w:118">
-        <p class="pr-ko">AI가 이미지에서 조형적 특징을 뽑아냅니다.</p>
-        <p class="pr-en" lang="en">AI extracts formal traits from the image.</p>
+        <img class="pr-ic" src="archive/01/A1.svg" alt="" style="--x:529; --y:419; --w:130"><img class="pr-ic" src="archive/01/A2.svg" alt="" style="--x:708; --y:419; --w:130"><img class="pr-ic" src="archive/01/A3.svg" alt="" style="--x:889; --y:419; --w:130"><img class="pr-ic" src="archive/01/A4.svg" alt="" style="--x:1069; --y:419; --w:130"><img class="pr-ic" src="archive/01/A5.svg" alt="" style="--x:1253; --y:419; --w:130"><img class="pr-ic" src="archive/01/B1.svg" alt="" style="--x:529; --y:600; --w:130"><img class="pr-ic" src="archive/01/B2.svg" alt="" style="--x:708; --y:600; --w:130"><img class="pr-ic" src="archive/01/B3.svg" alt="" style="--x:889; --y:600; --w:130"><img class="pr-ic" src="archive/01/B4.svg" alt="" style="--x:1069; --y:600; --w:130"><img class="pr-ic" src="archive/01/B5.svg" alt="" style="--x:1253; --y:600; --w:130">
+        <p class="pr-ko">AI가 이미지에서 각각 5개의 조형언어를 뽑아냅니다.</p>
+        <p class="pr-en" lang="en">The AI extracts five visual languages from each image.</p>
       </div>
       <div class="pr-step" data-step="2" aria-hidden="true">
         <h3 class="pr-name">Mix</h3>
         <p class="pr-sub">조형 특징 두 가지 선정</p>
-        <img class="pr-ic" src="process/12-square.svg" alt="" style="--x:764; --y:507; --w:127"><span class="pr-plus">+</span><img class="pr-ic" src="process/21-menu.svg" alt="" style="--x:1017; --y:502; --w:145">
-        <p class="pr-ko">사용자는 어떤 특징을 섞어야 좋을지 생각하고, 직접 골라 넣습니다.</p>
-        <p class="pr-en" lang="en">I think about which traits to mix, and choose them myself.</p>
+        <img class="pr-ic" src="archive/01/A1.svg" alt="" style="--x:585; --y:357; --w:126"><span class="pr-plus6" style="--x:711; --y:395">+</span><img class="pr-ic" src="archive/01/B3.svg" alt="" style="--x:791; --y:357; --w:126"><img class="pr-ic" src="archive/01/A3.svg" alt="" style="--x:585; --y:513; --w:126"><span class="pr-plus6" style="--x:711; --y:550">+</span><img class="pr-ic" src="archive/01/B5.svg" alt="" style="--x:791; --y:513; --w:126"><img class="pr-ic" src="archive/01/A4.svg" alt="" style="--x:585; --y:660; --w:126"><span class="pr-plus6" style="--x:711; --y:695">+</span><img class="pr-ic" src="archive/01/B3.svg" alt="" style="--x:791; --y:660; --w:126"><img class="pr-ic" src="archive/01/A5.svg" alt="" style="--x:1005; --y:357; --w:126"><span class="pr-plus6" style="--x:1137; --y:395">+</span><img class="pr-ic" src="archive/01/B1.svg" alt="" style="--x:1221; --y:357; --w:126"><img class="pr-ic" src="archive/01/A2.svg" alt="" style="--x:1005; --y:513; --w:126"><span class="pr-plus6" style="--x:1137; --y:550">+</span><img class="pr-ic" src="archive/01/B2.svg" alt="" style="--x:1221; --y:513; --w:126"><img class="pr-ic" src="archive/01/A5.svg" alt="" style="--x:1005; --y:660; --w:126"><span class="pr-plus6" style="--x:1137; --y:695">+</span><img class="pr-ic" src="archive/01/B5.svg" alt="" style="--x:1221; --y:660; --w:126"><i class="pr-mixline"></i>
+        <p class="pr-ko">AI가 넓혀 놓은 조형언어 중 사용자는 어떤 특징을 섞어야 좋을지 생각하고, 직접 골라 넣습니다.</p>
+        <p class="pr-en" lang="en">Among the visual languages expanded by AI, users consider which features to blend and select them themselves.</p>
       </div>
       <div class="pr-step" data-step="3" aria-hidden="true">
         <h3 class="pr-name">Six Forms</h3>
         <p class="pr-sub">6개 조형 생성</p>
-        <i class="pr-box" style="--x:632; --y:352; --w:206; --h:219"></i><i class="pr-box" style="--x:857; --y:352; --w:206; --h:219"></i><i class="pr-box" style="--x:1082; --y:352; --w:206; --h:219"></i><i class="pr-box" style="--x:632; --y:579; --w:206; --h:219"></i><i class="pr-box" style="--x:857; --y:579; --w:206; --h:219"></i><i class="pr-box" style="--x:1082; --y:579; --w:206; --h:219"></i>
+        <i class="pr-box" style="--x:608; --y:352; --w:224; --h:219"></i><i class="pr-box" style="--x:852; --y:352; --w:224; --h:219"></i><i class="pr-box" style="--x:1096; --y:352; --w:224; --h:219"></i><i class="pr-box" style="--x:608; --y:579; --w:224; --h:219"></i><i class="pr-box" style="--x:852; --y:579; --w:224; --h:219"></i><i class="pr-box" style="--x:1096; --y:579; --w:224; --h:219"></i>
         <p class="pr-ko">고른 조합을 바탕으로 AI가 조형 여섯 개를 도출합니다.</p>
         <p class="pr-en" lang="en">From the chosen mix, AI draws out six forms.</p>
       </div>
@@ -191,6 +195,7 @@ AI observes and suggests; choosing, interpreting, and completing are left to peo
   </div>
 </section>
 <script src="lock.js"></script>
+<script src="attract.js"></script>
 <script src="pre.js"></script>
 <script src="main.js"></script>
 <script src="overview.js"></script>
