@@ -7,18 +7,24 @@ const GALLERY = [
   // { src: 'gallery/01.jpg', title: '제목' },   ← 이런 식으로 한 줄씩 (사진 1088×1360, 4:5)
   { src: 'gallery/01.jpg', title: 'N 01' },
   { src: 'gallery/02.jpg', title: 'N 02' },
+  { src: 'gallery/02b.jpg', title: 'N 02' },
+  { src: 'gallery/02c.jpg', title: 'N 02' },
   { src: 'gallery/03.jpg', title: 'N 03' },
   { src: 'gallery/04.jpg', title: 'N 04' },
+  { src: 'gallery/04b.jpg', title: 'N 04' },
   { src: 'gallery/05.jpg', title: 'N 05' },
   { src: 'gallery/06.jpg', title: 'N 06' },
   { src: 'gallery/07.jpg', title: 'N 07' },
+  { src: 'gallery/07b.jpg', title: 'N 07' },
   { src: 'gallery/08.jpg', title: 'N 08' },
+  { src: 'gallery/08b.jpg', title: 'N 08' },
 ];
 const AUTO_MS = 3500;   // 저절로 한 칸 넘어가는 간격 (0이면 안 넘어감)
-const R_U = 560;        // 링 반지름 (피그마 px)
+const R_U = 560;        // 링 반지름 (피그마 px). 카드가 많으면 겹치지 않게 저절로 커짐 (아래 R_FIT)
 
 const items = GALLERY.length ? GALLERY : (window.FOODS || []).map((f, i) => ({ src: f.svg, title: `N ${String(i + 1).padStart(2, '0')}`, ph: true }));
 const N = Math.max(items.length, 1), STEP = 360 / N;
+const R_FIT = Math.max(R_U, N * 400 / (2 * Math.PI));   // 카드 폭 340 + 여유 60이 둘레에 들어가게
 const ring = document.getElementById('ring'), gal = document.getElementById('gal');
 const idxEl = document.getElementById('galIdx'), ttlEl = document.getElementById('galTtl');
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -36,8 +42,8 @@ measure(); addEventListener('resize', measure);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let rot = reduce ? 0 : -120, vel = 0, target = 0, dragging = false, lastX = 0, lastT = 0, lastInput = 0, shown = -1;
 function render() {
-  ring.style.transform = `rotateY(${rot}deg)`;
-  const R = R_U * unit;
+  ring.style.transform = `translateZ(${(-(R_FIT - R_U) * unit).toFixed(1)}px) rotateY(${rot}deg)`;   // 링이 커진 만큼 뒤로 → 맨 앞 카드 크기는 그대로
+  const R = R_FIT * unit;
   cards.forEach((c, i) => {
     const a = i * STEP;
     const k = (1 - Math.cos((a + rot) * Math.PI / 180)) / 2;   // 0 = 맨 앞, 1 = 맨 뒤
