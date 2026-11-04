@@ -1,3 +1,4 @@
+document.documentElement.classList.add('about-snap');   // 화면 한 장씩 넘김 (오래된 사파리용, about.css)
 // ABOUT: 들어오면 제목 LOGO가 로고처럼 해독되고, 격자의 빈 원이 무작위로 찍힌 뒤 기준선 → 로고 글자 순서로 나타남
 const frame = document.querySelector('.ab-frame');
 const title = document.getElementById('title');

@@ -1,7 +1,7 @@
 /* ABOUT (피그마 '웹사이트 디자인 완성본' ABOUT 프레임 147:525): 어두운 화면, 1920×1080 판을 화면에 꼭 맞게. 좌표는 피그마 px × --u
    --u = min(폭÷1920, 높이÷1080) */
 /* 화면 두 장(LOGO → ICON)을 위아래로, 한 장씩 딱 맞게 넘어감 (scroll-snap) */
-html:has(body.about-page) { scroll-snap-type: y mandatory; }
+html:has(body.about-page), html.about-snap { scroll-snap-type: y mandatory; }   /* :has를 모르는 오래된 사파리는 about.js가 붙이는 .about-snap으로 */
 body.about-page { background: var(--bg); color: var(--text); }
 .ab-sec { position: relative; height: 100vh; overflow: hidden; scroll-snap-align: start; --u: min(calc(100vw / 1920), calc(100vh / 1080)); }
 .about-page .nav .about[aria-current] { text-decoration: underline; text-underline-offset: 6px; }
