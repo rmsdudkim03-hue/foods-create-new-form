@@ -43,7 +43,7 @@ const THUMB = /[?&]thumb\b/.test(location.search);   // 확인용 작은 미리�
 const STEPS = [
   { name: "Today's Food", sub: '그날 먹은 음식 사진', body: box(572, 424, 380, 319, F.photos[0], F.foods[0]) + box(967, 424, 380, 319, F.photos[1], F.foods[1]),
     ko: `${esc(F.foods[0])} × ${esc(F.foods[1])}`, en: '' },
-  { name: 'Extract', sub: '뽑아낸 조형적 특징 (특징 도형)', body: `<div class="h-feats">${feats}</div><span class="h-side" style="--y:419">A</span><span class="h-side" style="--y:600">B</span>`,
+  { name: 'Extract', sub: '뽑아낸 조형적 특징 (특징 도형)', body: `<div class="h-feats">${feats}</div>`,
     ko: '마우스를 올려 특징을 확인해 보세요', en: 'Hover over an icon to see its feature' },
   { name: 'Mix', sub: '조형 특징 두 가지 선정', body: mix,
     ko: '흥미가 생기는 조형언어들을 골라 배치했습니다.', en: 'I picked the visual languages that sparked my interest and arranged them.' },
