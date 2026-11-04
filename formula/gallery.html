@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FORMULA — Gallery</title>
+<meta name="description" content="FORMULA 갤러리">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Single:wght,CRSV,ELSH,ELXP@600,0,0,0&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* 갤러리 자리 (레이아웃·모션은 피그마 디자인이 오면 채움) */
+  .gal-page { background: var(--paper); color: var(--ink); height: 100vh; overflow: hidden; }
+  .gal-soon { position: fixed; inset: 0; display: grid; place-items: center; font: 600 max(14px, calc(24 * min(100vw / 1920, 100vh / 1080))) 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; color: #9a968f; }
+</style>
+</head>
+<body class="gal-page">
+<!-- 메뉴: 첫 페이지와 같은 자리 (흰 화면용 진한 글자) -->
+<nav class="nav" aria-label="메뉴">
+  <a class="brand light" href="gallery.html" aria-current="page">GALLERY</a>
+  <a class="archive light" href="archive.html">ARCHIVE</a>
+  <a class="process light" href="./#forms">PROCESS</a>
+  <a class="about light" href="about.html">ABOUT</a>
+  <a class="contact light" href="contact.html">CONTACT</a>
+</nav>
+<main class="gal-soon">Gallery — coming soon</main>
+<script>
+  // 전시용: 2분 동안 조작이 없으면 첫 화면으로 (다른 페이지와 같게)
+  (() => { if (/[?&]check\b/.test(location.search)) return; let t = 0; const wake = () => { clearTimeout(t); t = setTimeout(() => { location.href = './'; }, 2 * 60 * 1000); };
+    ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'].forEach((e) => addEventListener(e, wake, { passive: true })); wake(); })();
+</script>
+</body>
+</html>
