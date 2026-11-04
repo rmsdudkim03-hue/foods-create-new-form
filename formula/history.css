@@ -29,7 +29,6 @@
 .h-feat:hover .h-ic { transform: scale(1.08); }
 .h-feat:hover span, .h-feat:focus-visible span { opacity: 1; }
 .h-feat:focus-visible { outline: none; }
-.h-side { position: absolute; left: calc(470 * var(--u)); top: calc(var(--y) * var(--u)); height: calc(130 * var(--u)); display: flex; align-items: center; font: 600 calc(15 * var(--u)) 'Bitcount Grid Single', monospace; letter-spacing: .05em; color: #9a968f; }
 
 /* Mix: 특징 짝 6개 — 왼쪽 줄 3 · 오른쪽 줄 3, 가운데 세로선 (피그마 PROCESS 3 Mix: 아이콘 126, + 48px, 선 3px) */
 .h-mix { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(126 * var(--u)); height: calc(126 * var(--u)); }
