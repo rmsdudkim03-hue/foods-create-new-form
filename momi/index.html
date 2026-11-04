@@ -271,7 +271,7 @@
   .hs.cdot:active { transform: scale(.92); }
   .anim { transition: filter .35s ease; }
   /* 디자인 상태바의 '9:41' 자리에 지금 시각 (화면이 바뀌어도 늘 맨 위) */
-  #clock { position: absolute; left: 34px; top: 17px; width: 74px; height: 28px; z-index: 95; background: #fff; display: grid; place-items: center; font: 600 17px/1 -apple-system, "SF Pro Text", sans-serif; letter-spacing: -.2px; color: #000; pointer-events: none; }
+  #clock { position: absolute; left: 34px; top: 17px; width: 74px; height: 28px; z-index: 95; background: transparent; display: grid; place-items: center; font: 600 17px/1 -apple-system, "SF Pro Text", sans-serif; letter-spacing: -.2px; color: #000; pointer-events: none; }
   #toast { position: absolute; left: 50%; top: 640px; z-index: 90; transform: translate(-50%, 8px); max-width: 340px; padding: 12px 18px; border-radius: 22px; background: rgba(28, 28, 30, .92); color: #fff; font: 500 14px/1.35 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; text-align: center; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; white-space: nowrap; }
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
   #load { position: absolute; inset: 0; z-index: 99; display: grid; place-items: center; background: #fff; transition: opacity .4s; font: 500 13px/1.4 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; letter-spacing: .02em; }
