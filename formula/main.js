@@ -288,7 +288,9 @@ new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isInterse
 const IDLE_MS = 2 * 60 * 1000;
 let idleTimer = 0;
 function goHome() {
-  if (scrollY < 2 && cur <= AUTO) return;        // 이미 처음 화면
+  if (window.FORMULA_ATTRACT_VISIBLE && window.FORMULA_ATTRACT_VISIBLE()) return;   // 이미 시작 화면(그림)
+  const attract = !!window.FORMULA_ATTRACT_SHOW;
+  if (!attract && scrollY < 2 && cur <= AUTO) return;        // 이미 처음 화면
   clearTimeout(autoTimer); autoTimer = 0; auto = 0;
   if (LOCK) { LOCK.clear(); LOCK.hold('intro', 0); }
   scrollTo({ top: 0, behavior: 'instant' });
@@ -296,8 +298,12 @@ function goHome() {
   target = cur = 0; render(0);                    // 검정 첫 화면으로 되돌림
   decoding = decoded = false;                     // 로고 해독을 다시 한 번
   forms.classList.remove('in');                   // 조형도 다시 떠오르게
-  navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
-  scrambleLogo();                                 // 로고 해독 → 끝나면 전환까지 저절로
+  const replay = () => {
+    navItems.forEach((a, n) => setTimeout(() => rise(a), 150 + n * ITEM_DELAY));
+    scrambleLogo();                               // 로고 해독 → 끝나면 전환까지 저절로
+  };
+  // 시작 화면(그림)을 다시 띄우고, 마우스를 움직이면 로고 해독부터 (그림 파일이 없으면 바로)
+  if (!(attract && window.FORMULA_ATTRACT_SHOW(replay))) replay();
 }
 const CHECK = /[?&]check\b/.test(location.search);   // 확인용(check.html에서 열 때): 2분 무조작이어도 첫 화면으로 안 돌아감
 function wake() { if (CHECK) return; clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }

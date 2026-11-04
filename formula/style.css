@@ -260,6 +260,15 @@ input, textarea, [contenteditable="true"] { caret-color: auto; -webkit-user-sele
 .pr-box { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u));
   border: 1px dashed #c9c5bd; }
 .pr-ic { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(var(--w) * var(--u)); height: calc(var(--w) * var(--u)); }
+/* 메인 HOW IT WORKS (피그마 PROCESS 3 첫 줄): 점선 칸은 2px #4f4f4f, 점선 4·간격 6 (히스토리는 1px 연한 점선 그대로) */
+.pr-sec .pr-box { --dc: #4f4f4f; --dw: calc(2 * var(--u)); border: 0;
+  background: repeating-linear-gradient(90deg, var(--dc) 0 calc(4 * var(--u)), transparent 0 calc(10 * var(--u))) top / 100% var(--dw) no-repeat,
+    repeating-linear-gradient(90deg, var(--dc) 0 calc(4 * var(--u)), transparent 0 calc(10 * var(--u))) bottom / 100% var(--dw) no-repeat,
+    repeating-linear-gradient(180deg, var(--dc) 0 calc(4 * var(--u)), transparent 0 calc(10 * var(--u))) left / var(--dw) 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--dc) 0 calc(4 * var(--u)), transparent 0 calc(10 * var(--u))) right / var(--dw) 100% no-repeat; }
+.pr-ab { position: absolute; left: calc(var(--x) * var(--u)); top: calc(566 * var(--u)); width: calc(15 * var(--u)); text-align: center; font: 400 calc(20 * var(--u))/calc(26 * var(--u)) 'DM Sans', sans-serif; color: var(--ink); }
+.pr-plus6 { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(77 * var(--u)); height: calc(53 * var(--u)); text-align: center; font: 400 calc(48 * var(--u))/calc(53 * var(--u)) 'DM Sans', sans-serif; color: #000; }
+.pr-mixline { position: absolute; left: calc(958.5 * var(--u)); top: calc(369 * var(--u)); width: max(1px, calc(3 * var(--u))); height: calc(412 * var(--u)); background: var(--ink); }
 .pr-plus { position: absolute; left: calc(921 * var(--u)); width: calc(77 * var(--u)); top: calc(548 * var(--u)); text-align: center; font: 400 calc(96 * var(--u))/1 'DM Sans', sans-serif; translate: 0 -30%; }
 .pr-obj { position: absolute; left: calc(769 * var(--u)); top: calc(466 * var(--u)); width: calc(383 * var(--u)); height: calc(204 * var(--u)); object-fit: contain; }
 /* 장 바뀜: 지금 장만 보이고, 살짝 떠오르며 바뀜 */
@@ -312,6 +321,12 @@ input, textarea, [contenteditable="true"] { caret-color: auto; -webkit-user-sele
 
 /* ── 0. 맨 처음 화면 (피그마 Frame 20, pre.js) ──
    어두운 화면 가운데 속 빈 외곽선 로고(폭 501, 피그마 벡터) + 그 아래 Every Day, a New Form (Bitcount 24, 자간 5%, #fafaf8). 메뉴 없음 */
+/* 시작 화면 (피그마 Frame 28): 1920×1080 판을 화면에 꼭 맞게, 그림은 피그마 자리 그대로 (attract.js) */
+.attract { position: fixed; inset: 0; z-index: 60; background: #1e1d1b; transition: opacity .6s ease; }
+.attract.off { opacity: 0; pointer-events: none; }
+.attract-frame { position: absolute; left: 50%; top: 50%; --u: min(calc(100vw / 1920), calc(100vh / 1080)); width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); translate: -50% -50%; }
+.attract-img { position: absolute; left: calc(706.5 * var(--u)); top: calc(284.5 * var(--u)); width: calc(518 * var(--u)); height: calc(508.5 * var(--u)); object-fit: cover; }
+html.attract-on, html.attract-on body { overflow: hidden; cursor: none; }
 .pre { position: fixed; inset: 0; z-index: 50; background: var(--bg, #1e1d1b); transition: opacity .35s ease; }
 html.pre-on, html.pre-on body { overflow: hidden; }
 .pre-logo { position: absolute; left: 50%; top: calc(50% - 65 * var(--u)); width: calc(501 * var(--u)); height: auto; translate: -50% -50%; transform-origin: center; }
