@@ -93,6 +93,6 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowUp' || (cur >= 0 && e.key === 'ArrowLeft')) { e.preventDefault(); go(-1); }
 });
 
-// 전시용: 2분 동안 조작이 없으면 첫 화면으로 (다른 페이지와 같게)
-(() => { if (/[?&]check\b/.test(location.search)) return; let t = 0; const wake = () => { clearTimeout(t); t = setTimeout(() => { location.href = './'; }, 2 * 60 * 1000); };
+// 전시용: 1분 동안 조작이 없으면 첫 화면으로 (다른 페이지와 같게)
+(() => { if (/[?&]check\b/.test(location.search)) return; let t = 0; const wake = () => { clearTimeout(t); t = setTimeout(() => { location.href = './'; }, 60 * 1000); };
   ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true })); wake(); })();
