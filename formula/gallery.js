@@ -1,7 +1,6 @@
-// 갤러리: 3D 링 캐러셀 (모션 UI M115 mirror-hall-carousel-3d 응용, 바닥 반사는 없앰)
-//  카드 N장을 rotateY(i × 360/N) translateZ(R)로 원통에 세우고, 링 전체를 rotateY로 돌림
-//  끌어서 놓으면 속도를 더한 위치에서 가장 가까운 칸으로 스프링처럼 맞춰 멈춤. 뒤쪽 카드일수록 흐리고 옅게
-//  휠·← → 키·손가락으로도 넘김. 가만히 두면 AUTO_MS마다 한 칸씩 저절로 돎 (전시용)
+// 갤러리 (피그마 Frame 38·39): 사진이 화면 가운데 세로로 이어짐
+//  스크롤·↑↓ 키(한 장씩)로 넘겨 봄. 사진을 누르면 뒤가 흐려지며 그 사진이 제자리에서 커져 가운데로(700×875)
+//  크게 본 상태: 다시 누르거나 Esc → 제자리로 작아짐, ↑↓·←→ → 앞뒤 사진으로 바꿔 크게
 //  사진은 아래 GALLERY 목록에 넣으면 됨 (파일은 formula/gallery/ 폴더). 비어 있으면 조형 그림으로 자리만
 const GALLERY = [
   // { src: 'gallery/01.jpg', title: '제목' },   ← 이런 식으로 한 줄씩 (사진 1088×1360, 4:5)
@@ -19,62 +18,75 @@ const GALLERY = [
   { src: 'gallery/08.jpg', title: 'N 08' },
   { src: 'gallery/08b.jpg', title: 'N 08' },
 ];
-const AUTO_MS = 3500;   // 저절로 한 칸 넘어가는 간격 (0이면 안 넘어감)
-const R_U = 560;        // 링 반지름 (피그마 px). 카드가 많으면 겹치지 않게 저절로 커짐 (아래 R_FIT)
+const BIG_W = 700, BIG_H = 875;   // 크게 볼 때 크기 (피그마 Frame 39, 1920 폭 기준)
 
 const items = GALLERY.length ? GALLERY : (window.FOODS || []).map((f, i) => ({ src: f.svg, title: `N ${String(i + 1).padStart(2, '0')}`, ph: true }));
-const N = Math.max(items.length, 1), STEP = 360 / N;
-const R_FIT = Math.max(R_U, N * 400 / (2 * Math.PI));   // 카드 폭 340 + 여유 60이 둘레에 들어가게
-const ring = document.getElementById('ring'), gal = document.getElementById('gal');
-const idxEl = document.getElementById('galIdx'), ttlEl = document.getElementById('galTtl');
+const gal = document.getElementById('gal'), view = document.getElementById('galView');
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const cards = items.map((it) => {
-  const c = document.createElement('div');
-  c.className = 'gal-card' + (it.ph ? ' ph' : '');
-  c.innerHTML = `<img src="${esc(it.src)}" alt="${esc(it.title || '')}" draggable="false">`;
-  ring.appendChild(c);
-  return c;
+const cells = items.map((it, i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'gal-item' + (it.ph ? ' ph' : '');
+  b.setAttribute('aria-label', `${it.title || ''} 크게 보기`);
+  b.innerHTML = `<img src="${esc(it.src)}" alt="${esc(it.title || '')}" draggable="false" ${i > 2 ? 'loading="lazy"' : ''}>`;
+  b.addEventListener('click', () => open(i));
+  gal.appendChild(b);
+  return b;
 });
-let unit = Math.min(innerWidth / 1920, innerHeight / 1080);
-const measure = () => { const t = document.createElement('i'); t.style.cssText = 'position:absolute;width:calc(1000 * var(--u))'; gal.appendChild(t); unit = t.offsetWidth / 1000; t.remove(); };
-measure(); addEventListener('resize', measure);
-
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-let rot = reduce ? 0 : -120, vel = 0, target = 0, dragging = false, lastX = 0, lastT = 0, lastInput = 0, shown = -1;
-function render() {
-  ring.style.transform = `translateZ(${(-(R_FIT - R_U) * unit).toFixed(1)}px) rotateY(${rot}deg)`;   // 링이 커진 만큼 뒤로 → 맨 앞 카드 크기는 그대로
-  const R = R_FIT * unit;
-  cards.forEach((c, i) => {
-    const a = i * STEP;
-    const k = (1 - Math.cos((a + rot) * Math.PI / 180)) / 2;   // 0 = 맨 앞, 1 = 맨 뒤
-    c.style.transform = `rotateY(${a}deg) translateZ(${R}px)`;
-    c.style.filter = `blur(${(k * k * 4).toFixed(2)}px) saturate(${(1 - k * 0.4).toFixed(3)})`;
-    c.style.opacity = (1 - k * 0.55).toFixed(3);
-  });
-  const fi = ((-Math.round(rot / STEP)) % N + N) % N;
-  if (fi !== shown) { shown = fi; idxEl.textContent = `${String(fi + 1).padStart(2, '0')} / ${String(N).padStart(2, '0')}`; ttlEl.textContent = items[fi] ? items[fi].title || '' : ''; }
+const unit = () => innerWidth / (innerWidth / innerHeight <= 1 ? 700 : 1920);
+
+// 크게 보기
+let cur = -1, big = null;
+function place(el, r) { el.style.left = r.left + 'px'; el.style.top = r.top + 'px'; el.style.width = r.width + 'px'; el.style.height = r.height + 'px'; }
+function target() {   // 화면 가운데 700×875 (화면이 작으면 화면 안에 들어가게 줄임)
+  const u = unit(); let w = BIG_W * u, h = BIG_H * u;
+  const k = Math.min(1, (innerHeight * 0.9) / h, (innerWidth * 0.92) / w); w *= k; h *= k;
+  return { left: (innerWidth - w) / 2, top: (innerHeight - h) / 2, width: w, height: h };
 }
-function loop() {
-  if (!dragging) { const a = (target - rot) * 0.09; vel = (vel + a) * 0.78; rot += vel; }   // 스프링으로 칸에 맞춤
-  render();
-  requestAnimationFrame(loop);
+function open(i) {
+  if (cur === i) return close();
+  if (big) { big.remove(); cells[cur].classList.remove('hide'); }
+  cur = i;
+  const cell = cells[i], r = cell.getBoundingClientRect();
+  big = document.createElement('img');
+  big.className = 'gal-big'; big.src = items[i].src; big.alt = items[i].title || '';
+  if (items[i].ph) { big.style.objectFit = 'contain'; big.style.background = '#ecebe7'; }
+  place(big, r); document.body.appendChild(big);
+  cell.classList.add('hide');
+  view.classList.add('on'); view.setAttribute('aria-hidden', 'false');
+  big.getBoundingClientRect();   // 제자리 크기에서 시작
+  place(big, target());
 }
-const go = (d) => { target = Math.round(target / STEP) * STEP - d * STEP; lastInput = performance.now(); };
-gal.addEventListener('pointerdown', (e) => { dragging = true; gal.classList.add('drag'); gal.setPointerCapture(e.pointerId); lastX = e.clientX; lastT = performance.now(); vel = 0; lastInput = lastT; });
-gal.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
-  const now = performance.now(), dx = e.clientX - lastX, k = 0.42 * (1 / Math.max(unit, 0.3)) * 0.6;
-  rot += dx * k; vel = vel * 0.6 + (dx * k) / Math.max(8, now - lastT) * 16 * 0.4;
-  lastX = e.clientX; lastT = now; lastInput = now;
+function close() {
+  if (cur < 0) return;
+  const cell = cells[cur], el = big;
+  view.classList.remove('on'); view.setAttribute('aria-hidden', 'true');
+  place(el, cell.getBoundingClientRect());
+  const done = () => { el.remove(); cell.classList.remove('hide'); };
+  if (reduce) done(); else el.addEventListener('transitionend', done, { once: true });
+  setTimeout(done, 800);   // transitionend가 안 올 때 대비
+  cur = -1; big = null;
+}
+view.addEventListener('click', close);
+addEventListener('resize', () => { if (big) { big.style.transition = 'none'; place(big, target()); big.getBoundingClientRect(); big.style.transition = ''; } });
+// 크게 본 상태에서 휠 → 닫고 그대로 스크롤
+addEventListener('wheel', () => { if (cur >= 0) close(); }, { passive: true });
+
+// 키: ↑↓ 한 장씩 (크게 보는 중이면 앞뒤 사진을 크게), ←→도 크게 볼 때만, Esc 닫기
+const nearest = () => { let best = 0, bd = Infinity; cells.forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.abs(r.top + r.height / 2 - innerHeight / 2); if (d < bd) { bd = d; best = i; } }); return best; };
+function go(d) {
+  if (cur >= 0) {
+    const n = Math.max(0, Math.min(cells.length - 1, cur + d)); if (n === cur) return;
+    cells[n].scrollIntoView({ block: 'center' }); open(n); return;
+  }
+  const n = Math.max(0, Math.min(cells.length - 1, nearest() + d));
+  cells[n].scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+}
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') close();
+  else if (e.key === 'ArrowDown' || (cur >= 0 && e.key === 'ArrowRight')) { e.preventDefault(); go(1); }
+  else if (e.key === 'ArrowUp' || (cur >= 0 && e.key === 'ArrowLeft')) { e.preventDefault(); go(-1); }
 });
-function end() { if (!dragging) return; dragging = false; gal.classList.remove('drag'); target = Math.round((rot + vel * 9) / STEP) * STEP; lastInput = performance.now(); }
-gal.addEventListener('pointerup', end); gal.addEventListener('pointercancel', end);
-let wheelLock = 0;
-addEventListener('wheel', (e) => { e.preventDefault(); const now = performance.now(); if (now < wheelLock) return; const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (Math.abs(d) < 6) return; wheelLock = now + 450; go(d > 0 ? 1 : -1); }, { passive: false });
-addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') go(1); else if (e.key === 'ArrowLeft') go(-1); });
-// 가만히 두면 저절로 한 칸씩
-if (AUTO_MS && !reduce) setInterval(() => { if (!dragging && performance.now() - lastInput > AUTO_MS) go(1); }, AUTO_MS);
-loop();
 
 // 전시용: 2분 동안 조작이 없으면 첫 화면으로 (다른 페이지와 같게)
 (() => { if (/[?&]check\b/.test(location.search)) return; let t = 0; const wake = () => { clearTimeout(t); t = setTimeout(() => { location.href = './'; }, 2 * 60 * 1000); };
