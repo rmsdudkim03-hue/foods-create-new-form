@@ -1,0 +1,1113 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- 아이폰 '홈 화면에 추가'로 열면 Safari 바 없이 앱처럼 전체 화면 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Momi Map">
+<meta name="theme-color" content="#ffffff">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>My Momi Map</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --page: #ffffff;
+    --frame-shadow: 0 0 0 1px rgba(20, 24, 31, .06), 0 24px 60px rgba(20, 24, 31, .16);
+    --hint: rgba(64, 132, 255, .28);
+    --hint-line: rgba(64, 132, 255, .9);
+    --dim: rgba(0, 0, 0, .5);
+    --ink: #4a4f58;
+    color-scheme: light;
+  }
+  @media (min-width: 640px) { :root { --page: #eceef1; } }
+  html, body { height: 100%; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    overflow: hidden;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  #wrap { position: relative; width: 100%; height: 100%; overflow: hidden; }
+  /* 아이폰 앱(홈 화면) 모드: 상태바·홈 막대 자리를 비우지 않고 화면 전체를 씀 (앱 디자인에 이미 그 자리가 들어 있음) */
+  :root { padding-top: 0 !important; padding-bottom: 0 !important; }
+  html, body { height: 100%; min-height: 100dvh; }
+  #wrap { height: 100dvh; }
+  /* 휴대폰: 여백 없이 화면 가득 */
+  @media (max-width: 639px) { body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); } }
+  #stage {
+    touch-action: manipulation;
+    position: absolute; left: 50%; top: 50%;
+    width: 402px; height: 874px;
+    transform-origin: 0 0;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 0;
+    contain: layout paint;
+  }
+  @media (min-width: 640px) { #stage { border-radius: 44px; box-shadow: var(--frame-shadow); } }
+
+  .screen { position: absolute; inset: 0; background: #fff; overflow: hidden; will-change: transform, opacity; }
+  .screen > img.base, .ov > img.base, img.over { position: absolute; left: 0; top: 0; display: block; max-width: none; pointer-events: none; }
+  .sc { position: absolute; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .sc::-webkit-scrollbar { display: none; }
+  .sc.h { overflow-x: auto; overflow-y: hidden; touch-action: pan-x; }
+  .sc.v { overflow-y: auto; overflow-x: hidden; touch-action: pan-y; }
+  .sc.b { overflow: auto; touch-action: pan-x pan-y; }
+  .sc .ct { position: relative; }
+  .sc .ct > img, .fx { position: absolute; left: 0; top: 0; display: block; max-width: none; pointer-events: none; }
+  .scw { position: absolute; isolation: isolate; }  /* 스크롤 영역끼리 겹칠 때 나중 영역(칩 줄 등)이 위로 */
+  .scw > .fx { z-index: 2; }
+  img.over { z-index: 2; }
+
+  .hs { position: absolute; z-index: 3; padding: 0; margin: 0; border: 0; background: transparent; cursor: pointer; border-radius: 6px; outline: none; }
+  .hs.drag { z-index: 1; cursor: grab; touch-action: pan-y; }
+  .hs:active:not(.drag) { background: rgba(0, 0, 0, .04); }
+  .hint .hs:not(.drag) { background: var(--hint); box-shadow: inset 0 0 0 1.5px var(--hint-line); transition: background .15s; }
+
+  .layer { position: absolute; inset: 0; z-index: 50; }
+  .layer .bg { position: absolute; inset: 0; background: transparent; transition: background .3s ease; }
+  .layer.dim.on .bg { background: var(--dim); }
+  .ov { position: absolute; overflow: hidden; transition: transform .32s cubic-bezier(.2, .8, .2, 1), opacity .32s ease; }
+  .layer.in .ov { transform: translateY(100%); opacity: 0; }
+  .layer.in.top .ov { transform: translateY(-110%); }
+  .layer.on .ov { transform: none; opacity: 1; }
+
+  /* 피그마에 연결이 없던 부분을 위한 효과 */
+  .fx-tg, .fx-hue { position: absolute; z-index: 2; pointer-events: none; }
+  .fx-tg.on { -webkit-backdrop-filter: invert(1); backdrop-filter: invert(1); }
+  .fx-en { position: absolute; z-index: 2; pointer-events: none; display: none; place-items: center; background: #333; color: #fff; border-radius: 28px; font: 600 15px/1 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .fx-en.on { display: grid; }
+  .fx-ring { position: absolute; z-index: 2; pointer-events: none; border-radius: 22px; box-shadow: 0 0 0 3px #333; opacity: 0; transform: scale(.94); transition: opacity .2s, transform .2s; }
+  .fx-ring.on { opacity: 1; transform: none; }
+  .hs.huedrag { z-index: 1; touch-action: pan-y; cursor: ew-resize; }
+  /* 스크롤이 카드 단위로 멈춤 (친구 모미) */
+  .sc.snap { scroll-snap-type: y mandatory; }
+  /* 당겨서 새로고침: 피드를 맨 위에서 아래로 끌면 로딩 아이콘 */
+  .scw.ptr { background: #fff; }
+  .avatar { position: absolute; border-radius: 50%; overflow: hidden; background: linear-gradient(to bottom, #cfe3e7, #e9f1f2 70%, #fff); z-index: 6; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.03); }
+  .avatar img { position: absolute; left: -1px; top: 4px; width: 60px; height: auto; max-width: none; }
+  .cmt { position: absolute; z-index: 3; display: flex; flex-direction: column; justify-content: center; gap: 2px; pointer-events: none; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; overflow: hidden; }
+  .cmt b { font-size: 11px; font-weight: 600; color: #a3a3a3; line-height: 1.2; }
+  .cmt span { font-size: 12.5px; font-weight: 500; color: #333; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; }
+  .cav { position: absolute; width: 56px; height: 56px; border-radius: 50%; z-index: 3; pointer-events: none; transform: scale(1); transition: transform .45s cubic-bezier(.3,1.6,.5,1), filter .3s, box-shadow .3s; }
+  .cav.on { z-index: 4; transform: scale(1.1) translateY(-2px); filter: none; box-shadow: 0 0 0 2.5px #fff, 0 4px 10px rgba(0,0,0,.12); }
+  .cmt.in { animation: cmtIn .45s cubic-bezier(.2,.8,.2,1); }
+  @keyframes cmtIn { from { opacity: 0; transform: translateY(6px); } }
+  .cav.me { overflow: hidden; background: linear-gradient(to bottom, #cfe3e7, #e9f1f2 70%, #fff); box-shadow: 0 0 0 2.5px #fff, 0 0 0 3.5px rgba(0,0,0,.06); }
+  .cav.me.on { box-shadow: 0 0 0 2.5px #fff, 0 4px 10px rgba(0,0,0,.12); }
+  .cav.me img { position: absolute; left: -8px; top: 4px; width: 68px; max-width: none; }
+  .cmt b { display: flex; align-items: center; justify-content: space-between; }
+  .cmt-add { font-style: normal; font-size: 10px; font-weight: 600; color: #333; background: #e2f268; border-radius: 8px; padding: 1px 6px; }
+  .ig { position: absolute; z-index: 3; display: flex; flex-direction: column; justify-content: center; gap: 5px; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #262626; }
+  .ig button { all: unset; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .ig.ig-row { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; height: 26px; }
+  .ig.ig-row .ig-ic span { display: none; }   /* 피그마 디자인: 숫자 없이 아이콘만 */
+  .ig .ig-ic { display: flex; align-items: center; gap: 4px; }
+  .ig-ic svg { width: 23px; height: 23px; fill: none; stroke: #262626; stroke-width: 1.9; stroke-linejoin: round; }
+  .ig-ic span { font-size: 14px; font-weight: 600; }
+  .ig-heart.on svg { fill: #ff3b5c; stroke: #ff3b5c; }
+  .ig-heart.pop svg { animation: pop .35s ease; }
+  .ig-likes { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .ig-likes p, .ig-cmt p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ig-avs { display: flex; } .ig-avs img { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 1.5px #fff; } .ig-avs img + img { margin-left: -6px; }
+  .ig .ig-cmt { display: flex; flex-direction: column; gap: 6px; width: 100%; font-size: 13.5px; }
+  .ig-cmt.in p { animation: cmtIn .45s cubic-bezier(.2,.8,.2,1); } .ig-cmt.in p + p { animation-delay: .06s; animation-fill-mode: backwards; }
+  .ig b { font-weight: 700; }
+  .cbox { position: absolute; inset: 0; z-index: 86; display: flex; justify-content: center; align-items: flex-start; padding-top: 96px; background: rgba(12,12,14,0); transition: background .3s; }
+  .cbox.on { background: rgba(12,12,14,.45); }
+  .cbox .card { width: 370px; height: 430px; box-sizing: border-box; padding: 0 0 12px; border-radius: 28px; background: #fff; display: flex; flex-direction: column; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #262626; transform: translateY(16px); opacity: 0; transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s; overflow: hidden; }
+  .cbox.on .card { transform: none; opacity: 1; }
+  .cbox .hd { position: relative; height: 52px; display: grid; place-items: center; border-bottom: 1px solid #efefef; font-size: 16px; }
+  .cbox .cx { position: absolute; right: 14px; top: 12px; width: 28px; height: 28px; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
+  .cbox .cx svg { width: 14px; height: 14px; stroke: #333; stroke-width: 1.8; stroke-linecap: round; fill: none; }
+  .cbox .list { flex: 1; overflow-y: auto; padding: 14px 18px 4px; display: flex; flex-direction: column; gap: 16px; overscroll-behavior: contain; }
+  .cbox .c { display: flex; gap: 11px; align-items: flex-start; }
+  .cav2 { flex: none; width: 34px; height: 34px; border-radius: 50%; position: relative; overflow: hidden; }
+  .cav2.me { background: linear-gradient(to bottom, #cfe3e7, #e9f1f2 70%, #fff); box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,.06); }
+  .cav2.me img { position: absolute; max-width: none; height: auto; }
+  .cbox .tx p { margin: 1px 0 3px; font-size: 14px; line-height: 1.35; word-break: break-all; }
+  .cbox .tx small { font-size: 12px; color: #8e8e8e; }
+  .cbox .inrow { display: flex; align-items: center; gap: 10px; margin: 0 14px; padding: 6px 6px 6px 8px; border-radius: 26px; background: #f2f2f2; }
+  .cbox .inrow input { flex: 1; min-width: 0; height: 36px; border: 0; background: none; outline: none; font: 500 16px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #222; }
+  .cbox .inrow .ok { border: 0; background: #333; color: #e2f268; font: 700 14px -apple-system, "Apple SD Gothic Neo", sans-serif; height: 34px; padding: 0 14px; border-radius: 17px; cursor: pointer; transition: background .2s, color .2s; }
+  .cbox .inrow .ok:disabled { background: transparent; color: #b5b5b5; cursor: default; }
+  .vdots { position: absolute; display: flex; flex-direction: column; gap: 6px; transform: translateY(-50%); z-index: 5; pointer-events: none; }
+  .vdots i { width: 6px; height: 6px; border-radius: 3px; background: #d6d6d6; transition: height .25s, background .25s; }
+  .vdots i.on { height: 18px; background: #333; }
+  .scw.ptr .sc { overscroll-behavior-y: none; }
+  .ptr-sp { position: absolute; left: 50%; top: 22px; width: 30px; height: 30px; margin-left: -15px; opacity: 0; color: #333; pointer-events: none; }
+  .ptr-sp svg { width: 100%; height: 100%; display: block; }
+  .ptr-sp.spin svg { animation: spin .8s linear infinite; }
+  .ptr-sp.spin { opacity: 1 !important; }
+  .snapt { position: absolute; left: 0; width: 1px; height: 1px; scroll-snap-align: start; }
+  /* 좋아요 줄 바꾸기 */
+  .fx-sw { position: absolute; z-index: 2; pointer-events: none; display: block; max-width: none; }
+  .fx-sw.pop { animation: pop .32s ease; }
+  @keyframes pop { 40% { transform: scale(1.04); } }
+  /* 선택 안 하고 버튼 누르면: 카드가 살짝 흔들리고 체크 칸이 반짝임 */
+  @keyframes nudge { 15%, 55% { transform: translateX(-6px); } 35%, 75% { transform: translateX(6px); } 90% { transform: translateX(-2px); } }
+  .fx-sw.nudge { animation: nudge .5s ease-in-out; }
+  @keyframes blink { 0%, 100% { opacity: 0; transform: scale(.85); } 25%, 65% { opacity: 1; transform: scale(1); } }
+  .fx-blink { position: absolute; border-radius: 7px; border: 2.5px solid #333; box-shadow: 0 0 0 4px rgba(51,51,51,.12); pointer-events: none; opacity: 0; animation: blink 1.1s ease-in-out 2; z-index: 30; }
+  /* 홈 지도: 끌어서 옮기기, 두 손가락으로 확대·축소 */
+  .pan { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+  .pan:active { cursor: grabbing; }
+  .pan .map { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  .pan .map > img, .pan .spr { position: absolute; display: block; max-width: none; pointer-events: none; }
+  .pan .spr { background-repeat: no-repeat;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent), linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+    -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent), linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent); mask-composite: intersect; }
+  .pan .tint { position: absolute; inset: 0; background: rgba(190, 190, 190, .5); mix-blend-mode: overlay; pointer-events: none; }
+  img.over.ui { z-index: 4; }
+  /* 녹음 화면 */
+  .rec-ring, .rec-glow { position: absolute; z-index: 2; pointer-events: none; border-radius: 50%; opacity: 0; transition: opacity .5s ease, transform .5s ease; transform: scale(.8); }
+  .rec-ring { background: conic-gradient(from 0deg, #ff9ec4, #ffd29e, #c6b4ff, #9fe3cf, #ff9ec4);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 60%, #000 70%, #000 80%, transparent 97%); mask: radial-gradient(circle closest-side, transparent 60%, #000 70%, #000 80%, transparent 97%);
+    filter: blur(6px); animation: spin 2.6s linear infinite; }
+  .rec-ring.b { animation-duration: 4.2s; animation-direction: reverse; filter: blur(14px); }
+  .rec-glow { background: radial-gradient(circle closest-side, rgba(255, 158, 196, .38), rgba(198, 180, 255, .18) 60%, transparent); animation: breathe 1.6s ease-in-out infinite; }
+  .rec-ring.on, .rec-glow.on { opacity: 1; transform: scale(1); }
+  .rec-ring.b.on { opacity: .8; }
+  @keyframes spin { to { rotate: 360deg; } }
+  @keyframes breathe { 50% { scale: 1.12; } }
+  .rec-msg { position: absolute; left: 50%; z-index: 6; transform: translate(-50%, 6px); padding: 11px 18px; border-radius: 22px; background: rgba(28, 28, 30, .9); color: #fff; font: 600 15px/1.35 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; white-space: nowrap; text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+  .rec-live { position: absolute; left: 0; top: 700px; width: 402px; z-index: 3; text-align: center; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; opacity: 0; transform: translateY(8px); transition: opacity .5s, transform .5s; pointer-events: none; }
+  .rec-live.on { opacity: 1; transform: none; }
+  .rec-live b { display: block; font-size: 13px; font-weight: 700; color: #333; margin-bottom: 10px; }
+  .rec-live .ls { height: 66px; overflow: hidden; -webkit-mask: linear-gradient(to bottom, transparent, #000 35%, #000 70%, transparent); mask: linear-gradient(to bottom, transparent, #000 35%, #000 70%, transparent); }
+  .rec-live .in { transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+  .rec-live p { margin: 0; height: 19px; font-size: 12.5px; font-weight: 500; color: #8a8a8a; line-height: 19px; animation: cmtIn .5s cubic-bezier(.2,.8,.2,1); }
+  .rec-msg small { display: block; font-weight: 500; font-size: 12px; opacity: .7; margin-top: 2px; }
+  .rec-msg.on { opacity: 1; transform: translate(-50%, 0); }
+  /* 체크 박스 (선택한 모미의 할 일) */
+  .fx-cb { position: absolute; z-index: 2; pointer-events: none; border-radius: 4px; transition: background-color .15s; }
+  .fx-cb.on { background: #333 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.3l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 11px no-repeat; }
+  /* 직접 추가한 버킷리스트 */
+  .nitem { position: absolute; z-index: 45; border-radius: 34px; background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.07); transition: background-color .2s; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .nitem .cb { position: absolute; left: 23px; top: 24px; width: 19px; height: 19px; border-radius: 5px; background: #ececec; }
+  .nitem input, .nitem b { position: absolute; left: 61px; top: 12px; width: 280px; height: 24px; padding: 0; border: 0; outline: 0; background: transparent; font: 700 16px/24px inherit; font-family: inherit; color: #222; }
+  .nitem input::placeholder { color: #b8b8b8; }
+  .nitem small { position: absolute; left: 61px; top: 39px; font-size: 11.5px; color: #9a9a9a; }
+  .nitem.on { background: #333; }
+  .nitem.on b { color: #fff; } .nitem.on small { color: #bdbdbd; }
+  .nitem.on .cb { background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.3l2.3 2.3 4.7-5' fill='none' stroke='%23333' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; }
+  /* 할 일 추가 */
+  .trow { position: absolute; left: 41px; height: 20px; display: flex; align-items: center; gap: 13px; font: 500 13px/1 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #4d4d4d; cursor: pointer; z-index: 41; }
+  .trow i { flex: none; width: 15px; height: 16px; border-radius: 4px; box-sizing: border-box; border: 1.5px solid #cfcfcf; background: #fff; }
+  .trow.on i { background: #333 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.3l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 11px no-repeat; border-color: #333; }
+  .trow.add { color: #b7b7b7; } .trow.add i { border-style: dashed; }
+  .tcover { position: absolute; background: #fff; z-index: 40; }
+  .tmodal { position: absolute; inset: 0; z-index: 80; }
+  .tmodal .bg { position: absolute; inset: 0; background: rgba(0,0,0,0); transition: background .25s; }
+  .tmodal.on .bg { background: rgba(0,0,0,.45); }
+  .tmodal .pnl { position: absolute; left: 20px; right: 20px; top: 170px; padding: 26px 22px 20px; border-radius: 28px; background: #fff; box-shadow: 0 20px 50px rgba(0,0,0,.18); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; opacity: 0; transform: translateY(16px) scale(.98); transition: opacity .25s, transform .25s; }
+  .tmodal.on .pnl { opacity: 1; transform: none; }
+  .tmodal h3 { margin: 0 0 6px; font-size: 20px; font-weight: 700; color: #1d1d1f; }
+  .tmodal p { margin: 0 0 18px; font-size: 13px; color: #8a8a8a; }
+  .tmodal input { display: block; width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; border: 0; border-radius: 16px; background: #f3f3f3; font: 500 16px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #222; outline: none; }
+  .tmodal .row { display: flex; gap: 10px; margin-top: 16px; }
+  .tmodal button { flex: 1; height: 52px; border-radius: 26px; border: 1.5px solid #333; background: #fff; color: #333; font: 600 15px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; cursor: pointer; }
+  .tmodal button.ok { background: #333; color: #fff; }
+  .tmodal button.ok:disabled { background: #bdbdbd; border-color: #bdbdbd; }
+  /* 녹음: 디자인한 그라데이션이 연하게 돌며 숨쉬듯 */
+  .rec-spin, .rec-core { position: absolute; z-index: 2; pointer-events: none; border-radius: 50%; background-repeat: no-repeat; opacity: 0; transition: opacity .9s ease; }
+  .rec-spin { -webkit-mask: radial-gradient(circle closest-side, transparent 60%, #000 66%, #000 80%, transparent 100%); mask: radial-gradient(circle closest-side, transparent 60%, #000 66%, #000 80%, transparent 100%);
+    animation: spin 10s linear infinite, breathe 2.6s ease-in-out infinite; }
+  .rec-core { -webkit-mask: radial-gradient(circle closest-side, #000 95%, transparent 100%); mask: radial-gradient(circle closest-side, #000 95%, transparent 100%); }
+  .rec-spin.on { opacity: .85; } .rec-core.on { opacity: 1; }
+  /* 만족도 하트, 한 줄 후기 */
+  .rt { position: absolute; z-index: 2; pointer-events: none; display: block; max-width: none; }
+  .rt.pop { animation: pop .3s ease; }
+  .review { position: absolute; z-index: 41; box-sizing: border-box; padding: 0 18px; border: 0; border-radius: 16px; background: #f2f2f2; outline: none; font: 500 15px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #222; text-align: center; }
+  .review::placeholder { color: #a9a9a9; }
+  .review:focus { background: #ececec; }
+  /* 사진 크게 보기 */
+  .lb { position: absolute; inset: 0; z-index: 85; display: grid; place-items: center; background: rgba(12, 12, 14, 0); transition: background .3s ease; }
+  .lb.on { background: rgba(12, 12, 14, .94); }
+  .lb img { display: block; width: 402px; max-height: 720px; object-fit: contain; opacity: 0; transform: scale(.9); transition: opacity .3s ease, transform .35s cubic-bezier(.2, .8, .2, 1); }
+  .lb.on img { opacity: 1; transform: none; }
+  .lb .cap { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; color: #fff; font: 600 16px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; opacity: 0; transition: opacity .3s .1s; }
+  .lb.on .cap { opacity: .9; }
+  .lb .x { position: absolute; top: max(58px, calc(env(safe-area-inset-top, 0px) + 10px)); right: 16px; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(255,255,255,.28); border-radius: 50%; background: rgba(30,30,34,.45); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); color: #fff; display: grid; place-items: center; cursor: pointer; transition: transform .15s, background .15s; }
+  .lb .x:active { transform: scale(.9); background: rgba(255,255,255,.22); }
+  .lb .x svg { width: 16px; height: 16px; display: block; }
+  /* GIF 움직임 (피그마 GIF에서 뽑은 프레임) */
+  .anim, .anim-tint, .anim-ov { position: absolute; pointer-events: none; display: block; max-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 7%, #000 93%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 7%, #000 93%, transparent); mask-composite: intersect; }
+  .anim-tint { background: rgba(190, 190, 190, .5); mix-blend-mode: overlay; }
+  .anim-ov { background-repeat: no-repeat; background-size: 402px 874px; }
+  /* 고유색 고르기 (시작-7) */
+  .cat-card { position: absolute; left: 151px; top: 569px; width: 100px; height: 147px; border-radius: 17px; background: #fff; box-shadow: 0 30px 40px rgba(170, 170, 170, .28); z-index: 2; pointer-events: none; }
+  .cat-row { position: absolute; left: 0; top: 580px; width: 402px; height: 130px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; z-index: 3; touch-action: pan-x; overscroll-behavior: contain; }
+  .cat-row::-webkit-scrollbar { display: none; }
+  .cat-row .in { display: flex; padding: 0 149px; width: max-content; }
+  .cat { flex: none; width: 104px; height: 130px; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; cursor: pointer; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #333; }
+  .cat i { display: block; width: 53px; height: 53px; margin-top: 19px; border-radius: 50%; background: #d9d9d9; transition: background-color .35s ease, transform .35s ease; }
+  .cat b { margin-top: 8px; font-size: 15px; font-weight: 600; line-height: 19px; }
+  .cat span { font-size: 14px; line-height: 19px; color: #444; }
+  .cat:not(.on) i { transform: scale(.94); }
+  .cat-fade { position: absolute; top: 580px; width: 96px; height: 130px; z-index: 4; pointer-events: none; }
+  .cat-fade.l { left: 0; background: linear-gradient(to right, #fff 10%, rgba(255,255,255,0)); }
+  .cat-fade.r { right: 0; background: linear-gradient(to left, #fff 10%, rgba(255,255,255,0)); }
+  .cube { position: absolute; left: 108px; top: 288px; width: 193px; height: 167px; z-index: 2; pointer-events: none; transition: opacity .3s ease; }
+  /* 갤러리 시트: 위로 끌면 화면 가득, 아래로 끌면 접힘/닫힘 */
+  .ov.sheet { background: linear-gradient(to bottom, transparent 80px, #fff 80px); touch-action: none; transition: transform .32s cubic-bezier(.2, .8, .2, 1), opacity .32s ease, top .34s cubic-bezier(.2, .8, .2, 1), height .34s cubic-bezier(.2, .8, .2, 1); }
+  .ov.sheet.drag { transition: none; }
+  .ov.sheet .scw { transition: height .34s cubic-bezier(.2, .8, .2, 1); }
+  .ov.sheet .sc { overflow: hidden; touch-action: none; }
+  .ov.sheet.full .sc { overflow-y: auto; touch-action: pan-y; }
+  .ov.sheet.full .fx, .ov.sheet.full img.over { opacity: 0; }
+  .ov.sheet .fx, .ov.sheet img.over { transition: opacity .2s; }
+  .ov.sheet .grab { position: absolute; left: 50%; top: 54px; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: #d6d6d6; z-index: 5; pointer-events: none; }
+  .hs.cdot { border-radius: 50%; box-shadow: inset 0 0 0 1.5px #fff; transition: box-shadow .2s, transform .15s; }
+  .hs.cdot.on { box-shadow: inset 0 0 0 2px #333; }
+  .hs.cdot:active { transform: scale(.92); }
+  .anim { transition: filter .35s ease; }
+  /* 디자인 상태바의 '9:41' 자리에 지금 시각 (화면이 바뀌어도 늘 맨 위) */
+  #clock { position: absolute; left: 34px; top: 17px; width: 74px; height: 28px; z-index: 95; background: transparent; display: grid; place-items: center; font: 600 17px/1 -apple-system, "SF Pro Text", sans-serif; letter-spacing: -.2px; color: #000; pointer-events: none; }
+  #toast { position: absolute; left: 50%; top: 640px; z-index: 90; transform: translate(-50%, 8px); max-width: 340px; padding: 12px 18px; border-radius: 22px; background: rgba(28, 28, 30, .92); color: #fff; font: 500 14px/1.35 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; text-align: center; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; white-space: nowrap; }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+  #load { position: absolute; inset: 0; z-index: 99; display: grid; place-items: center; background: #fff; transition: opacity .4s; font: 500 13px/1.4 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; letter-spacing: .02em; }
+  #load .bar { width: 140px; height: 3px; border-radius: 3px; background: #eef0f3; overflow: hidden; margin-top: 12px; }
+  #load .bar i { display: block; height: 100%; width: 0; background: #1d2129; transition: width .15s; }
+  #load.done { opacity: 0; pointer-events: none; }
+</style>
+
+<div id="wrap"><div id="stage">
+  <div id="clock"></div>
+  <div id="toast" role="status"></div>
+  <div id="load"><div><div>My Momi Map</div><div class="bar"><i></i></div></div></div>
+</div></div>
+
+<script>
+// 피그마 프로토타입 데이터: 화면마다 바탕 이미지, 스크롤 영역, 누르는 자리(핫스팟)와 이동할 화면
+const F = {"3990:544":{"name":"친구들 보기-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804.4,23.9,24.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:544",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0]],"base":"3990-544_base","conts":[{"id":"feed","x":0,"y":142,"w":402,"h":666,"dir":"VERTICAL","cw":402,"ch":1998,"content":"fr-feed","fixed":null,"snap":666,"ptr":true}],"extra":[{"t":"swapimg","k":"h0","ci":0,"v":[0,554,402,104],"on":"fr-bar-plain","off":"fr-bar-plain","init":false},{"t":"photo","ci":0,"r":[31,104,339,296],"src":"fr-p1","cap":"바운디 내한 가기"},{"t":"cmt","ci":0,"r":[42,569,318,76],"ic":[48,510,120],"list":[[0,"Cony_","티켓팅 광탈한 사람 여기 있어요 🙋"],[1,"gnoong","직캠 화질 무엇… 폰 뭐 씀?"],[0,"Cony_","다음 내한 땐 나 업고 가"],[1,"gnoong","목 다 쉬었지? 여기까지 들림 ㅋㅋ"]],"av":["fr-av-pink","fr-av-green"],"key":0,"liked":true,"n":23,"likes":128},{"t":"swapimg","k":"h1","ci":0,"v":[0,1220,402,104],"on":"fr-bar-plain","off":"fr-bar-plain","init":false},{"t":"photo","ci":0,"r":[31,770,339,296],"src":"fr-p2","cap":"10주년 기념 여행 가기"},{"t":"cmt","ci":0,"r":[42,1235,318,76],"ic":[48,1176,120],"list":[[0,"Cony_","10년이면 강산도 변하는데 너넨 그대로네"],[1,"dubu.zz","기념품 내 거 있지? 없으면 손절"],[0,"Cony_","11주년엔 나도 껴줘 짐꾼 할게"],[1,"dubu.zz","단체사진 너 또 눈 감았어 ㅋㅋㅋ"]],"av":["fr-av-pink","fr-av-blue"],"key":1,"liked":false,"n":17,"likes":96},{"t":"swapimg","k":"h2","ci":0,"v":[0,1886,402,104],"on":"fr-bar-plain","off":"fr-bar-plain","init":false},{"t":"photo","ci":0,"r":[31,1436,339,296],"src":"fr-p3","cap":"헬스장 연속 출석하기"},{"t":"cmt","ci":0,"r":[42,1901,318,76],"ic":[48,1842,120],"list":[[0,"Cony_","출석만 하고 샤워만 한 거 아니지?"],[1,"gnoong","난 회원권만 연속 결제 중 🥲"],[0,"Cony_","어깨 넓어져서 문 못 지나가는 거 아님?"],[1,"gnoong","오늘 하체야? 계단 조심해 ㅋㅋ"]],"av":["fr-av-pink","fr-av-green"],"key":2,"liked":false,"n":31,"likes":211}],"over":"3990-544_base","overFirst":true,"overTop":[[28,782,346,72]],"avatar":[330,69,52]},"3990:667":{"name":"친구들 보기-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_DRAG","NAVIGATE","3990:922",-1,0,0,142,402,721,"PUSH","LEFT",null,383,0],["ON_DRAG","NAVIGATE","3990:544",-1,0,0,142,402,721,"PUSH","RIGHT",null,383,0],["ON_CLICK","NAVIGATE","3990:792",-1,0,307,687,65,65,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804.4,23.9,24.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:667",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0]],"base":"3990-667_base","conts":[],"avatar":[330,69,52]},"3990:792":{"name":"친구들 보기-2-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_DRAG","NAVIGATE","3990:922",-1,0,0,142,402,721,"PUSH","LEFT",null,383,0],["ON_DRAG","NAVIGATE","3990:544",-1,0,0,142,402,721,"PUSH","RIGHT",null,383,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804.4,23.9,24.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:792",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0]],"base":"3990-792_base","conts":[],"avatar":[330,69,52]},"3990:922":{"name":"친구들 보기-3","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_DRAG","NAVIGATE","3990:667",-1,0,0,142,402,721,"PUSH","RIGHT",null,383,0],["ON_CLICK","NAVIGATE","3990:1045",-1,0,307,687,65,65,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804.4,23.9,24.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:922",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0]],"base":"3990-922_base","conts":[],"avatar":[330,69,52]},"3990:1045":{"name":"친구들 보기-3-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_DRAG","NAVIGATE","3990:667",-1,0,0,142,402,721,"PUSH","RIGHT",null,383,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804.4,23.9,24.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1045",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0]],"base":"3990-1045_base","conts":[],"avatar":[330,69,52]},"3990:1173":{"name":"알림_모마사진-1","w":402,"h":151,"ovPos":"MANUAL","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[["ON_CLICK","OVERLAY","3990:1179",-1,0,20,57,362,68,"MOVE_IN","TOP",[-20,87],383,0]],"base":"3990-1173_base","conts":[],"fromTop":true},"3990:1179":{"name":"알림_모마사진-2","w":402,"h":602,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[["ON_CLICK","CLOSE",null,-1,0,44,505,154.5,47.5,null,null,null,0,0],["ON_CLICK","CLOSE",null,-1,0,203.5,505,154.5,47.5,null,null,null,0,0]],"base":"3990-1179_base","conts":[]},"3990:1196":{"name":"버킷리스트 시작-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1354",-1,0,20,712,362,56,"PUSH","LEFT",null,300,0],["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0]],"base":"3990-1196_base","conts":[],"extra":[{"t":"swapimg","k":"b:0","v":[20,269,362,67],"on":"ck-a0-on","off":"ck-a0-off","init":false,"ci":-1},{"t":"swap","k":"b:0","r":[20,269,362,67],"ci":-1},{"t":"swapimg","k":"b:1","v":[20,347,362,67],"on":"ck-a1-on","off":"ck-a1-off","init":false,"ci":-1},{"t":"swap","k":"b:1","r":[20,347,362,67],"ci":-1},{"t":"cond","g":"b","r":[20,777,362,56],"en":[20,777,362,56,28,"선택한 버킷리스트 시작하기"],"l":["ON_CLICK","NAVIGATE","3990:1387",-1,0,20,777,362,56,"PUSH","LEFT"],"msg":"시작할 버킷리스트를 골라주세요","ci":-1}]},"3990:1231":{"name":"버킷리스트 시작-3","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,19,74,24,19,null,null,null,0,0]],"base":"3990-1231_base","conts":[],"extra":[{"t":"swapimg","k":"b:0","v":[20,269,362,67],"on":"ck-b0-on","off":"ck-b0-off","init":false,"ci":-1},{"t":"swap","k":"b:0","r":[20,269,362,67],"ci":-1},{"t":"swapimg","k":"b:1","v":[20,347,362,67],"on":"ck-b1-on","off":"ck-b1-off","init":false,"ci":-1},{"t":"swap","k":"b:1","r":[20,347,362,67],"ci":-1},{"t":"swapimg","k":"b:2","v":[20,425,362,67],"on":"ck-b2-on","off":"ck-b2-off","init":false,"ci":-1},{"t":"swap","k":"b:2","r":[20,425,362,67],"ci":-1},{"t":"cond","g":"b","r":[20,777,362,56],"en":[20,777,362,56,28,"버킷리스트 {n}개 저장하기"],"l":["ON_CLICK","NAVIGATE","3990:1287",-1,0,20,777,362,56,"PUSH","LEFT"],"msg":"저장할 버킷리스트를 골라주세요","ci":-1},{"t":"additem","g":"b","r":[20,712,362,56],"slots":[503,581],"ci":-1}]},"3990:1258":{"name":"버킷리스트 시작-4","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1287",-1,0,20,777,362,56,"PUSH","LEFT",null,300,0],["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1354",-1,0,20,712,362,56,"PUSH","LEFT"]],"base":"3990-1258_base","conts":[],"extra":[{"t":"swapimg","k":"b:0","v":[20,269,362,67],"on":"ck-b0-on","off":"ck-b0-off","init":true,"ci":-1},{"t":"swap","k":"b:0","r":[20,269,362,67],"ci":-1},{"t":"swapimg","k":"b:1","v":[20,347,362,67],"on":"ck-b1-on","off":"ck-b1-off","init":true,"ci":-1},{"t":"swap","k":"b:1","r":[20,347,362,67],"ci":-1},{"t":"swapimg","k":"b:2","v":[20,425,362,67],"on":"ck-b2-on","off":"ck-b2-off","init":false,"ci":-1},{"t":"swap","k":"b:2","r":[20,425,362,67],"ci":-1}]},"3990:1287":{"name":"버킷리스트 시작-5","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1387",-1,0,20,777,362,56,"PUSH","LEFT",null,300,0],["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","OVERLAY","3990:6371",-1,0,20,712,362,56,"MOVE_IN","TOP",[-31,-252]]],"base":"3990-1287_base","conts":[],"extra":[{"t":"swapimg","k":"b:0","v":[20,269,362,67],"on":"ck-b0-on","off":"ck-b0-off","init":true,"ci":-1},{"t":"swap","k":"b:0","r":[20,269,362,67],"ci":-1},{"t":"swapimg","k":"b:1","v":[20,347,362,67],"on":"ck-b1-on","off":"ck-b1-off","init":false,"ci":-1},{"t":"swap","k":"b:1","r":[20,347,362,67],"ci":-1}]},"3990:1311":{"name":"버킷리스트 시작-7","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1543",-1,0,20,777,362,56,"DISSOLVE",null,null,300,0]],"base":"s7-bg","conts":[],"cats":{"cube":"s7-cube","start":2,"list":[["Connect","인간관계","#f0c4dd"],["Grow","성장","#e2f268"],["Explore","탐험","#a9c3e6"],["Contribute","사회 기여","#6dad93"],["Create","창작","#cdc5ff"],["Challenge","한계 극복","#fa7a4d"]]}},"3990:1354":{"name":"버킷리스트 시작-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0]],"base":"3990-1354_base","conts":[],"below":"rec-pre","extra":[{"t":"record","r":[82,287,244,245],"cx":204,"cy":409,"my":560,"to":"3990:1231","img":"3990-1354_base","ci":-1}]},"3990:1387":{"name":"버킷리스트 시작-6","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1311",-1,0,20,777,362,56,"PUSH","LEFT",null,300,0]],"base":"3990-1387_below","over":"3990-1387_over","conts":[],"anims":[{"src":"an-cn","plain":true,"x":0,"y":295.9812126387703,"w":401,"h":578.0187873612297}]},"3990:1401":{"name":"선택한 모미-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["AFTER_TIMEOUT","OVERLAY","3990:1507",-1,0,0,0,402,874,"MOVE_IN","TOP",[0,454],256,1],["ON_CLICK","NAVIGATE","3990:1543",-1,0,0,134,402,365,"SMART_ANIMATE",null,null,1022,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:544",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804,24,24,"SMART_ANIMATE",null],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT"]],"base":"3990-1401_below","over":"3990-1401_over","conts":[],"anims":[{"src":"mapbase","x":-686,"y":-1227,"w":1621,"h":2431.5,"plain":true,"tint":true},{"src":"an-mapA","x":-5.17999999999995,"y":-294.92499999999995,"w":389.04,"h":243.15,"tint":true},{"src":"an-mapB","x":27.24000000000001,"y":37.38000000000011,"w":243.15,"h":226.94,"tint":true}],"avatar":[330,69,52]},"3990:1441":{"name":"선택한 모미-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["AFTER_TIMEOUT","OVERLAY","3990:1468",-1,0,0,0,402,874,"MOVE_IN","TOP",[0,454],256,1],["ON_CLICK","NAVIGATE","3990:1543",-1,0,0,134,402,365,"SMART_ANIMATE",null,null,1022,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:544",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804,24,24,"SMART_ANIMATE",null]],"base":"3990-1441_below","over":"3990-1441_over","conts":[],"anims":[{"src":"mapbase","x":-899,"y":-1231,"w":1621,"h":2431.5,"plain":true,"tint":true},{"src":"an-mapA","x":-218.17999999999995,"y":-298.92499999999995,"w":389.04,"h":243.15,"tint":true},{"src":"an-mapB","x":-185.76,"y":33.38000000000011,"w":243.15,"h":226.94,"tint":true}],"avatar":[330,69,52]},"3990:1468":{"name":"선택한 모미-1_Sections","w":402,"h":482,"ovPos":"MANUAL","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[["ON_CLICK","NAVIGATE","3990:6033",-1,0,20,335,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-1468_below","over":"3990-1468_over","conts":[{"id":"3990:1470","x":0,"y":45,"w":402,"h":279,"dir":"VERTICAL","cw":402,"ch":309,"content":"3990-1468_c0","fixed":"3990-1468_f0"}],"extra":[{"t":"toggle","k":"c:0","ci":0,"r":[30,177,300,24],"v":[[41,181,15,16,4]],"cls":"fx-cb","exact":true},{"t":"toggle","k":"c:1","ci":0,"r":[30,201,300,24],"v":[[41,205,15,16,4]],"cls":"fx-cb","exact":true},{"t":"toggle","k":"c:2","ci":0,"r":[30,227,300,24],"v":[[41,231,15,16,4]],"cls":"fx-cb","exact":true},{"t":"addtask","ci":0,"r":[30,253,200,24],"y":255,"pitch":25,"exact":true}]},"3990:1507":{"name":"선택한 모미-2_Sections","w":402,"h":482,"ovPos":"MANUAL","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[["ON_CLICK","NAVIGATE","3990:6056",-1,0,20,335,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-1507_base","conts":[],"extra":[{"t":"toggle","k":"c:0","ci":-1,"r":[30,222,300,24],"v":[[41,226,15,16,4]],"cls":"fx-cb","exact":true},{"t":"toggle","k":"c:1","ci":-1,"r":[30,246,300,24],"v":[[41,250,15,16,4]],"cls":"fx-cb","exact":true},{"t":"addtask","ci":-1,"r":[30,271,200,24],"y":273,"pitch":25,"exact":true}]},"3990:1543":{"name":"현재 모미맵","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["AFTER_TIMEOUT","OVERLAY","3990:1595",-1,0,0,0,402,874,"MOVE_IN","TOP",[0,467],256,1],["ON_CLICK","NAVIGATE","3990:1653",-1,0,0,134,402,365,"SMART_ANIMATE",null,null,1022,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:544",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0]],"base":"3990-1543_below","over":"3990-1543_over","conts":[],"anims":[{"src":"mapbase","x":-333,"y":-412,"w":870,"h":1305.0,"plain":true,"tint":true},{"src":"an-mapA","x":32.39999999999998,"y":88.25,"w":208.8,"h":130.5,"tint":true},{"src":"an-mapB","x":49.80000000000001,"y":266.6,"w":130.5,"h":121.8,"tint":true}],"avatar":[330,69,52]},"3990:1595":{"name":"현재 모미맵_Sections","w":402,"h":330,"ovPos":"MANUAL","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[["ON_CLICK","NAVIGATE","3990:1196",0,0,476,42,226.7,257,"DISSOLVE",null,null,383,0],["ON_CLICK","NAVIGATE","3990:1441",0,0,20,42,212,257,"SMART_ANIMATE",null,null,1022,0],["ON_CLICK","NAVIGATE","3990:1401",0,0,248,42,212,257,"SMART_ANIMATE",null,null,1022,0]],"base":"3990-1595_below","conts":[{"id":"3990:1595","x":0,"y":0,"w":402,"h":330,"dir":"HORIZONTAL","cw":703,"ch":330,"content":"3990-1595_c0","fixed":null}]},"3990:1653":{"name":"전체 모미맵","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:544",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0]],"base":"3990-1653_below","over":"home-over","conts":[],"pan":{"base":"mapbase","w":869,"h":1304,"x":-250,"y":-200,"tap":["ON_CLICK","NAVIGATE","3990:1543",-1,0,0,0,402,874,"SMART_ANIMATE",null,null,1022,0],"sprites":[],"imgs":[{"id":"an-mapA","x":364.98,"y":499.675,"w":208.56,"h":130.35},{"id":"an-mapB","x":382.36,"y":677.82,"w":130.35,"h":121.66},{"id":"momi01","x":548,"y":798,"w":81,"h":66},{"id":"momi02","x":424,"y":792,"w":99,"h":83}]},"avatar":[330,69,52]},"3990:1692":{"name":"모마이 커스텀-1-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4434",1,0,210,19,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4661",1,0,20,232,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-1692_below","over":"3990-1692_over","conts":[{"id":"3990:1878","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-1692_c0","fixed":"3990-1692_f0"},{"id":"3990:1895","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-1692_c1","fixed":null}],"momai":"st-mbb","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mbb","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:1919":{"name":"모마이 커스텀_Color-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4434",1,0,210,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4661",1,0,20,232,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-1919_below","over":"3990-1919_over","conts":[{"id":"3990:2105","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-1919_c0","fixed":"3990-1919_f0"},{"id":"3990:2115","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-1919_c1","fixed":null}],"momai":"st-mcc","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mcc","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:2146":{"name":"모마이 커스텀_Color-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4434",1,0,210,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4661",1,0,20,232,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-2146_below","over":"3990-2146_over","conts":[{"id":"3990:2332","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-2146_c0","fixed":"3990-2146_f0"},{"id":"3990:2342","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-2146_c1","fixed":null}],"momai":"st-m9e","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-m9e","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:2373":{"name":"모마이 커스텀_Color-5","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4434",1,0,210,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4661",1,0,20,232,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-2373_below","over":"3990-2373_over","conts":[{"id":"3990:2559","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-2373_c0","fixed":"3990-2373_f0"},{"id":"3990:2569","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-2373_c1","fixed":null}],"momai":"st-m402","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-m402","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:2600":{"name":"모마이 커스텀_Color-4","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4434",1,0,210,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4661",1,0,20,232,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-2600_below","over":"3990-2600_over","conts":[{"id":"3990:2786","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-2600_c0","fixed":"3990-2600_f0"},{"id":"3990:2796","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-2600_c1","fixed":null}],"momai":"st-m9df","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-m9df","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:2827":{"name":"모마이 커스텀_Color-3","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4434",1,0,210,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4661",1,0,20,232,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-2827_below","over":"3990-2827_over","conts":[{"id":"3990:3013","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-2827_c0","fixed":"3990-2827_f0"},{"id":"3990:3023","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-2827_c1","fixed":null}],"momai":"st-m5bc","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-m5bc","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:3054":{"name":"모마이 커스텀-4-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3280",1,0,210,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-3054_below","over":"3990-3054_over","conts":[{"id":"3990:3240","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-3054_c0","fixed":"3990-3054_f0"},{"id":"3990:3250","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-3054_c1","fixed":null}],"momai":"st-me9b","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-me9b","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[210,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:3280":{"name":"모마이 커스텀-4-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",1,0,20,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-3280_below","over":"3990-3280_over","conts":[{"id":"3990:3466","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-3280_c0","fixed":"3990-3280_f0"},{"id":"3990:3476","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-3280_c1","fixed":null}],"momai":"st-mbb","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mbb","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[210,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:3506":{"name":"모마이 커스텀-5-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-3506_below","over":"3990-3506_over","conts":[{"id":"3990:3692","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-3506_c0","fixed":"3990-3506_f0"},{"id":"3990:3702","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-3506_c1","fixed":null}],"momai":"st-mbb","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mbb","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[210,19,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[210,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:3740":{"name":"모마이 커스텀-6-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3972",1,0,210,19,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-3740_below","over":"3990-3740_over","conts":[{"id":"3990:3926","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-3740_c0","fixed":"3990-3740_f0"},{"id":"3990:3936","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-3740_c1","fixed":null}],"momai":"st-mbb","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mbb","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[210,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:3972":{"name":"모마이 커스텀-6-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",1,0,20,20,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-3972_below","over":"3990-3972_over","conts":[{"id":"3990:4158","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-3972_c0","fixed":"3990-3972_f0"},{"id":"3990:4168","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-3972_c1","fixed":null}],"momai":"st-mfed","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mfed","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[210,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:4204":{"name":"모마이 커스텀-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-4204_below","over":"3990-4204_over","conts":[{"id":"3990:4390","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-4204_c0","fixed":"3990-4204_f0"},{"id":"3990:4400","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-4204_c1","fixed":null}],"momai":"st-mbb","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mbb","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[210,19,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:4434":{"name":"모마이 커스텀-1-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",1,0,20,19,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4661",1,0,20,231,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-4434_below","over":"3990-4434_over","conts":[{"id":"3990:4620","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-4434_c0","fixed":"3990-4434_f0"},{"id":"3990:4630","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-4434_c1","fixed":null}],"momai":"st-mc5f","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mc5f","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:4661":{"name":"모마이 커스텀-1-3","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",0,0,177,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",1,0,20,19,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4434",1,0,210,19,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-4661_below","over":"3990-4661_over","conts":[{"id":"3990:4847","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-4661_c0","fixed":"3990-4661_f0"},{"id":"3990:4857","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":497,"content":"3990-4661_c1","fixed":null}],"momai":"st-m3c0","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-m3c0","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"colorDots":true},"3990:4889":{"name":"모마이 커스텀-3-1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:5116",1,0,210,19,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-4889_below","over":"3990-4889_over","conts":[{"id":"3990:5075","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-4889_c0","fixed":"3990-4889_f0"},{"id":"3990:5085","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-4889_c1","fixed":null}],"momai":"st-me7b","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-me7b","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[210,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:5116":{"name":"모마이 커스텀-3-2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,74,24,19,"PUSH","RIGHT",null,300,0],["ON_CLICK","NAVIGATE","3990:4204",0,0,98,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1692",0,0,27,22,37,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3054",0,0,256,22,56,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3506",0,0,346,22,45,18.1,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:3740",0,0,425,22,105,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:4889",1,0,20,19,172,192,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,20,790,362,56,"DISSOLVE",null,null,383,0]],"base":"3990-5116_below","over":"3990-5116_over","conts":[{"id":"3990:5302","x":29,"y":455,"w":344,"h":62,"dir":"HORIZONTAL","cw":530,"ch":62,"content":"3990-5116_c0","fixed":"3990-5116_f0"},{"id":"3990:5312","x":0,"y":504,"w":402,"h":305,"dir":"VERTICAL","cw":402,"ch":463,"content":"3990-5116_c1","fixed":null}],"momai":"st-mbb","overFirst":true,"overTop":[[0,0,402,128],[0,762,402,112]],"anims":[{"src":"an-mbb","x":112.0,"y":137.976,"w":201.528,"h":281.766,"plain":true,"top":true}],"extra":[{"t":"toast","ci":1,"r":[20,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"},{"t":"toast","ci":1,"r":[210,232,172,192],"msg":"버킷리스트를 더 완수하면 열려요"}],"colorDots":true},"3990:5343":{"name":"갤러리","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","OVERLAY","3990:6015",1,0,66,12,88,36,"MOVE_IN","TOP",null,256,0],["ON_CLICK","NAVIGATE","3990:1653",-1,0,84,804.4,23.9,24.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:5343",-1,0,293.8,804.4,24.6,23.1,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:544",-1,0,188.9,804.4,25.1,22.2,"SMART_ANIMATE",null,null,300,0],["ON_CLICK","NAVIGATE","3990:1692",-1,0,330,69,52,52,"PUSH","LEFT",null,300,0],["ON_CLICK","OVERLAY","3990:5839",0,0,216,841,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5742",0,0,289,549,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5977",0,0,289,622,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5791",0,0,289,695,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5839",0,0,289,768,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5705",0,0,289,841,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5977",0,0,289,914,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5657",0,0,362,622,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5791",0,0,362,841,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5791",0,0,435,622,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5927",0,0,435,695,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5791",0,0,508,403,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5889",0,0,508,476,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5927",0,0,581,622,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5977",0,0,654,403,68,68,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5742",0,0,654,549,68,68,"MOVE_IN","TOP"],["ON_CLICK","NAVIGATE","3990:544",1,0,163,12,77,36,"SMART_ANIMATE",null],["ON_CLICK","OVERLAY","3990:5791",1,0,249,12,83,36,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5839",1,0,341,12,98,36,"MOVE_IN","TOP"],["ON_CLICK","OVERLAY","3990:5977",1,0,448,12,62,36,"MOVE_IN","TOP"]],"base":"3990-5343_below","over":"3990-5343_over","conts":[{"id":"3990:5344","x":0,"y":0,"w":402,"h":875,"dir":"BOTH","cw":1161,"ch":1494,"content":"3990-5343_c0","fixed":null,"pad":219,"tile":"gal-tile","sx":219,"sy":219},{"id":"3990:5603","x":0,"y":128,"w":402,"h":62,"dir":"HORIZONTAL","cw":510,"ch":62,"content":"3990-5343_c1","fixed":null}],"avatar":[330,69,52],"extra":[{"t":"toast","ci":0,"r":[216,476,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[216,695,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[289,403,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[289,476,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[362,403,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[362,549,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[362,695,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[362,768,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[435,476,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[435,549,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[435,768,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[435,841,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[508,330,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[508,549,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[508,622,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[581,403,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[581,549,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":0,"r":[654,476,68,68],"msg":"아직 기록을 채우는 중인 버킷리스트예요"},{"t":"toast","ci":1,"r":[20,12,36,36],"msg":"새 앨범 만들기는 준비 중이에요"}]},"3990:5657":{"name":"갤러리_Sections_1","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5657_below","over":"3990-5657_over","conts":[{"id":"3990:5660","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":538,"content":"3990-5657_c0","fixed":"3990-5657_f0"}],"sheet":true,"sheetTop":46,"extra":[{"t":"photo","ci":0,"r":[20,142,174,174],"src":"gp-5657-0","cap":""},{"t":"photo","ci":0,"r":[20,329,174,174],"src":"gp-5657-1","cap":""},{"t":"photo","ci":0,"r":[208,142,174,174],"src":"gp-5657-2","cap":""},{"t":"photo","ci":0,"r":[208,329,174,174],"src":"gp-5657-3","cap":""},{"t":"photo","ci":0,"r":[208,364,174,174],"src":"gp-5657-4","cap":""}]},"3990:5705":{"name":"갤러리_Sections_4","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5705_below","over":"3990-5705_over","conts":[{"id":"3990:5708","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":586,"content":"3990-5705_c0","fixed":"3990-5705_f0"}],"sheet":true,"sheetTop":93,"extra":[{"t":"photo","ci":0,"r":[20,190,174,174],"src":"gp-5705-0","cap":""},{"t":"photo","ci":0,"r":[208,190,174,174],"src":"gp-5705-1","cap":""},{"t":"photo","ci":0,"r":[208,412,174,174],"src":"gp-5705-2","cap":""}]},"3990:5742":{"name":"갤러리_Sections_8","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5742_below","over":"3990-5742_over","conts":[{"id":"3990:5745","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":586,"content":"3990-5742_c0","fixed":"3990-5742_f0"}],"sheet":true,"sheetTop":93,"extra":[{"t":"photo","ci":0,"r":[20,190,174,174],"src":"gp-5742-0","cap":""},{"t":"photo","ci":0,"r":[208,190,174,174],"src":"gp-5742-1","cap":""},{"t":"photo","ci":0,"r":[208,412,174,174],"src":"gp-5742-2","cap":""}]},"3990:5791":{"name":"갤러리_Sections_2","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5791_below","over":"3990-5791_over","conts":[{"id":"3990:5794","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":538,"content":"3990-5791_c0","fixed":"3990-5791_f0"}],"sheet":true,"sheetTop":46,"extra":[{"t":"photo","ci":0,"r":[20,142,174,174],"src":"gp-5791-0","cap":""},{"t":"photo","ci":0,"r":[20,329,174,174],"src":"gp-5791-1","cap":""},{"t":"photo","ci":0,"r":[208,142,174,174],"src":"gp-5791-2","cap":""},{"t":"photo","ci":0,"r":[208,329,174,174],"src":"gp-5791-3","cap":""},{"t":"photo","ci":0,"r":[208,364,174,174],"src":"gp-5791-4","cap":""}]},"3990:5839":{"name":"갤러리_Sections_5","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5839_below","over":"3990-5839_over","conts":[{"id":"3990:5842","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":538,"content":"3990-5839_c0","fixed":"3990-5839_f0"}],"sheet":true,"sheetTop":46,"extra":[{"t":"photo","ci":0,"r":[20,142,174,174],"src":"gp-5839-0","cap":""},{"t":"photo","ci":0,"r":[20,329,174,174],"src":"gp-5839-1","cap":""},{"t":"photo","ci":0,"r":[208,142,174,174],"src":"gp-5839-2","cap":""},{"t":"photo","ci":0,"r":[208,364,174,174],"src":"gp-5839-3","cap":""}]},"3990:5889":{"name":"갤러리_Sections_3","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5889_below","over":"3990-5889_over","conts":[{"id":"3990:5892","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":538,"content":"3990-5889_c0","fixed":"3990-5889_f0"}],"sheet":true,"sheetTop":46,"extra":[{"t":"photo","ci":0,"r":[20,142,174,174],"src":"gp-5889-0","cap":""},{"t":"photo","ci":0,"r":[20,329,174,174],"src":"gp-5889-1","cap":""},{"t":"photo","ci":0,"r":[208,142,174,174],"src":"gp-5889-2","cap":""},{"t":"photo","ci":0,"r":[208,364,174,174],"src":"gp-5889-3","cap":""}]},"3990:5927":{"name":"갤러리_Sections_6","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5927_below","over":"3990-5927_over","conts":[{"id":"3990:5930","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":538,"content":"3990-5927_c0","fixed":"3990-5927_f0"}],"sheet":true,"sheetTop":46,"extra":[{"t":"photo","ci":0,"r":[20,142,174,174],"src":"gp-5927-0","cap":""},{"t":"photo","ci":0,"r":[20,329,174,174],"src":"gp-5927-1","cap":""},{"t":"photo","ci":0,"r":[208,142,174,174],"src":"gp-5927-2","cap":""},{"t":"photo","ci":0,"r":[208,364,174,174],"src":"gp-5927-3","cap":""}]},"3990:5977":{"name":"갤러리_Sections_7","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-5977_below","over":"3990-5977_over","conts":[{"id":"3990:5980","x":0,"y":62,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":538,"content":"3990-5977_c0","fixed":"3990-5977_f0"}],"sheet":true,"sheetTop":46,"extra":[{"t":"photo","ci":0,"r":[20,142,174,174],"src":"gp-5977-0","cap":""},{"t":"photo","ci":0,"r":[20,329,174,174],"src":"gp-5977-1","cap":""},{"t":"photo","ci":0,"r":[208,142,174,174],"src":"gp-5977-2","cap":""},{"t":"photo","ci":0,"r":[208,364,174,174],"src":"gp-5977-3","cap":""}]},"3990:6015":{"name":"갤러리_Like_Sections","w":402,"h":485,"ovPos":"BOTTOM_CENTER","ovBg":0,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[],"base":"3990-6015_below","over":"3990-6015_over","conts":[{"id":"3990:6018","x":0,"y":63,"w":402,"h":389,"dir":"VERTICAL","cw":402,"ch":444,"content":"3990-6015_c0","fixed":"3990-6015_f0"}],"sheet":true,"sheetTop":46,"extra":[{"t":"photo","ci":0,"r":[20,57,174,174],"src":"gp-6015-0","cap":""},{"t":"photo","ci":0,"r":[20,244,174,174],"src":"gp-6015-1","cap":""},{"t":"photo","ci":0,"r":[208,57,174,174],"src":"gp-6015-2","cap":""},{"t":"photo","ci":0,"r":[208,244,174,174],"src":"gp-6015-3","cap":""}]},"3990:6033":{"name":"완수-1_1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","OVERLAY","3990:6214",-1,0,28,293,346,302,"MOVE_IN","TOP",[-39,-307],383,0]],"base":"3990-6033_base","conts":[]},"3990:6056":{"name":"완수-1_2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","OVERLAY","3990:6227",-1,0,28,293,346,302,"MOVE_IN","TOP",[-39,-307],383,0]],"base":"3990-6056_base","conts":[]},"3990:6079":{"name":"완수-2_1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:6113",-1,0,19,777,368,56,"PUSH","LEFT",null,300,0]],"base":"3990-6079_base","conts":[]},"3990:6096":{"name":"완수-2_2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","NAVIGATE","3990:6135",-1,0,19,777,368,56,"PUSH","LEFT",null,300,0]],"base":"3990-6096_base","conts":[]},"3990:6113":{"name":"-3_1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0]],"base":"3990-6113_base","conts":[],"extra":[{"t":"rating","g":"r","img":"rt-b","slots":[[61,647,48,45],[121,647,48,45],[178,647,48,45],[235,647,48,45],[292,647,48,45]],"ci":-1},{"t":"review","r":[20,706,362,50],"ph":"이 버킷리스트는 어땠나요? 한 줄 남겨주세요","ci":-1},{"t":"cond","g":"r","r":[19,777,368,56],"en":[19,777,368,56,28,"친구들과 공유하기"],"l":["ON_CLICK","OVERLAY","3990:6203",-1,0,19,777,368,56,"MOVE_IN","TOP",[-30,-317]],"msg":"하트를 눌러 만족도를 남겨주세요","ci":-1}]},"3990:6135":{"name":"완수-3_2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0]],"base":"3990-6135_base","conts":[],"extra":[{"t":"rating","g":"r","img":"rt-y","slots":[[61,647,48,45],[121,647,48,45],[178,647,48,45],[235,647,48,45],[292,647,48,45]],"ci":-1},{"t":"review","r":[20,706,362,50],"ph":"이 버킷리스트는 어땠나요? 한 줄 남겨주세요","ci":-1},{"t":"cond","g":"r","r":[19,777,368,56],"en":[19,777,368,56,28,"친구들과 공유하기"],"l":["ON_CLICK","OVERLAY","3990:6203",-1,0,19,777,368,56,"MOVE_IN","TOP",[-30,-317]],"msg":"하트를 눌러 만족도를 남겨주세요","ci":-1}]},"3990:6157":{"name":"완수-4_1","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","OVERLAY","3990:6203",-1,0,19,777,368,56,"MOVE_IN","TOP",[-30,-317],200,0]],"base":"3990-6157_base","conts":[]},"3990:6180":{"name":"완수-4_2","w":402,"h":874,"ovPos":"CENTER","ovBg":0,"ovClose":"NONE","links":[["ON_CLICK","BACK",null,-1,0,20,74,24,19,null,null,null,0,0],["ON_CLICK","OVERLAY","3990:6203",-1,0,19,777,368,56,"MOVE_IN","TOP",[-30,-317],200,0]],"base":"3990-6180_base","conts":[]},"3990:6203":{"name":"완수 공유","w":425,"h":531,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,216,316,182,56,"DISSOLVE",null,null,300,0]],"base":"3990-6203_base","conts":[],"extra":[{"t":"copy","r":[28,316,182,56],"msg":"공유 링크를 복사했어요","ci":-1}]},"3990:6214":{"name":"사진 선택","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[["ON_CLICK","SWAP","3990:6325",-1,0,27,791,182,56,"MOVE_IN","TOP",null,383,0],["ON_CLICK","SWAP","3990:6290",-1,0,215,791,182,56,"MOVE_IN","TOP",null,383,0]],"base":"3990-6214_base","conts":[]},"3990:6227":{"name":"사진 선택","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"CLOSE_ON_CLICK_OUTSIDE","links":[["ON_CLICK","SWAP","3990:6336",-1,0,27,791,182,56,"MOVE_IN","TOP",null,383,0],["ON_CLICK","SWAP","3990:6308",-1,0,215,791,182,56,"MOVE_IN","TOP",null,383,0]],"base":"3990-6227_base","conts":[]},"3990:6240":{"name":"사진 선택_촬영-3","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["AFTER_TIMEOUT","SWAP","3990:6266",-1,0,0,0,425,1006,"MOVE_IN","TOP",null,383,1000]],"base":"3990-6240_base","conts":[]},"3990:6253":{"name":"사진 선택_촬영-3","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["AFTER_TIMEOUT","SWAP","3990:6278",-1,0,0,0,425,1006,"MOVE_IN","TOP",null,383,1000]],"base":"3990-6253_base","conts":[]},"3990:6266":{"name":"사진 선택_촬영-3","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["ON_CLICK","SWAP","3990:6325",-1,0,27,791,182,56,"MOVE_IN","TOP",null,383,0],["ON_CLICK","NAVIGATE","3990:6079",-1,0,215,791,182,56,"DISSOLVE",null,null,300,0]],"base":"3990-6266_base","conts":[]},"3990:6278":{"name":"사진 선택_촬영-3","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["ON_CLICK","SWAP","3990:6336",-1,0,27,791,182,56,"MOVE_IN","TOP",null,383,0],["ON_CLICK","NAVIGATE","3990:6096",-1,0,215,791,182,56,"DISSOLVE",null,null,300,0]],"base":"3990-6278_base","conts":[]},"3990:6290":{"name":"사진 선택_갤러리-1","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["ON_CLICK","SWAP","3990:6325",-1,0,27,791,182,56,"MOVE_IN","TOP",null,383,0],["ON_CLICK","NAVIGATE","3990:6079",-1,0,215,791,182,56,"DISSOLVE",null,null,300,0]],"base":"3990-6290_below","over":"3990-6290_over","conts":[{"id":"3990:6301","x":11,"y":419,"w":402,"h":346,"dir":"VERTICAL","cw":402,"ch":1071,"content":"pick6290","fixed":null,"snap":358,"dots":3}]},"3990:6308":{"name":"사진 선택_갤러리-1","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["ON_CLICK","SWAP","3990:6336",-1,0,27,791,182,56,"MOVE_IN","TOP",null,383,0],["ON_CLICK","NAVIGATE","3990:6096",-1,0,215,791,182,56,"DISSOLVE",null,null,300,0]],"base":"3990-6308_below","over":"3990-6308_over","conts":[{"id":"3990:6319","x":11,"y":419,"w":402,"h":346,"dir":"VERTICAL","cw":402,"ch":713,"content":"pick6308","fixed":null,"snap":358,"dots":2}]},"3990:6325":{"name":"사진 선택_촬영-1","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["AFTER_TIMEOUT","SWAP","3990:6347",-1,0,0,0,425,1006,null,null,null,0,1000]],"base":"3990-6325_base","conts":[]},"3990:6336":{"name":"사진 선택_촬영-1","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["AFTER_TIMEOUT","SWAP","3990:6359",-1,0,0,0,425,1006,null,null,null,0,1000]],"base":"3990-6336_base","conts":[]},"3990:6347":{"name":"사진 선택_촬영-2","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["AFTER_TIMEOUT","SWAP","3990:6240",-1,0,0,0,425,1006,null,null,null,0,1000]],"base":"3990-6347_base","conts":[]},"3990:6359":{"name":"사진 선택_촬영-2","w":425,"h":1006,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["AFTER_TIMEOUT","SWAP","3990:6253",-1,0,0,0,425,1006,null,null,null,0,1000]],"base":"3990-6359_base","conts":[]},"3990:6371":{"name":"나중에시작","w":425,"h":531,"ovPos":"MANUAL","ovBg":0.5,"ovClose":"NONE","links":[["ON_CLICK","NAVIGATE","3990:1653",-1,0,28,316,370,56,"DISSOLVE",null,null,300,0]],"base":"3990-6371_base","conts":[]}};
+const S = {"3990-544_base":[402,874],"3990-667_base":[402,874],"3990-792_base":[402,874],"3990-922_base":[402,874],"3990-1045_base":[402,874],"3990-1173_base":[402,151],"3990-1179_base":[402,602],"3990-1196_base":[402,874],"3990-1231_base":[402,874],"3990-1258_base":[402,874],"3990-1287_base":[402,874],"3990-1354_base":[402,874],"3990-1387_below":[402,874],"3990-1387_over":[402,874],"3990-1401_below":[402,874],"3990-1401_over":[402,874],"3990-1441_below":[402,874],"3990-1441_over":[402,874],"3990-1468_below":[402,482],"3990-1468_over":[402,482],"3990-1468_c0":[402,309],"3990-1468_f0":[402,279],"3990-1507_base":[402,482],"3990-1543_below":[402,874],"3990-1543_over":[402,874],"3990-1595_below":[402,330],"3990-1595_c0":[703,330],"3990-1653_below":[402,874],"3990-1692_below":[402,874],"3990-1692_over":[402,874],"3990-1692_c0":[530,62],"3990-1692_f0":[344,62],"3990-1692_c1":[402,463],"3990-1919_below":[402,874],"3990-1919_over":[402,874],"3990-1919_c0":[530,62],"3990-1919_f0":[344,62],"3990-1919_c1":[402,463],"3990-2146_below":[402,874],"3990-2146_over":[402,874],"3990-2146_c0":[530,62],"3990-2146_f0":[344,62],"3990-2146_c1":[402,463],"3990-2373_below":[402,874],"3990-2373_over":[402,874],"3990-2373_c0":[530,62],"3990-2373_f0":[344,62],"3990-2373_c1":[402,463],"3990-2600_below":[402,874],"3990-2600_over":[402,874],"3990-2600_c0":[530,62],"3990-2600_f0":[344,62],"3990-2600_c1":[402,463],"3990-2827_below":[402,874],"3990-2827_over":[402,874],"3990-2827_c0":[530,62],"3990-2827_f0":[344,62],"3990-2827_c1":[402,463],"3990-3054_below":[402,874],"3990-3054_over":[402,874],"3990-3054_c0":[530,62],"3990-3054_f0":[344,62],"3990-3054_c1":[402,463],"3990-3280_below":[402,874],"3990-3280_over":[402,874],"3990-3280_c0":[530,62],"3990-3280_f0":[344,62],"3990-3280_c1":[402,463],"3990-3506_below":[402,874],"3990-3506_over":[402,874],"3990-3506_c0":[530,62],"3990-3506_f0":[344,62],"3990-3506_c1":[402,463],"3990-3740_below":[402,874],"3990-3740_over":[402,874],"3990-3740_c0":[530,62],"3990-3740_f0":[344,62],"3990-3740_c1":[402,463],"3990-3972_below":[402,874],"3990-3972_over":[402,874],"3990-3972_c0":[530,62],"3990-3972_f0":[344,62],"3990-3972_c1":[402,463],"3990-4204_below":[402,874],"3990-4204_over":[402,874],"3990-4204_c0":[530,62],"3990-4204_f0":[344,62],"3990-4204_c1":[402,463],"3990-4434_below":[402,874],"3990-4434_over":[402,874],"3990-4434_c0":[530,62],"3990-4434_f0":[344,62],"3990-4434_c1":[402,463],"3990-4661_below":[402,874],"3990-4661_over":[402,874],"3990-4661_c0":[530,62],"3990-4661_f0":[344,62],"3990-4661_c1":[402,497],"3990-4889_below":[402,874],"3990-4889_over":[402,874],"3990-4889_c0":[530,62],"3990-4889_f0":[344,62],"3990-4889_c1":[402,463],"3990-5116_below":[402,874],"3990-5116_over":[402,874],"3990-5116_c0":[530,62],"3990-5116_f0":[344,62],"3990-5116_c1":[402,463],"3990-5343_below":[402,874],"3990-5343_over":[402,874],"3990-5343_c0":[723,1056],"3990-5343_c1":[510,62],"3990-5657_below":[402,485],"3990-5657_over":[402,485],"3990-5657_c0":[402,538],"3990-5657_f0":[402,389],"3990-5705_below":[402,485],"3990-5705_over":[402,485],"3990-5705_c0":[402,586],"3990-5705_f0":[402,389],"3990-5742_below":[402,485],"3990-5742_over":[402,485],"3990-5742_c0":[402,586],"3990-5742_f0":[402,389],"3990-5791_below":[402,485],"3990-5791_over":[402,485],"3990-5791_c0":[402,538],"3990-5791_f0":[402,389],"3990-5839_below":[402,485],"3990-5839_over":[402,485],"3990-5839_c0":[402,538],"3990-5839_f0":[402,389],"3990-5889_below":[402,485],"3990-5889_over":[402,485],"3990-5889_c0":[402,538],"3990-5889_f0":[402,389],"3990-5927_below":[402,485],"3990-5927_over":[402,485],"3990-5927_c0":[402,538],"3990-5927_f0":[402,389],"3990-5977_below":[402,485],"3990-5977_over":[402,485],"3990-5977_c0":[402,538],"3990-5977_f0":[402,389],"3990-6015_below":[402,485],"3990-6015_over":[402,485],"3990-6015_c0":[402,444],"3990-6015_f0":[402,389],"3990-6033_base":[402,874],"3990-6056_base":[402,874],"3990-6079_base":[402,874],"3990-6096_base":[402,874],"3990-6113_base":[402,874],"3990-6135_base":[402,874],"3990-6157_base":[402,874],"3990-6180_base":[402,874],"3990-6203_base":[425,531],"3990-6214_base":[425,1006],"3990-6227_base":[425,1006],"3990-6240_base":[425,1006],"3990-6253_base":[425,1006],"3990-6266_base":[425,1006],"3990-6278_base":[425,1006],"3990-6290_below":[425,1006],"3990-6290_over":[425,1006],"3990-6308_below":[425,1006],"3990-6308_over":[425,1006],"3990-6325_base":[425,1006],"3990-6336_base":[425,1006],"3990-6347_base":[425,1006],"3990-6359_base":[425,1006],"3990-6371_base":[425,531],"fr-feed":[402,1998],"rt-b0-off":[48,45],"rt-b0-on":[48,45],"rt-b1-off":[48,45],"rt-b1-on":[48,45],"rt-b2-off":[48,45],"rt-b2-on":[48,45],"rt-b3-off":[48,45],"rt-b3-on":[48,45],"rt-b4-off":[48,45],"rt-b4-on":[48,45],"rt-y0-off":[48,45],"rt-y0-on":[48,45],"rt-y1-off":[48,45],"rt-y1-on":[48,45],"rt-y2-off":[48,45],"rt-y2-on":[48,45],"rt-y3-off":[48,45],"rt-y3-on":[48,45],"rt-y4-off":[48,45],"rt-y4-on":[48,45],"ck-a0-off":[362,67],"ck-a1-off":[362,67],"ck-b0-off":[362,67],"ck-b1-off":[362,67],"ck-b2-off":[362,67],"ck-b0-on":[362,67],"ck-b1-on":[362,67],"ck-a0-on":[362,67],"ck-a1-on":[362,67],"ck-b2-on":[362,67],"gal-tile":[73,73],"gp-5657-0":[348,348],"gp-5657-1":[348,348],"gp-5657-2":[348,348],"gp-5657-3":[348,348],"gp-5657-4":[348,348],"gp-5705-0":[348,348],"gp-5705-1":[348,348],"gp-5705-2":[348,348],"gp-5742-0":[348,348],"gp-5742-1":[348,348],"gp-5742-2":[348,348],"gp-5791-0":[348,348],"gp-5791-1":[348,348],"gp-5791-2":[348,348],"gp-5791-3":[348,348],"gp-5791-4":[348,348],"gp-5839-0":[348,348],"gp-5839-1":[348,348],"gp-5839-2":[348,348],"gp-5839-3":[348,348],"gp-5889-0":[348,348],"gp-5889-1":[348,348],"gp-5889-2":[348,348],"gp-5889-3":[348,348],"gp-5927-0":[348,348],"gp-5927-1":[348,348],"gp-5927-2":[348,348],"gp-5927-3":[348,348],"gp-5977-0":[348,348],"gp-5977-1":[348,348],"gp-5977-2":[348,348],"gp-5977-3":[348,348],"gp-6015-0":[348,348],"gp-6015-1":[348,348],"gp-6015-2":[348,348],"gp-6015-3":[348,348],"home-over":[402,874],"mapbase":[2000,3000],"an-mapA":[480,300],"an-mapB":[300,280],"momi01":[81,66],"momi02":[99,83],"fr-p1":[480,360],"fr-p2":[366,497],"fr-p3":[346,402],"fr-bar-plain":[402,104],"an-cn":[540,778],"s7-bg":[402,874],"s7-cube":[193,167],"rec-pre":[402,874],"an-mbb":[324,453],"an-mcc":[324,453],"an-m9e":[324,453],"an-m402":[324,453],"an-m9df":[324,453],"an-m5bc":[324,453],"an-me9b":[324,453],"an-mfed":[324,453],"an-mc5f":[324,453],"an-m3c0":[324,453],"an-me7b":[324,453],"pick6290":[402,1071],"pick6308":[402,713]};   // 이미지 크기 (피그마 1px 기준)
+const START = "3990:1653";
+const DUR = 320;
+
+const stage = document.getElementById('stage');
+const wrap = document.getElementById('wrap');
+const src = id => 'img/' + id.replace(':', '-') + '.webp';
+
+// ── 화면 크기 맞추기: 402×874 휴대폰 화면을 창에 꽉 맞게 ──
+function fit() {
+  // 글자 입력 중(키보드가 올라온 상태)에는 화면 크기를 바꾸지 않음
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  const r = wrap.getBoundingClientRect(), W = r.width, H = r.height;
+  let k, top;
+  if (window.innerWidth >= 640) { k = Math.min((W - 48) / 402, (H - 48) / 874); top = (H - 874 * k) / 2; }
+  else {
+    // 휴대폰: 가로를 꽉 채우고, 세로가 모자라면 디자인 속 가짜 상태바(9:41)와 홈 막대를 잘라서 그만큼 크게
+    const CT = 60, CB = 34;   // 가짜 상태바(0~62)·홈 막대(840~874)를 거의 다 잘라냄
+    k = Math.min(W / 402, H / 874);
+    if (k < W / 402 - 0.001) { k = Math.min(W / 402, H / (874 - CT - CB)); top = Math.min((H - (874 - CT - CB) * k) / 2 - CT * k, -54 * k); }   // 디자인 속 가짜 다이내믹 아일랜드(아래 끝 51)는 항상 가림
+    else top = (H - 874 * k) / 2;
+  }
+  stage.style.transformOrigin = '0 0';
+  stage.style.left = (W - 402 * k) / 2 + 'px'; stage.style.top = top + 'px';
+  stage.style.transform = `scale(${k})`;
+}
+addEventListener('resize', fit); fit();
+// 상태바 시계: 지금 시각 (12시간제, 아이폰처럼)
+(function tickClock() { const d = new Date(), h = d.getHours() % 12 || 12, m = String(d.getMinutes()).padStart(2, '0');
+  const c = document.getElementById('clock'); if (c) c.textContent = h + ':' + m; setTimeout(tickClock, (60 - d.getSeconds()) * 1000); })();
+// 아이폰은 글자가 16px보다 작은 입력칸을 누르면 화면을 확대해버림 → 앱이 줄어 보이는 만큼 입력칸 글자를 키움
+document.addEventListener('focusin', ev => {
+  const t = ev.target; if (!t || t.tagName !== 'INPUT') return;
+  const k = stage.getBoundingClientRect().width / 402;
+  if (!t._fs0) t._fs0 = parseFloat(getComputedStyle(t).fontSize);
+  t.style.fontSize = Math.max(t._fs0, 16.5 / k) + 'px';
+}, true);
+
+// ── 이미지 미리 불러오기 ──
+function preload() {
+  const all = Object.keys(S);
+  let n = 0;
+  const bar = document.querySelector('#load .bar i');
+  const first = new Set();
+  const f0 = F[START];
+  first.add(f0.base);
+  return new Promise(res => {
+    let started = false;
+    const go = () => { if (!started) { started = true; res(); } };
+    all.forEach(id => {
+      const im = new Image();
+      im.onload = im.onerror = () => {
+        n++; bar.style.width = (n / all.length * 100) + '%';
+        if (n === all.length) go();
+      };
+      im.src = src(id);
+    });
+    setTimeout(go, 6000); // 너무 오래 걸리면 그냥 시작
+  });
+}
+
+function img(id, cls) {
+  const el = new Image();
+  el.src = src(id); el.draggable = false;
+  if (cls) el.className = cls;
+  el.style.width = S[id][0] + 'px'; el.style.height = S[id][1] + 'px';
+  return el;
+}
+
+// ── 한 화면(또는 오버레이) 만들기 ──
+function build(fid, el, ctx) {
+  const f = F[fid];
+  // 스크롤 영역보다 아래 레이어(below)와 위 레이어(over)를 나눠서 그림
+  el.appendChild(img(f.below || f.base, 'base'));
+  if (f.pan) pan(f.pan, el, ctx);
+  // GIF로 움직이던 부분: 움직이는 이미지 + (지도면 회색 겹침) + 그 위 UI만 잘라서 다시 덮기
+  if (f.anims) f.anims.forEach(a => {
+    const pos = d => Object.assign(d.style, { left: a.x + 'px', top: a.y + 'px', width: a.w + 'px', height: a.h + 'px' });
+    const patch = id => { const d = document.createElement('div'); d.className = 'anim-ov'; pos(d); d.style.backgroundImage = `url(${src(id)})`; d.style.backgroundPosition = `${-a.x}px ${-a.y}px`; el.appendChild(d); };
+    if (a.under) patch(a.under);  // 원래 캐릭터를 가리는 바탕
+    const im = new Image(); im.className = 'anim'; im.draggable = false; im.src = src(a.src); pos(im);
+    if (a.under || a.plain) im.style.webkitMaskImage = im.style.maskImage = 'none';  // 바탕이 투명한 캐릭터는 가장자리 흐림 없이
+    if (a.top) { im.style.zIndex = 3; el._top = im; } else el.appendChild(im);
+    if (a.tint) { const d = document.createElement('div'); d.className = 'anim-tint'; pos(d); el.appendChild(d); }
+    if (a.over) { const d = document.createElement('div'); d.className = 'anim-ov'; pos(d); d.style.backgroundImage = `url(${src(a.over)})`; d.style.backgroundPosition = `${-a.x}px ${-a.y}px`; el.appendChild(d); }
+  });
+  if (f.cats) catPicker(f.cats, el);
+  // 캐릭터 GIF가 맨 아래인 화면(모마이 커스텀): 위 레이어를 먼저 깔고 목록을 그 위에
+  if (f.over && f.overFirst) el.appendChild(img(f.over, 'base'));
+  const contents = f.conts.map(c => {
+    const w = document.createElement('div');
+    w.className = 'scw';
+    Object.assign(w.style, { left: c.x + 'px', top: c.y + 'px', width: c.w + 'px', height: c.h + 'px' });
+    const sc = document.createElement('div');
+    sc.className = 'sc ' + ({ HORIZONTAL: 'h', VERTICAL: 'v', BOTH: 'b' }[c.dir] || 'v');
+    Object.assign(sc.style, { left: 0, top: 0, width: c.w + 'px', height: c.h + 'px' });
+    const ct = document.createElement('div');
+    ct.className = 'ct';
+    ct.style.width = c.cw + 'px'; ct.style.height = c.ch + 'px';
+    if (c.pad) {
+      // 갤러리: 지도 둘레에 빈 칸을 더 깔아서 어느 쪽으로 끌어도 비지 않게
+      ct.style.background = `url(${src(c.tile)}) 0 0 / ${S[c.tile][0]}px ${S[c.tile][1]}px repeat`;
+      const im = img(c.content); im.style.left = im.style.top = c.pad + 'px'; ct.appendChild(im);
+    } else ct.appendChild(img(c.content));
+    if (c.snap) { sc.classList.add('snap'); for (let y = 0; y < c.ch; y += c.snap) { const s = document.createElement('div'); s.className = 'snapt'; s.style.top = y + 'px'; ct.appendChild(s); } }
+    sc.appendChild(ct); w.appendChild(sc);
+    if (c.sx || c.sy) requestAnimationFrame(() => { sc.scrollLeft = c.sx || 0; sc.scrollTop = c.sy || 0; });
+    if (c.fixed) w.appendChild(img(c.fixed, 'fx'));
+    if (c.ptr) pullRefresh(w, sc, ct);
+    if (c.dots) {
+      // 세로로 넘기는 사진: 오른쪽에 몇 번째 사진인지 점으로 표시
+      const d = document.createElement('div'); d.className = 'vdots';
+      Object.assign(d.style, { left: (c.x + c.w - 14) + 'px', top: (c.y + c.h / 2) + 'px' });
+      const ds = Array.from({ length: c.dots }, () => d.appendChild(document.createElement('i')));
+      const upd = () => { const i = Math.round(sc.scrollTop / c.snap); ds.forEach((e, j) => e.classList.toggle('on', j === i)); };
+      sc.addEventListener('scroll', upd, { passive: true }); upd(); el.appendChild(d);
+    }
+    el.appendChild(w);
+    return ct;
+  });
+  if (f.over && !f.overFirst) el.appendChild(img(f.over, 'over' + (f.pan ? ' ui' : '')));
+  if (f.over && f.overTop) f.overTop.forEach(r => { const d = document.createElement('div'); d.className = 'anim-ov';
+    Object.assign(d.style, { left: r[0] + 'px', top: r[1] + 'px', width: r[2] + 'px', height: r[3] + 'px', backgroundImage: `url(${src(f.over)})`, backgroundPosition: `${-r[0]}px ${-r[1]}px`, zIndex: 2, WebkitMaskImage: 'none', maskImage: 'none' }); el.appendChild(d); });
+  if (el._top) el.appendChild(el._top);  // 캐릭터는 격자 위로
+  if (f.colorDots) colorDots(el, fid);
+  if (f.avatar) avatar(el, f.avatar);
+  // 큰 핫스팟은 아래, 작은 핫스팟은 위 (작은 버튼이 눌리도록)
+  const links = f.links.filter(l => l[0] !== 'AFTER_TIMEOUT')
+    .map((l, i) => ({ l, i, a: l[7] * l[8] }))
+    .sort((p, q) => q.a - p.a);
+  links.forEach(({ l }, z) => {
+    const [trig, nav, dest, ci, , x, y, w, h] = l;
+    const b = document.createElement('button');
+    b.className = 'hs' + (trig === 'ON_DRAG' ? ' drag' : '');
+    b.setAttribute('aria-label', dest && F[dest] ? F[dest].name : nav);
+    // 작은 버튼은 손가락으로 누르기 쉽게 44px까지 넓힘 (가운데 기준)
+    const px = trig === 'ON_DRAG' ? 0 : Math.max(0, (44 - w) / 2), py = trig === 'ON_DRAG' ? 0 : Math.max(0, (44 - h) / 2);
+    Object.assign(b.style, { left: (x - px) + 'px', top: (y - py) + 'px', width: (w + 2 * px) + 'px', height: (h + 2 * py) + 'px' });
+    if (trig !== 'ON_DRAG') b.style.zIndex = 3 + z;
+    (ci >= 0 ? contents[ci] : el).appendChild(b);
+    if (trig === 'ON_DRAG') return; // 스와이프는 따로 처리
+    b.addEventListener('click', e => { e.stopPropagation(); act(l, b, ctx); });
+  });
+  // 스와이프 (친구들 보기)
+  const drags = f.links.filter(l => l[0] === 'ON_DRAG');
+  if (drags.length) swipe(el, drags, ctx);
+  if (f.extra) extras(f.extra, el, contents, ctx);
+
+}
+
+function swipe(el, drags, ctx) {
+  let sx = 0, sy = 0, on = false, moved = false;
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest('.sc') || e.target.closest('.huedrag')) return;
+    on = true; moved = false; sx = e.clientX; sy = e.clientY;
+  });
+  el.addEventListener('pointerup', e => {
+    if (!on) return; on = false;
+    const k = stage.getBoundingClientRect().width / 402;
+    const dx = (e.clientX - sx) / k, dy = (e.clientY - sy) / k;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    const dir = dx < 0 ? 'LEFT' : 'RIGHT';
+    const l = drags.find(d => d[10] === dir);
+    // 밀었으면 그 뒤에 따라오는 '누르기'는 무시 (사진 위에서 밀어도 넘어가게)
+    el._swiped = Date.now();
+    if (l) { e.stopPropagation(); act(l, null, ctx); }
+  });
+  el.addEventListener('click', e => { if (Date.now() - (el._swiped || 0) < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+  el.addEventListener('pointercancel', () => on = false);
+}
+
+// ── 동작 ──
+const hist = [];
+let cur = null, curId = null, timers = [], busy = false;
+const layers = [];
+
+function act(l, btn, ctx) {
+  const [, nav, dest] = l;
+  if (busy) return;
+  // '커스터마이징 완료하기'를 누르면 지금 캐릭터를 내 프로필로 저장
+  if (nav === 'NAVIGATE' && F[curId] && F[curId].momai && l[6] > 700) myMomi = { src: F[curId].momai, filter: F[curId].colorDots && !(curId in BODY.pages) ? BODY.filter[bodyColor] : 'none' };
+  if (nav === 'BACK') {
+    if (ctx && ctx.overlay) return closeTop();
+    return back();
+  }
+  if (nav === 'OVERLAY') {
+    // 알림 배너처럼 위에 떠 있던 창에서 큰 창을 열면, 원래 창은 닫음
+    if (ctx && ctx.lay && F[dest] && F[dest].ovBg) { const old = ctx.lay; openOverlay(dest, l, btn, ctx); close(old, true); return; }
+    return openOverlay(dest, l, btn, ctx);
+  }
+  if (nav === 'CLOSE') { const lay = (btn && btn.closest('.layer')) || (ctx && ctx.lay); return lay ? close(lay) : closeTop(); }
+  if (nav === 'SWAP' && dest && F[dest]) { const lay = (btn && btn.closest('.layer')) || (ctx && ctx.lay); if (lay) return swapOverlay(lay, dest); return openOverlay(dest, l, btn, ctx); }
+  if (nav === 'NAVIGATE' && dest && F[dest]) {
+    closeAll(true);
+    go(dest, l[9], l[10], true);
+  }
+}
+
+// ── 모마이 몸 색: 고른 색을 기억해서 다른 부위(머리·얼굴·옷·신발·액세서리) 화면에서도 같은 색으로 ──
+const BODY = { pages: { '3990:1692': 0, '3990:1919': 1, '3990:2146': 2, '3990:2827': 3, '3990:2600': 4, '3990:2373': 5, '3990:4434': -1, '3990:4661': -1 },
+  frame: ['3990:1692', '3990:1919', '3990:2146', '3990:2827', '3990:2600', '3990:2373'],
+  dot: [['#ffa9b9', '#ffc8c5'], ['#b3e3e6', '#cbeeea'], ['#aaedc4', '#c5f4cb'], ['#ecf6a9', '#f3fab5'], ['#fe8076', '#ffab8c'], ['#b6bcea', '#ced4ec']],  // 피그마 동그라미 그라데이션 (위→아래)
+  // 분홍 캐릭터를 각 색으로 바꾸는 필터
+  filter: ['none', 'hue-rotate(192deg) saturate(.42) brightness(1.13)', 'hue-rotate(148deg) saturate(.48) brightness(1.12)',
+           'hue-rotate(68deg) saturate(.55) brightness(1.13)', 'hue-rotate(28deg) saturate(.8) brightness(1.05)', 'hue-rotate(248deg) saturate(.38) brightness(1.1)'] };
+let bodyColor = 0;
+let myMomi = null;   // 커스터마이징을 끝낸 캐릭터 (프로필 동그라미에 씀)
+function avatar(el, a) {
+  if (!myMomi) return;
+  const d = document.createElement('div'); d.className = 'avatar';
+  Object.assign(d.style, { left: a[0] + 'px', top: a[1] + 'px', width: a[2] + 'px', height: a[2] + 'px' });
+  const i = new Image(); i.src = src(myMomi.src); i.draggable = false; i.style.filter = myMomi.filter;
+  d.appendChild(i); el.appendChild(d);
+}
+function colorDots(el, fid) {
+  const onBody = fid in BODY.pages;   // 몸 화면: 색마다 따로 만든 피그마 화면으로 이동
+  const ch = el._top; if (ch && !onBody) ch.style.filter = BODY.filter[bodyColor];
+  const sel = onBody ? Math.max(0, BODY.pages[fid]) : bodyColor;
+  const dots = BODY.dot.map((c, i) => { const b = document.createElement('button'); b.className = 'hs cdot'; b.setAttribute('aria-label', '몸 색 ' + (i + 1));
+    Object.assign(b.style, { left: (52 + 53 * i) + 'px', top: '430px', width: '32px', height: '32px', zIndex: 5, background: `linear-gradient(to bottom, ${c[0]}, ${c[1]})` });
+    b.addEventListener('click', ev => { ev.stopPropagation();
+      if (onBody) { if (i !== BODY.pages[fid]) { bodyColor = i; go(BODY.frame[i]); } return; }
+      bodyColor = i; paint(); });
+    el.appendChild(b); return b; });
+  const paint = () => { dots.forEach((d, i) => d.classList.toggle('on', i === (onBody ? sel : bodyColor))); if (ch && !onBody) ch.style.filter = BODY.filter[bodyColor]; };
+  paint();
+}
+function go(fid, type, dir, push) {
+  if (fid === BODY.frame[0] && bodyColor > 0) fid = BODY.frame[bodyColor];   // 몸 탭으로 돌아오면 고른 색 화면으로
+  if (fid in BODY.pages && BODY.pages[fid] >= 0) bodyColor = BODY.pages[fid];
+  if (push && curId) hist.push({ id: curId, type, dir });
+  timers.forEach(clearTimeout); timers = [];
+  const el = document.createElement('div');
+  el.className = 'screen';
+  build(fid, el, { overlay: false });
+  const old = cur;
+  stage.insertBefore(el, document.getElementById('load'));
+  cur = el; curId = fid;
+  try { history.replaceState(null, '', '#f' + fid.replace(':', '-')); } catch (e) {}
+  animate(old, el, type, dir);
+  // 시간이 지나면 자동으로 열리는 오버레이
+  F[fid].links.filter(l => l[0] === 'AFTER_TIMEOUT').forEach(l => {
+    timers.push(setTimeout(() => { if (cur === el) openOverlay(l[2], l, null, { overlay: false }); }, Math.max(600, l[13] || 0)));
+  });
+}
+
+function animate(old, el, type, dir) {
+  if (!old) return;
+  const done = () => { old.remove(); el.style.transform = ''; el.style.opacity = ''; el.style.transition = ''; busy = false; };
+  if (type === 'PUSH' || type === 'MOVE_IN' || type === 'SLIDE_IN') {
+    busy = true;
+    const s = dir === 'RIGHT' ? -1 : 1;
+    el.style.transform = `translateX(${s * 100}%)`;
+    el.getBoundingClientRect();
+    const t = `transform ${DUR}ms cubic-bezier(.3,.7,.2,1)`;
+    el.style.transition = t; old.style.transition = t;
+    el.style.transform = 'translateX(0)'; old.style.transform = `translateX(${-s * 30}%)`;
+    setTimeout(done, DUR + 20);
+  } else if (type === 'DISSOLVE' || type === 'SMART_ANIMATE') {
+    busy = true;
+    const d = type === 'DISSOLVE' ? 300 : 220;
+    el.style.opacity = 0; el.getBoundingClientRect();
+    el.style.transition = `opacity ${d}ms ease`; el.style.opacity = 1;
+    setTimeout(done, d + 20);
+  } else {
+    old.remove();
+  }
+}
+
+function back() {
+  const h = hist.pop();
+  if (!h) { closeAll(true); return go(START, 'PUSH', 'RIGHT', false); }
+  closeAll(true);
+  const rev = h.type === 'PUSH' ? 'PUSH' : h.type;
+  go(h.id, rev, h.dir === 'LEFT' ? 'RIGHT' : 'LEFT', false);
+}
+
+// ── 홈 지도: 끌기, 확대·축소, 캐릭터 움직임 ──
+function pan(p, el, ctx) {
+  const vp = document.createElement('div'); vp.className = 'pan';
+  const mp = document.createElement('div'); mp.className = 'map';
+  mp.style.width = p.w + 'px'; mp.style.height = p.h + 'px';
+  const bimg = img(p.base); bimg.style.width = p.w + 'px'; bimg.style.height = p.h + 'px'; mp.appendChild(bimg);
+  p.sprites.forEach(s => {
+    const d = document.createElement('div'); d.className = 'spr';
+    Object.assign(d.style, { left: s.x + 'px', top: s.y + 'px', width: s.w + 'px', height: s.h + 'px', backgroundImage: `url(${src(s.sheet)})`, backgroundSize: `${s.cols * s.w}px auto` });
+    d._s = s; mp.appendChild(d);
+  });
+  p.imgs.forEach(m => { const i = img(m.id); i.style.left = m.x + 'px'; i.style.top = m.y + 'px'; i.style.width = m.w + 'px'; i.style.height = m.h + 'px'; mp.appendChild(i); });
+  const tint = document.createElement('div'); tint.className = 'tint';
+  vp.append(mp, tint); el.appendChild(vp);
+  let s = 1, tx = p.x, ty = p.y;
+  const minS = Math.max(402 / p.w, 874 / p.h), maxS = 1.3;   // 지도·움직이는 그림(GIF)이 화면보다 약 2.3배 크게 만들어져 있어서, 1.3배 넘게 키우면 흐려짐
+  const apply = () => {
+    s = Math.min(maxS, Math.max(minS, s));
+    const W = p.w * s, H = p.h * s;
+    tx = Math.min(0, Math.max(402 - W, tx)); ty = Math.min(0, Math.max(874 - H, ty));
+    mp.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+  };
+  apply();
+  const toStage = e => { const r = stage.getBoundingClientRect(), k = r.width / 402; return [(e.clientX - r.left) / k, (e.clientY - r.top) / k]; };
+  const pts = new Map(); let g = null, moved = 0, t0 = 0;
+  const startGesture = () => {
+    const a = [...pts.values()];
+    if (a.length === 1) g = { one: true, x: a[0][0], y: a[0][1], tx, ty };
+    else if (a.length >= 2) { const [p1, p2] = a; const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+      g = { one: false, d: Math.hypot(p1[0] - p2[0], p1[1] - p2[1]) || 1, s, lx: (mx - tx) / s, ly: (my - ty) / s }; }
+  };
+  vp.addEventListener('pointerdown', e => { try { vp.setPointerCapture(e.pointerId); } catch (er) {} pts.set(e.pointerId, toStage(e)); if (pts.size === 1) { moved = 0; t0 = Date.now(); } startGesture(); });
+  vp.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, toStage(e)); const a = [...pts.values()];
+    if (g && g.one) { const dx = a[0][0] - g.x, dy = a[0][1] - g.y; moved = Math.max(moved, Math.hypot(dx, dy)); tx = g.tx + dx; ty = g.ty + dy; }
+    else if (g && a.length >= 2) { const [p1, p2] = a; const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2; moved = 99;
+      s = g.s * Math.hypot(p1[0] - p2[0], p1[1] - p2[1]) / g.d; s = Math.min(maxS, Math.max(minS, s)); tx = mx - g.lx * s; ty = my - g.ly * s; }
+    apply();
+  });
+  const up = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (pts.size === 0 && moved < 6 && Date.now() - t0 < 500 && p.tap) act(p.tap, null, ctx);  // 끌지 않고 톡 누르면 원래처럼 다음 화면
+    startGesture();
+  };
+  vp.addEventListener('pointerup', up); vp.addEventListener('pointercancel', up);
+  vp.addEventListener('click', e => e.stopPropagation());
+  vp.addEventListener('wheel', e => { e.preventDefault(); const [mx, my] = toStage(e); const lx = (mx - tx) / s, ly = (my - ty) / s; s *= Math.exp(-e.deltaY * 0.0015); s = Math.min(maxS, Math.max(minS, s)); tx = mx - lx * s; ty = my - ly * s; apply(); }, { passive: false });
+}
+let tick = 0;
+setInterval(() => {
+  tick++;
+  document.querySelectorAll('.spr').forEach(d => { const s = d._s, i = tick % s.n; d.style.backgroundPosition = `${-(i % s.cols) * s.w}px ${-Math.floor(i / s.cols) * s.h}px`; });
+}, 80);
+
+// ── 피그마에 연결이 없던 부분: 안내 문구, 선택(체크), 조건 버튼, 색 바꾸기 ──
+// 녹음: 누르면 안내 → 마이크 둘레가 그라데이션으로 돌며 녹음 → 끝나면 찾은 버킷리스트 화면으로
+function recordSetup(e, par) {
+  // 디자인 화면(녹음 중)에서 마이크 둘레를 잘라 와서, 바깥 고리만 천천히 돌림
+  const mk = (cls, r) => { const d = document.createElement('div'); d.className = cls;
+    Object.assign(d.style, { left: (e.cx - r) + 'px', top: (e.cy - r) + 'px', width: 2 * r + 'px', height: 2 * r + 'px', backgroundImage: `url(${src(e.img)})`, backgroundSize: '402px 874px', backgroundPosition: `${r - e.cx}px ${r - e.cy}px` });
+    par.appendChild(d); return d; };
+  const spin = mk('rec-spin', 188), core = mk('rec-core', 124);
+  const msg = document.createElement('div'); msg.className = 'rec-msg'; msg.style.top = e.my + 'px'; par.appendChild(msg);
+  // 실시간 대화: 처음엔 안 보이다가 녹음이 시작되면 나타나고, 대화가 한 줄씩 아래에서 올라옴
+  const live = document.createElement('div'); live.className = 'rec-live';
+  live.innerHTML = '<b>실시간 대화</b><div class="ls"><div class="in"></div></div>'; par.appendChild(live);
+  const lin = live.querySelector('.in');
+  const TALK = ['올해 안에 미슐랭 식당 꼭 가보고 싶다', '제주도에서 한 달 살아보는 건 어때?', '한 달보다 2주 정도', '스카이다이빙도 해보고 싶었는데', '그럼 둘 다 버킷리스트에 적자!', '좋아, 이번엔 진짜 하는 거다'];
+  let li = 0;
+  const addLine = () => { if (state !== 2 || li >= TALK.length) return;
+    const p = document.createElement('p'); p.textContent = '“' + TALK[li++] + '”'; lin.appendChild(p);
+    const over = lin.scrollHeight - 66; lin.style.transform = `translateY(${-Math.max(0, over)}px)`;
+    later(addLine, 1000); };
+  let state = 0, timers = [], t0 = 0;
+  const later = (fn, ms) => timers.push(setTimeout(() => { if (par.isConnected) fn(); }, ms));
+  const say = (html) => { msg.innerHTML = html; msg.classList.add('on'); };
+  const fx = on => [spin, core].forEach(d => d.classList.toggle('on', on));
+  const stop = () => {
+    if (state !== 2) return; state = 3; timers.forEach(clearTimeout); timers = [];
+    fx(false); say('대화에서 버킷리스트를 찾고 있어요…');
+    later(() => { msg.classList.remove('on'); act(['ON_CLICK', 'NAVIGATE', e.to, -1, 0, 0, 0, 0, 0, 'DISSOLVE', null], null, {}); }, 1100);
+  };
+  const tickT = () => { if (state !== 2) return; const sec = Math.floor((Date.now() - t0) / 1000); say(`듣고 있어요 · 0:0${Math.min(9, sec)}<small>다시 누르면 녹음이 끝나요</small>`); later(tickT, 250); };
+  e.rec = { press() {
+    if (state === 0) {
+      state = 1; say('모마를 가까이 놔주세요<small>잠시 후 녹음이 시작돼요</small>');
+      later(() => { state = 2; t0 = Date.now(); fx(true); tickT(); live.classList.add('on'); later(addLine, 500); later(stop, 6500); }, 1800);
+    } else if (state === 2) stop();
+  } };
+}
+// 직접 추가하기: 빈 버킷리스트 칸이 생기고 키보드가 올라옴
+function addItem(e, par, st, refresh) {
+  st.added = st.added || 0;
+  if (st.open) { st.open.focus(); return; }
+  if (st.added >= e.slots.length) { toast('버킷리스트는 여기까지 추가할 수 있어요'); return; }
+  const y = e.slots[st.added], key = e.g + ':n' + st.added; st.added++;
+  const pill = document.createElement('div'); pill.className = 'nitem';
+  Object.assign(pill.style, { left: '20px', top: y + 'px', width: '362px', height: '67px' });
+  pill.innerHTML = '<i class="cb"></i><input type="text" maxlength="18" enterkeyhint="done" autocomplete="off" placeholder="새 버킷리스트를 적어주세요"><small>직접 추가한 버킷리스트</small>';
+  par.appendChild(pill);
+  const inp = pill.querySelector('input'); st.open = inp; inp.focus();
+  pill.addEventListener('click', ev => ev.stopPropagation());
+  const commit = () => {
+    st.open = null;
+    const v = inp.value.trim();
+    if (!v) { pill.remove(); st.added--; return; }
+    const b = document.createElement('b'); b.textContent = v; inp.replaceWith(b);
+    st.on[key] = true; pill.classList.add('on'); refresh();
+    pill.addEventListener('click', () => { st.on[key] = !st.on[key]; pill.classList.toggle('on', st.on[key]); refresh(); });
+    setTimeout(fit, 300);
+  };
+  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') inp.blur(); });
+  inp.addEventListener('blur', commit, { once: true });
+}
+// 할 일 추가하기: 입력 창 → 목록에 새 할 일이 생김
+function addTask(e, par, st) {
+  const m = document.createElement('div'); m.className = 'tmodal';
+  m.innerHTML = '<div class="bg"></div><div class="pnl"><h3>할 일 추가하기</h3><p>버킷리스트를 이루기 위한 작은 할 일을 적어주세요</p><input type="text" maxlength="22" enterkeyhint="done" autocomplete="off" placeholder="예) 장비 대여 알아보기"><div class="row"><button class="no">취소</button><button class="ok" disabled>추가하기</button></div></div>';
+  stage.insertBefore(m, document.getElementById('toast'));
+  const inp = m.querySelector('input'), ok = m.querySelector('.ok');
+  requestAnimationFrame(() => m.classList.add('on')); inp.focus();
+  const close = () => { inp.blur(); m.classList.remove('on'); setTimeout(() => { m.remove(); fit(); }, 260); };
+  m.addEventListener('click', ev => ev.stopPropagation());
+  m.querySelector('.bg').addEventListener('click', close);
+  m.querySelector('.no').addEventListener('click', close);
+  inp.addEventListener('input', () => { ok.disabled = !inp.value.trim(); });
+  const add = () => {
+    const v = inp.value.trim(); if (!v) return;
+    st.tasks = st.tasks || 0;
+    if (!st.addRow) {
+      // 원래 '할 일 추가하기' 줄을 가리고, 새 줄로 다시 그림
+      const c = document.createElement('div'); c.className = 'tcover'; Object.assign(c.style, { left: '30px', top: (e.y - 4) + 'px', width: '340px', height: '26px' }); par.appendChild(c);
+      st.addRow = document.createElement('div'); st.addRow.className = 'trow add'; st.addRow.innerHTML = '<i></i><span>할 일 추가하기</span>';
+      st.addRow.addEventListener('click', ev => { ev.stopPropagation(); addTask(e, par, st); });
+      par.appendChild(st.addRow);
+    }
+    const row = document.createElement('div'); row.className = 'trow'; row.style.top = (e.y + st.tasks * e.pitch) + 'px';
+    const sp = document.createElement('span'); sp.textContent = v; row.append(document.createElement('i'), sp);
+    row.addEventListener('click', ev => { ev.stopPropagation(); row.classList.toggle('on'); });
+    par.appendChild(row); st.tasks++;
+    st.addRow.style.top = (e.y + st.tasks * e.pitch) + 'px';
+    par.style.height = (parseFloat(par.style.height) + e.pitch) + 'px';
+    close();
+    const sc = par.parentNode; setTimeout(() => sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }), 300);
+  };
+  ok.addEventListener('click', add);
+  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') add(); });
+}
+// 만족도: 누른 하트까지 채워짐 (같은 하트를 다시 누르면 하나 줄어듦)
+function ratingSetup(e, par, st, refresh) {
+  st.rating = 0;
+  const imgs = e.slots.map((s, i) => { const im = new Image(); im.className = 'rt'; im.draggable = false;
+    Object.assign(im.style, { left: s[0] + 'px', top: s[1] + 'px', width: s[2] + 'px', height: s[3] + 'px' }); im.src = src(e.img + i + '-off'); par.appendChild(im); return im; });
+  const draw = changed => imgs.forEach((im, i) => { im.src = src(e.img + i + (i < st.rating ? '-on' : '-off'));
+    if (i === changed) { im.classList.remove('pop'); void im.offsetWidth; im.classList.add('pop'); } });
+  e.slots.forEach((s, i) => {
+    const b = document.createElement('button'); b.className = 'hs'; b.style.zIndex = 40; b.setAttribute('aria-label', `하트 ${i + 1}개`);
+    Object.assign(b.style, { left: (s[0] - 6) + 'px', top: (s[1] - 6) + 'px', width: (s[2] + 12) + 'px', height: (s[3] + 12) + 'px' });
+    b.addEventListener('click', ev => { ev.stopPropagation(); st.rating = st.rating === i + 1 ? i : i + 1;
+      for (let j = 0; j < 5; j++) st.on[e.g + ':' + j] = j < st.rating; draw(i); refresh(); });
+    par.appendChild(b);
+  });
+}
+// 친구 사진 크게 보기
+function openPhoto(id, cap) {
+  const lb = document.createElement('div'); lb.className = 'lb';
+  const im = new Image(); im.src = src(id); im.draggable = false;
+  const c = document.createElement('div'); c.className = 'cap'; c.textContent = cap || '';
+  const x = document.createElement('button'); x.className = 'x'; x.setAttribute('aria-label', '닫기'); x.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>';
+  lb.append(im, c, x); stage.insertBefore(lb, document.getElementById('toast'));
+  requestAnimationFrame(() => lb.classList.add('on'));
+  lb.addEventListener('click', ev => { ev.stopPropagation(); lb.classList.remove('on'); setTimeout(() => lb.remove(), 320); });
+}
+// 친구 반응 줄 (인스타그램 느낌): 하트·댓글 아이콘, '○○님 외 여러 명이 좋아합니다', 댓글 한 줄이 돌아가며 나옴
+// 말풍선이나 댓글 줄을 누르면 댓글 창이 열리고 내 댓글을 남길 수 있음
+const myCmts = {}, liked = {};   // 게시물별 내 댓글·좋아요 (오래 쉬면 지워짐)
+const IC = {
+  heart: '<svg viewBox="0 0 24 24"><path d="M12 20.5s-7.6-4.6-9.5-9.3C1.1 7.8 3.3 4.3 6.8 4.3c2.2 0 3.7 1.2 5.2 3 1.5-1.8 3-3 5.2-3 3.5 0 5.7 3.5 4.3 6.9-1.9 4.7-9.5 9.3-9.5 9.3z"/></svg>',
+  bubble: '<svg viewBox="0 0 24 24"><path d="M20.7 16.9A9.3 9.3 0 1 0 17 20.6l4.2 1.1z"/></svg>' };
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// 내 프사: 오른쪽 위 프로필(52px)과 똑같은 구도를 크기만 줄여서 씀
+function meAvatar(cls, size = 34) {
+  const d = document.createElement('div'); d.className = cls + ' me';
+  const i = new Image(); i.draggable = false; i.src = src(myMomi ? myMomi.src : 'st-mbb'); i.style.filter = myMomi ? myMomi.filter : 'none';
+  const u = size / 52; Object.assign(i.style, { left: (-1 * u) + 'px', top: (4 * u) + 'px', width: (60 * u) + 'px' });   // 선글라스 위치를 원래 프사에 맞춤
+  d.appendChild(i); return d;
+}
+function cmtSetup(e, par) {
+  if (!(e.key in liked)) liked[e.key] = !!e.liked;
+  // 하트·댓글 아이콘: 게시물 카드 오른쪽 아래 (별점 하트 줄 옆)
+  const ic = document.createElement('div'); ic.className = 'ig ig-row';
+  Object.assign(ic.style, { left: e.ic[0] + 'px', top: e.ic[1] + 'px', width: e.ic[2] + 'px' });
+  ic.innerHTML = `<button class="ig-ic ig-heart" aria-label="좋아요">${IC.heart}<span></span></button><button class="ig-ic ig-bub" aria-label="댓글">${IC.bubble}<span></span></button>`;
+  par.appendChild(ic);
+  // 아래 카드: 댓글만 두 줄 (3.2초마다 한 칸씩 올라감)
+  const d = box('ig ig-box', e.r, par);
+  d.innerHTML = '<button class="ig-cmt" aria-label="댓글 모두 보기"><p></p><p></p></button>';
+  const heart = ic.querySelector('.ig-heart'), hn = heart.querySelector('span'), cnt = ic.querySelector('.ig-bub span'), lines = d.querySelectorAll('.ig-cmt p');
+  const all = () => e.list.map(([w, n, t]) => [n, t, e.av[w]]).concat((myCmts[e.key] || []).map(t => ['나', t, null]));
+  const paint = () => {
+    heart.classList.toggle('on', liked[e.key]);
+    hn.textContent = e.likes - (e.liked ? 1 : 0) + (liked[e.key] ? 1 : 0);
+    cnt.textContent = e.n + (myCmts[e.key] || []).length;
+  };
+  let k = 0, t = null;
+  const show = () => { const L = all();
+    [0, 1].forEach(j => { const [n, txt] = L[(k + j) % L.length]; lines[j].innerHTML = `<b>${esc(n)}</b> ${esc(txt)}`; });
+    d.querySelector('.ig-cmt').classList.remove('in'); void d.offsetWidth; d.querySelector('.ig-cmt').classList.add('in'); k++; };
+  const loop = () => { clearInterval(t); t = setInterval(() => { if (!d.isConnected) return clearInterval(t); show(); }, 3200); };
+  paint(); show(); loop();
+  [d, ic].forEach(x => x.addEventListener('click', ev => ev.stopPropagation()));
+  heart.addEventListener('click', () => { liked[e.key] = !heart.classList.contains('on'); paint(); heart.classList.remove('pop'); void heart.offsetWidth; heart.classList.add('pop'); });
+  const open = () => openCmt(all, txt => { (myCmts[e.key] = myCmts[e.key] || []).push(txt); paint(); k = Math.max(0, all().length - 2); show(); loop(); });
+  ic.querySelector('.ig-bub').addEventListener('click', open); d.querySelector('.ig-cmt').addEventListener('click', open);
+}
+// 댓글 창: 키보드에 안 가리게 화면 위쪽에 띄움
+function openCmt(all, done) {
+  const w = document.createElement('div'); w.className = 'cbox';
+  w.innerHTML = `<div class="card"><div class="hd"><b>댓글</b><button class="cx" aria-label="닫기"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+    <div class="list"></div><div class="inrow"><span class="slot"></span><input type="text" maxlength="40" enterkeyhint="send" autocomplete="off" placeholder="댓글 달기…"><button class="ok" disabled>게시</button></div></div>`;
+  const list = w.querySelector('.list'), TIME = ['2시간', '1시간', '48분', '15분'];
+  const draw = () => { list.innerHTML = ''; all().forEach(([n, t, av], i) => {
+    const r = document.createElement('div'); r.className = 'c';
+    const a = av ? Object.assign(new Image(), { src: src(av), className: 'cav2' }) : meAvatar('cav2');
+    const tx = document.createElement('div'); tx.className = 'tx'; tx.innerHTML = `<p><b>${esc(n)}</b> ${esc(t)}</p><small>${av ? TIME[i % 4] : '방금'} · 답글 달기</small>`;
+    r.append(a, tx); list.appendChild(r); }); list.scrollTop = list.scrollHeight; };
+  draw(); w.querySelector('.slot').appendChild(meAvatar('cav2'));
+  stage.insertBefore(w, document.getElementById('toast'));
+  const inp = w.querySelector('input'), ok = w.querySelector('.ok');
+  const close = () => { inp.blur(); w.classList.remove('on'); setTimeout(() => { w.remove(); fit(); }, 300); };
+  const send = () => { const v = inp.value.trim(); if (!v) return; done(v); inp.value = ''; ok.disabled = true; draw(); };
+  inp.addEventListener('input', () => { ok.disabled = !inp.value.trim(); });
+  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') send(); });
+  ok.addEventListener('click', ev => { ev.stopPropagation(); send(); });
+  w.querySelector('.cx').addEventListener('click', ev => { ev.stopPropagation(); close(); });
+  w.addEventListener('click', ev => { ev.stopPropagation(); if (ev.target === w) close(); });
+  requestAnimationFrame(() => w.classList.add('on'));
+}
+// 고유색 고르기: 아래 동그라미를 좌우로 밀면 가운데 것이 선택되고, 위 큐브 색이 바뀜
+function catPicker(c, el) {
+  const card = document.createElement('div'); card.className = 'cat-card'; el.appendChild(card);
+  const cube = document.createElement('canvas'); cube.className = 'cube'; cube.width = 386; cube.height = 334; el.appendChild(cube);
+  const row = document.createElement('div'); row.className = 'cat-row';
+  const inner = document.createElement('div'); inner.className = 'in'; row.appendChild(inner);
+  const items = c.list.map(([en, ko, col], i) => { const d = document.createElement('div'); d.className = 'cat';
+    d.innerHTML = `<i></i><b>${en}</b><span>${ko}</span>`; d.addEventListener('click', ev => { ev.stopPropagation(); row.scrollTo({ left: i * 104, behavior: 'smooth' }); }); inner.appendChild(d); return d; });
+  el.append(row); ['l', 'r'].forEach(s => { const f = document.createElement('div'); f.className = 'cat-fade ' + s; el.appendChild(f); });
+  row.addEventListener('click', ev => ev.stopPropagation());
+  const src0 = new Image(); src0.src = src(c.cube);
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const paint = col => {
+    if (!src0.complete || !src0.naturalWidth) { src0.onload = () => paint(col); return; }
+    const g = cube.getContext('2d'); g.clearRect(0, 0, 386, 334); g.drawImage(src0, 0, 0, 386, 334);
+    const d = g.getImageData(0, 0, 386, 334), p = d.data, t = hex(col), r = [169, 195, 230];
+    for (let i = 0; i < p.length; i += 4) for (let k = 0; k < 3; k++) p[i + k] = Math.min(255, p[i + k] * t[k] / r[k]);
+    g.putImageData(d, 0, 0);
+  };
+  let cur = -1;
+  const select = i => { if (i === cur) return; cur = i; items.forEach((d, j) => { d.classList.toggle('on', j === i); d.querySelector('i').style.backgroundColor = j === i ? c.list[j][2] : ''; });
+    cube.style.opacity = .35; setTimeout(() => { paint(c.list[i][2]); cube.style.opacity = 1; }, 120); };
+  row.addEventListener('scroll', () => select(Math.max(0, Math.min(items.length - 1, Math.round(row.scrollLeft / 104)))), { passive: true });
+  requestAnimationFrame(() => { row.scrollLeft = c.start * 104; select(c.start); });
+}
+// 아래에서 올라오는 갤러리 창: 위로 밀면 화면 가득 펼쳐지고 사진이 다 보임, 아래로 밀면 접히거나 닫힘
+function sheetSetup(o, box, lay) {
+  box.classList.add('sheet');
+  const g = document.createElement('i'); g.className = 'grab'; box.appendChild(g);
+  if (o.sheetTop != null) { g.style.top = (o.sheetTop + 9) + 'px'; box.style.background = `linear-gradient(to bottom, transparent ${o.sheetTop + 30}px, #fff ${o.sheetTop + 30}px)`; }
+  const scw = box.querySelector('.scw'), sc = box.querySelector('.sc');
+  const H0 = o.h, TOP0 = 874 - o.h, TOP1 = 16, c0 = parseFloat(scw.style.height);
+  let full = false;
+  const setFull = v => {
+    full = v; box.classList.toggle('full', v);
+    box.style.top = (v ? TOP1 : TOP0) + 'px'; box.style.height = (v ? 874 - TOP1 : H0) + 'px';
+    const ch = v ? 874 - TOP1 - parseFloat(scw.style.top) : c0;
+    scw.style.height = sc.style.height = ch + 'px';
+    if (!v) sc.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  let sy = 0, dy = 0, on = false, t0 = 0, fromScroll = false;
+  const k = () => stage.getBoundingClientRect().width / 402;
+  box.addEventListener('pointerdown', e => {
+    fromScroll = full && !!e.target.closest('.sc') && sc.scrollTop > 0;  // 펼친 상태에서 목록 중간이면 스크롤만
+    if (fromScroll) return;
+    on = true; sy = e.clientY; dy = 0; t0 = Date.now();
+  });
+  box.addEventListener('pointermove', e => {
+    if (!on) return;
+    dy = (e.clientY - sy) / k();
+    if (full && dy < 0 && e.target.closest('.sc')) { on = false; return; }  // 펼친 상태에서 위로 밀면 그냥 스크롤
+    if (Math.abs(dy) > 6) { box.classList.add('drag'); try { box.setPointerCapture(e.pointerId); } catch (er) {} }
+    if (!box.classList.contains('drag')) return;
+    if (dy > 0) box.style.transform = `translateY(${dy}px)`;
+    else if (!full) { const nt = Math.max(TOP1, TOP0 + dy); box.style.top = nt + 'px'; box.style.height = (874 - nt) + 'px'; }
+  });
+  const end = () => {
+    if (!on) return; on = false;
+    const dragged = box.classList.contains('drag'); box.classList.remove('drag'); box.style.transform = '';
+    if (!dragged) return;
+    const fast = Date.now() - t0 < 300;
+    if (dy < -40 || (fast && dy < -15)) setFull(true);
+    else if (dy > 90 || (fast && dy > 30)) { if (full) setFull(false); else close(lay); }
+    else setFull(full);
+    box._noclick = Date.now();
+  };
+  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+  box.addEventListener('click', e => { if (Date.now() - (box._noclick || 0) < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+  sc.addEventListener('scroll', () => {}, { passive: true });
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1600);
+}
+function box(cls, r, parent) {
+  const d = document.createElement('div'); d.className = cls;
+  Object.assign(d.style, { left: r[0] + 'px', top: r[1] + 'px', width: r[2] + 'px', height: r[3] + 'px', borderRadius: (r[4] || 0) + 'px' });
+  parent.appendChild(d); return d;
+}
+// 당겨서 새로고침 (친구 피드). 맨 위에서 아래로 끌면 피드가 따라 내려오고 로딩 아이콘이 돎
+function pullRefresh(w, sc, ct) {
+  w.classList.add('ptr');
+  const sp = document.createElement('div'); sp.className = 'ptr-sp';
+  sp.innerHTML = '<svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="15" cy="15" r="11" opacity=".15"/><path d="M15 4a11 11 0 0 1 11 11"/></svg>';
+  w.insertBefore(sp, sc);
+  const HOLD = 74, MAX = 120;
+  let y0 = null, dy = 0, busyR = false;
+  const k = () => stage.getBoundingClientRect().width / 402;
+  const set = (v, anim) => {
+    // 끄는 동안엔 칸 맞춤(snap)을 잠깐 꺼야 피드가 제자리로 튕겨 올라가지 않음
+    if (v) { sc.style.scrollSnapType = 'none'; sc.scrollTop = 0; }
+    else setTimeout(() => { if (!ct.style.transform) sc.style.scrollSnapType = ''; }, anim ? 380 : 0);
+    ct.style.transition = anim ? 'transform .35s cubic-bezier(.2,.8,.2,1)' : 'none';
+    ct.style.transform = v ? `translateY(${v}px)` : '';
+    if (!sp.classList.contains('spin')) { sp.style.opacity = Math.min(1, v / HOLD); sp.style.transform = `rotate(${v * 3}deg)`; }
+  };
+  sc.addEventListener('touchstart', ev => { if (busyR || sc.scrollTop > 0) { y0 = null; return; } y0 = ev.touches[0].clientY; dy = 0; }, { passive: true });
+  sc.addEventListener('touchmove', ev => {
+    if (y0 === null) return;
+    const d = (ev.touches[0].clientY - y0) / k();
+    if (dy <= 0 && d < 0) { y0 = null; return; }  // 위로 올리면 평소처럼 스크롤
+    if (dy <= 0 && d < 4) return;
+    ev.preventDefault();
+    dy = Math.max(0, d); set(Math.min(MAX, dy * .5), false);
+  }, { passive: false });
+  const end = () => {
+    if (y0 === null) return; y0 = null;
+    if (dy * .5 >= HOLD * .8) {
+      busyR = true; set(HOLD, true); sp.style.transform = ''; sp.classList.add('spin');
+      setTimeout(() => { sp.classList.remove('spin'); sp.style.opacity = 0; set(0, true); setTimeout(() => { busyR = false; }, 350); }, 1300);
+    } else set(0, true);
+    dy = 0;
+  };
+  sc.addEventListener('touchend', end); sc.addEventListener('touchcancel', end);
+}
+function extras(list, el, contents, ctx) {
+  const st = { on: {}, vis: {}, en: [], hue: 0, hueEls: [], sw: {} };
+  const groupOn = g => Object.keys(st.on).some(k => k.startsWith(g + ':') && st.on[k]);
+  const count = g => Object.keys(st.on).filter(k => k.startsWith(g + ':') && st.on[k]).length;
+  const refresh = () => st.en.forEach(([d, g, label]) => { d.classList.toggle('on', groupOn(g)); d.textContent = label.replace('{n}', count(g)); });
+  const setHue = v => { st.hue = v; st.hueEls.forEach(d => { d.style.backdropFilter = d.style.webkitBackdropFilter = `hue-rotate(${v}deg) saturate(1.15)`; }); };
+  list.forEach(e => {
+    const par = e.ci >= 0 ? contents[e.ci] : el;
+    if (e.t === 'toggle') (e.v || [e.r]).forEach(v => { (st.vis[e.k] = st.vis[e.k] || []).push(box((e.cls || 'fx-tg') + (e.init ? ' on' : ''), v, par)); });
+    if (e.t === 'toggle' && e.init) st.on[e.k] = true;
+    if (e.t === 'cond' && e.en) { const d = box('fx-en', e.en, par); d.textContent = e.en[5]; st.en.push([d, e.g, e.en[5]]); }
+    if (e.t === 'select') e.ring = box('fx-ring', e.r, par);
+    if (e.t === 'hue') e.v.forEach(v => st.hueEls.push(box('fx-hue', v, par)));
+    if (e.t === 'swapimg') {
+      const i = new Image(); i.className = 'fx-sw'; i.draggable = false;
+      Object.assign(i.style, { left: e.v[0] + 'px', top: e.v[1] + 'px', width: e.v[2] + 'px', height: e.v[3] + 'px' });
+      i._e = e; par.appendChild(i); (st.sw[e.k] = st.sw[e.k] || []).push(i);
+      if (e.init) st.on[e.k] = true;
+    }
+    if (e.t === 'record') recordSetup(e, par);
+    if (e.t === 'cmt') cmtSetup(e, par);
+  });
+  // 아직 아무것도 안 골랐을 때 고를 곳을 알려줌
+  const nudge = g => Object.keys(st.sw).filter(k => k.startsWith(g + ':') && !st.on[k]).forEach((k, n) => st.sw[k].forEach(i => {
+    setTimeout(() => {
+      i.classList.remove('nudge'); void i.offsetWidth; i.classList.add('nudge');
+      const v = i._e.v, d = box('fx-blink', [v[0] + 21, v[1] + 23, 23, 23, 7], i.parentNode);
+      setTimeout(() => d.remove(), 2400);
+    }, n * 90);
+  }));
+  const drawSw = (k, pop) => (st.sw[k] || []).forEach(i => { i.src = src(st.on[k] ? i._e.on : i._e.off); if (pop) { i.classList.remove('pop'); void i.offsetWidth; i.classList.add('pop'); } });
+  Object.keys(st.sw).forEach(k => drawSw(k));
+  refresh();
+  list.forEach(e => {
+    if (e.t === 'swapimg' || e.t === 'cmt') return;
+    const par = e.ci >= 0 ? contents[e.ci] : el;
+    if (e.t === 'rating') return ratingSetup(e, par, st, refresh);
+    if (e.t === 'review') {
+      const i = document.createElement('input'); i.className = 'review'; i.type = 'text'; i.maxLength = 40; i.enterKeyHint = 'done'; i.autocomplete = 'off'; i.placeholder = e.ph;
+      Object.assign(i.style, { left: e.r[0] + 'px', top: e.r[1] + 'px', width: e.r[2] + 'px', height: e.r[3] + 'px' });
+      i.addEventListener('click', ev => ev.stopPropagation());
+      i.addEventListener('keydown', ev => { if (ev.key === 'Enter') i.blur(); });
+      i.addEventListener('blur', () => setTimeout(fit, 300));
+      par.appendChild(i); return;
+    }
+    const [x, y, w, h] = e.r;
+    const b = document.createElement('button');
+    b.className = 'hs' + (e.t === 'hue' ? ' huedrag' : '');
+    const px = e.exact ? 0 : Math.max(0, (44 - w) / 2), py = e.exact ? 0 : Math.max(0, (44 - h) / 2);  // 줄이 촘촘한 목록은 누르는 범위를 넓히지 않음
+    Object.assign(b.style, { left: (x - px) + 'px', top: (y - py) + 'px', width: (w + 2 * px) + 'px', height: (h + 2 * py) + 'px' });
+    if (e.t !== 'hue') b.style.zIndex = 40;
+    b.setAttribute('aria-label', e.msg || e.t);
+    par.appendChild(b);
+    if (e.t === 'hue') {
+      // 좌우로 밀면 색이 바뀜
+      // 양옆 동그라미를 누르면 한 칸씩 바뀜
+      let sx = null, h0 = 0, moved = 0;
+      b.addEventListener('pointerdown', ev => { sx = ev.clientX; h0 = st.hue; moved = 0; try { b.setPointerCapture(ev.pointerId); } catch (er) {} });
+      b.addEventListener('pointermove', ev => { if (sx === null) return; const k = stage.getBoundingClientRect().width / 402; const dx = (ev.clientX - sx) / k; moved = Math.max(moved, Math.abs(dx)); if (moved > 6) setHue(h0 + dx * 1.2); });
+      b.addEventListener('pointerup', ev => {
+        if (sx !== null && moved <= 6) {
+          const br = b.getBoundingClientRect(), fx = (ev.clientX - br.left) / br.width;
+          if (fx < .35) setHue(st.hue - 60); else if (fx > .65) setHue(st.hue + 60);
+        }
+        sx = null;
+      });
+      b.addEventListener('pointercancel', () => { sx = null; });
+      b.addEventListener('click', ev => ev.stopPropagation());
+      return;
+    }
+    b.addEventListener('click', ev => {
+      ev.stopPropagation();
+      if (busy) return;
+      if (e.t === 'toast') toast(e.msg);
+      else if (e.t === 'swap') { st.on[e.k] = !st.on[e.k]; drawSw(e.k, true); refresh(); }
+      else if (e.t === 'additem') addItem(e, par, st, refresh);
+      else if (e.t === 'addtask') addTask(e, par, st);
+      else if (e.t === 'record') e.rec.press();
+      else if (e.t === 'photo') openPhoto(e.src, e.cap);
+      else if (e.t === 'toggle') { st.on[e.k] = !st.on[e.k]; (st.vis[e.k] || []).forEach(d => d.classList.toggle('on', st.on[e.k])); refresh(); }
+      else if (e.t === 'cond') { if (groupOn(e.g)) act(e.l, b, ctx); else { toast(e.msg); nudge(e.g); } }
+      else if (e.t === 'select') { list.filter(o => o.t === 'select' && o.g === e.g).forEach(o => o.ring.classList.toggle('on', o === e)); }
+      else if (e.t === 'copy') {
+        const done = () => toast(e.msg);
+        try { navigator.clipboard.writeText(location.href.split('#')[0]).then(done, done); } catch (er) { done(); }
+      }
+    });
+  });
+}
+// ── 오버레이 ──
+function openOverlay(oid, l, btn, ctx) {
+  const o = F[oid]; if (!o) return;
+  const lay = document.createElement('div');
+  lay.className = 'layer in' + (o.ovBg ? ' dim' : '');
+  const bg = document.createElement('div'); bg.className = 'bg';
+  if (o.ovBg) bg.style.setProperty('--dim', `rgba(0,0,0,${o.ovBg})`);
+  const box = document.createElement('div'); box.className = 'ov';
+  box.style.width = o.w + 'px'; box.style.height = o.h + 'px';
+  // 위치
+  let x = (402 - o.w) / 2, y = (874 - o.h) / 2;
+  if (o.ovPos === 'BOTTOM_CENTER') y = 874 - o.h;
+  else if (o.ovPos === 'TOP_CENTER') y = 0;
+  else if (o.ovPos === 'MANUAL' && l[11]) {
+    // 누른 자리(트리거) 기준 위치
+    let tx = l[5], ty = l[6];
+    if (btn) {
+      const sr = stage.getBoundingClientRect(), br = btn.getBoundingClientRect(), k = sr.width / 402;
+      tx = (br.left - sr.left) / k; ty = (br.top - sr.top) / k;
+    }
+    x = tx + l[11][0]; y = ty + l[11][1];
+  }
+  box.style.left = x + 'px'; box.style.top = y + 'px';
+  const octx = { overlay: true, lay };
+  lay._box = box; lay._ctx = octx;
+  build(oid, box, octx);
+  overlayTimers(oid, lay);
+  if (o.fromTop) lay.classList.add('top');
+  box.addEventListener('click', e => e.stopPropagation());
+  lay.append(bg, box);
+  // 바깥을 누르면 닫히고, 그 자리에 버튼(탭바 등)이 있으면 그 버튼도 눌림
+  bg.addEventListener('click', e => {
+    if (o.ovClose !== 'CLOSE_ON_CLICK_OUTSIDE') return;
+    lay.style.pointerEvents = 'none';
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    close(lay, true);
+    const hs = under && under.closest('.hs:not(.drag)');
+    if (hs) hs.click();
+  });
+  // 바깥 클릭으로 닫히는 오버레이는 아래 화면도 스크롤/터치 가능하게 (피그마와 같게)
+  if (o.sheet) sheetSetup(o, box, lay);
+  stage.insertBefore(lay, document.getElementById('load'));
+  layers.push(lay);
+  lay.getBoundingClientRect();
+  lay.classList.add('on');
+}
+// 오버레이 안의 내용을 다른 화면으로 바꾸기 (피그마 '오버레이 교체')
+function swapOverlay(lay, dest) {
+  const o = F[dest], box = lay._box; (lay._t || []).forEach(clearTimeout);
+  box.style.width = o.w + 'px'; box.style.height = o.h + 'px';
+  const n = document.createElement('div'); n.className = 'swapin'; n.style.cssText = 'position:absolute;inset:0;opacity:0;transition:opacity .25s';
+  build(dest, n, lay._ctx);
+  box.appendChild(n); requestAnimationFrame(() => n.style.opacity = 1);
+  setTimeout(() => { [...box.children].forEach(c => { if (c !== n) c.remove(); }); }, 260);
+  overlayTimers(dest, lay);
+}
+function overlayTimers(oid, lay) {
+  lay._t = F[oid].links.filter(l => l[0] === 'AFTER_TIMEOUT').map(l => setTimeout(() => { if (lay.isConnected) act(l, null, lay._ctx); }, Math.max(600, l[13] || 800)));
+}
+function close(lay, now) {
+  (lay._t || []).forEach(clearTimeout);
+  const i = layers.indexOf(lay); if (i < 0) return;
+  layers.splice(i, 1);
+  if (now) return lay.remove();
+  lay.classList.remove('on');
+  setTimeout(() => lay.remove(), 330);
+}
+function closeTop() { if (layers.length) close(layers[layers.length - 1]); }
+function closeAll(now) { [...layers].forEach(l => close(l, now)); }
+
+// ── 알림: 관람객이 앱을 20초 정도 쓰고 나면, 다른 사람이 모마로 사진을 올렸다는 알림이 위에서 내려옴 ──
+const NOTI = { id: '3990:1173', after: 20000, idle: 60000 };
+let used = 0, lastAct = 0, notiShown = false;
+['pointerdown', 'touchstart', 'keydown', 'wheel'].forEach(ev => addEventListener(ev, () => {
+  const now = Date.now();
+  if (now - lastAct > NOTI.idle) { used = 0; notiShown = false; if (typeof bodyColor !== 'undefined') { bodyColor = 0; myMomi = null; for (const k in myCmts) delete myCmts[k]; for (const k in liked) delete liked[k]; } }   // 오래 쉬었다가 다시 쓰면 새 관람객으로 보고 다시 셈
+  lastAct = now;
+}, { passive: true, capture: true }));
+setInterval(() => {
+  if (document.hidden || Date.now() - lastAct > 8000) return;      // 실제로 만지고 있는 동안만 셈
+  used += 1000;
+  if (!notiShown && used >= NOTI.after && !layers.some(l => l.classList.contains('dim')) && !document.querySelector('.lb, .tmodal')) {
+    notiShown = true;
+    openOverlay(NOTI.id, ['', '', NOTI.id, -1, 0, 0, 0, 0, 0, 'MOVE_IN', 'BOTTOM', [0, 0]], null, { overlay: false });
+    const lay = layers[layers.length - 1];
+    setTimeout(() => { if (lay && lay.isConnected && layers[layers.length - 1] === lay) close(lay); }, 7000);
+  }
+}, 1000);
+
+// ── 시작 ──
+preload().then(() => {
+  let start = START;
+  const m = location.hash.match(/^#f(\d+)-(\d+)$/);
+  if (m && F[m[1] + ':' + m[2]] && F[m[1] + ':' + m[2]].h === 874) start = m[1] + ':' + m[2];
+  go(start, null, null, false);
+  document.getElementById('load').classList.add('done');
+});
+</script>
+
+</body></html>
