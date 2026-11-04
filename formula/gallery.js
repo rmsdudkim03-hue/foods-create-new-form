@@ -8,7 +8,10 @@ const GALLERY = [
   { src: 'gallery/01.jpg', title: 'N 01' },
   { src: 'gallery/02.jpg', title: 'N 02' },
   { src: 'gallery/03.jpg', title: 'N 03' },
+  { src: 'gallery/04.jpg', title: 'N 04' },
+  { src: 'gallery/05.jpg', title: 'N 05' },
   { src: 'gallery/06.jpg', title: 'N 06' },
+  { src: 'gallery/07.jpg', title: 'N 07' },
   { src: 'gallery/08.jpg', title: 'N 08' },
 ];
 const AUTO_MS = 3500;   // 저절로 한 칸 넘어가는 간격 (0이면 안 넘어감)
