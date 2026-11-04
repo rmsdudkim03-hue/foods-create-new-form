@@ -20,7 +20,7 @@ const FX = [529, 708, 889, 1069, 1253], FY = [419, 600];   // 피그마 Extract 
 const glyph = (k) => `<i class="h-ic" style="--src:url('${icon(k)}')"></i>`;
 const feats = F.names.map((name, k) => `<span class="h-feat" tabindex="0" style="--x:${FX[k % 5]}; --y:${FY[k < 5 ? 0 : 1]}">${glyph(k)}<span>${esc(name)}</span></span>`).join('');
 // Mix: 특징 짝 6개 (왼쪽 줄 3 · 오른쪽 줄 3, 가운데 세로선). 자리는 피그마 PROCESS 3 Mix 그대로
-const MY = [357, 513, 660], MA = [585, 1005], MB = [791, 1221], PX = [711, 1137], PY = [395, 550, 695];
+const MY = [357, 513, 660], MA = [585, 1003], MB = [791, 1209], PX = [711, 1129], PY = [395, 550, 695];   // 오른쪽 줄은 왼쪽 줄과 가운데 선(960) 기준 좌우 대칭 (피그마는 오른쪽이 10px 넓었음)
 const pairs = (F.pairs || []).map(([a, b], i) => {
   const c = i < 3 ? 0 : 1, r = i % 3;
   const one = (k, x) => `<span class="h-mix" style="--x:${x}; --y:${MY[r]}" title="${esc(F.names[k])}">${glyph(k)}</span>`;
