@@ -91,20 +91,20 @@ input, textarea, [contenteditable="true"] { caret-color: auto; -webkit-user-sele
 .intro { position: absolute; left: 0; right: 0; top: 0; text-align: center; color: var(--ink); pointer-events: none; }
 .intro p { position: absolute; left: 0; right: 0; }
 .intro .tagline {
-  top: calc(494 * var(--u));   /* 피그마 Frame 6 */
+  top: calc(479 * var(--u));   /* 피그마 Frame 6 */
   font: 600 calc(24 * var(--u)) / calc(26 * var(--u)) 'Bitcount Grid Single', ui-monospace, monospace;
   font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0;
   letter-spacing: .05em;   /* 피그마 자간 5% */
   color: #000;
 }
 .intro .ko {
-  top: calc(557 * var(--u));   /* 피그마 Frame 6: Pretendard 20, 줄 간격 150% */
+  top: calc(552 * var(--u));   /* 피그마 Frame 6: Pretendard 20, 줄 간격 150% */
   font: 400 calc(20 * var(--u)) / 1.5 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
 }
 .intro .ko b { font-weight: 700; }
 .intro .en {
-  top: calc(743 * var(--u));   /* 피그마 Frame 6: DM Sans 20, 줄 간격 150% */
-  font: 400 calc(20 * var(--u)) / 1.5 'DM Sans', sans-serif;
+  top: calc(739 * var(--u));   /* 피그마 Frame 6: DM Sans Medium 16, 줄 간격 150% */
+  font: 500 calc(16 * var(--u)) / 1.5 'DM Sans', sans-serif;
   font-variation-settings: 'opsz' 14;
   color: var(--en);
 }

@@ -23,7 +23,7 @@ const AUTO_DELAY = 500;   // 로고 해독이 끝나고 전환이 시작되기�
 const TEXT_AT = 2.5;      // 3번 장면이 절반쯤 지나면 소개글이 떠오름
 const PAREN_GAP = 26.1;   // 괄호가 넓어지는 만큼 (로고 SVG 단위. 피그마 Frame 5에서 42px)
 const SMALL = 0.5985;     // 작아진 로고 크기 (피그마 Frame 6 로고 폭 663px)
-const SMALL_Y = -136;     // 작아진 로고가 올라가는 만큼 (피그마 px). 로고 아래 끝이 소개글 바로 위(피그마 Frame 6 y 482)
+const SMALL_Y = -151;     // 작아진 로고가 올라가는 만큼 (피그마 px). 피그마 Frame 6 로고 y 312.5~466.5
 
 const DARK = [0x1e, 0x1d, 0x1b], PAPER = [0xfa, 0xfa, 0xf8];
 const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
