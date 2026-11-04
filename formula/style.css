@@ -268,7 +268,7 @@ input, textarea, [contenteditable="true"] { caret-color: auto; -webkit-user-sele
     repeating-linear-gradient(180deg, var(--dc) 0 calc(4 * var(--u)), transparent 0 calc(10 * var(--u))) right / var(--dw) 100% no-repeat; }
 .pr-ab { position: absolute; left: calc(var(--x) * var(--u)); top: calc(566 * var(--u)); width: calc(15 * var(--u)); text-align: center; font: 400 calc(20 * var(--u))/calc(26 * var(--u)) 'DM Sans', sans-serif; color: var(--ink); }
 .pr-plus6 { position: absolute; left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u)); width: calc(77 * var(--u)); height: calc(53 * var(--u)); text-align: center; font: 400 calc(48 * var(--u))/calc(53 * var(--u)) 'DM Sans', sans-serif; color: #000; }
-.pr-mixline { position: absolute; left: calc(958.5 * var(--u)); top: calc(369 * var(--u)); width: max(1px, calc(3 * var(--u))); height: calc(412 * var(--u)); background: var(--ink); }
+.pr-mixline { position: absolute; left: calc(959 * var(--u)); top: calc(369 * var(--u)); width: max(1px, calc(2 * var(--u)));   /* 가운데 세로선 2px (피그마 수정) */ height: calc(412 * var(--u)); background: var(--ink); }
 .pr-plus { position: absolute; left: calc(921 * var(--u)); width: calc(77 * var(--u)); top: calc(548 * var(--u)); text-align: center; font: 400 calc(96 * var(--u))/1 'DM Sans', sans-serif; translate: 0 -30%; }
 .pr-obj { position: absolute; left: calc(769 * var(--u)); top: calc(466 * var(--u)); width: calc(383 * var(--u)); height: calc(204 * var(--u)); object-fit: contain; }
 /* 장 바뀜: 지금 장만 보이고, 살짝 떠오르며 바뀜 */
