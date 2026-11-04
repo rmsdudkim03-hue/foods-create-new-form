@@ -10,11 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Bitcount+Grid+Single:wght,CRSV,ELSH,ELXP@600,0,0,0&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<style>
-  /* 갤러리 자리 (레이아웃·모션은 피그마 디자인이 오면 채움) */
-  .gal-page { background: var(--paper); color: var(--ink); height: 100vh; overflow: hidden; }
-  .gal-soon { position: fixed; inset: 0; display: grid; place-items: center; font: 600 max(14px, calc(24 * min(100vw / 1920, 100vh / 1080))) 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; color: #9a968f; }
-</style>
+<link rel="stylesheet" href="gallery.css">
 </head>
 <body class="gal-page">
 <!-- 메뉴: 첫 페이지와 같은 자리 (흰 화면용 진한 글자) -->
@@ -25,11 +21,14 @@
   <a class="about light" href="about.html">ABOUT</a>
   <a class="contact light" href="contact.html">CONTACT</a>
 </nav>
-<main class="gal-soon">Gallery — coming soon</main>
-<script>
-  // 전시용: 2분 동안 조작이 없으면 첫 화면으로 (다른 페이지와 같게)
-  (() => { if (/[?&]check\b/.test(location.search)) return; let t = 0; const wake = () => { clearTimeout(t); t = setTimeout(() => { location.href = './'; }, 2 * 60 * 1000); };
-    ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'].forEach((e) => addEventListener(e, wake, { passive: true })); wake(); })();
-</script>
+
+<!-- 갤러리 (피그마 Frame 38): 3D 링 캐러셀 — 카드 8장이 원통에 서 있고, 끌거나 휠·←→로 돌림 (gallery.js)
+     모션 UI M115 mirror-hall-carousel-3d를 응용, 바닥 반사는 없앰. 사진은 gallery.js의 GALLERY 목록 -->
+<main class="gal" id="gal" aria-roledescription="carousel" aria-label="갤러리">
+  <div class="gal-scene"><div class="gal-ring" id="ring"></div></div>
+  <p class="gal-cap" aria-live="polite"><span id="galIdx">01 / 08</span><b id="galTtl"></b></p>
+</main>
+<script src="foods.js"></script>
+<script src="gallery.js"></script>
 </body>
 </html>
