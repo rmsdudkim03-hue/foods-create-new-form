@@ -46,7 +46,7 @@ const STEPS = [
   { name: 'Extract', sub: '뽑아낸 조형적 특징 (특징 도형)', body: `<div class="h-feats">${feats}</div><span class="h-side" style="--y:419">A</span><span class="h-side" style="--y:600">B</span>`,
     ko: '마우스를 올려 특징을 확인해 보세요', en: 'Hover over an icon to see its feature' },
   { name: 'Mix', sub: '조형 특징 두 가지 선정', body: mix,
-    ko: '사용자는 어떤 특징을 섞어야 좋을지 생각하고, 직접 골라 넣습니다.', en: 'I think about which traits to mix, and choose them myself.' },
+    ko: '흥미가 생기는 조형언어들을 골라 배치했습니다.', en: 'I arranged the formal languages that sparked my interest.' },
   { name: 'Six Forms', sub: '6개 조형 생성', body: six,
     ko: '고른 조합을 바탕으로 AI가 조형 여섯 개를 도출합니다.', en: 'From the chosen mix, AI draws out six forms.' },
   { name: 'Create form', sub: '3D 조형 완성', body: THUMB ? `<img class="pr-obj" src="${esc(F.svg)}" alt="N ${pad(n)} 완성 조형" style="object-fit:contain">` : `<figure class="form3d pr-obj" role="img" aria-label="N ${pad(n)} 완성 조형 (3D)" data-fit data-auto data-spin="${SPIN3D}" data-svg="${esc(F.svg)}" data-model="${esc(F.svg.replace(/\.svg$/, '.glb'))}" ${LOOK3D[n - 1] || 'data-material="svg-satin"'}></figure>`,
