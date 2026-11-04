@@ -4,7 +4,12 @@
 //  휠·← → 키·손가락으로도 넘김. 가만히 두면 AUTO_MS마다 한 칸씩 저절로 돎 (전시용)
 //  사진은 아래 GALLERY 목록에 넣으면 됨 (파일은 formula/gallery/ 폴더). 비어 있으면 조형 그림으로 자리만
 const GALLERY = [
-  // { src: 'gallery/01.jpg', title: '제목' },
+  // { src: 'gallery/01.jpg', title: '제목' },   ← 이런 식으로 한 줄씩 (사진 1088×1360, 4:5)
+  { src: 'gallery/01.jpg', title: 'N 01' },
+  { src: 'gallery/02.jpg', title: 'N 02' },
+  { src: 'gallery/03.jpg', title: 'N 03' },
+  { src: 'gallery/06.jpg', title: 'N 06' },
+  { src: 'gallery/08.jpg', title: 'N 08' },
 ];
 const AUTO_MS = 3500;   // 저절로 한 칸 넘어가는 간격 (0이면 안 넘어감)
 const R_U = 560;        // 링 반지름 (피그마 px)
