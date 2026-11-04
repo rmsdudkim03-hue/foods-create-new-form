@@ -347,3 +347,6 @@ html.pre-on, html.pre-on body { overflow: hidden; }
 
 /* 괄호 선 모서리를 둥글게: 구슬이 이어지는 오목한 꼭짓점에서 선이 뾰족하게 튀어나오지 않게 (피그마도 같은 설정으로 바꿈) */
 .pr-paren path, .c-paren path, .hint-paren path, .pre-logo path { stroke-linejoin: round; }
+
+/* 가벼운 모드(perf.js, 오래된 컴퓨터): OVERVIEW 답 글자가 스며 나올 때 흐림(blur) 없이 투명도만 — 낱말마다 흐림은 그래픽 칩에 무거움 */
+.lite .ov-ko .w, .lite .ov-en .w { filter: none !important; }

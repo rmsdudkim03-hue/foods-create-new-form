@@ -22,3 +22,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .gal-big, .gal-view, .gal-item img { transition: none; } }
 .gal-page .nav { z-index: 30; }   /* 크게 볼 때도 메뉴는 흐려지지 않게 (Frame 39) */
+
+/* 가벼운 모드(perf.js, 오래된 컴퓨터): 뒤 배경 흐림 대신 반투명 흰 막 — 흐림은 그래픽 칩에 무거움 */
+.lite .gal-view, .lite .gal-view.on { -webkit-backdrop-filter: none; backdrop-filter: none; }
+.lite .gal-view.on { background: rgba(240, 240, 240, .9); }

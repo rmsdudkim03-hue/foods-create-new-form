@@ -28,6 +28,7 @@ const MATERIALS = {
   'cream':       { color: '#e9e2d3', roughness: 0.5, clearcoat: 0.4, clearcoatRoughness: 0.35 },   // 웹 글자색에 맞춘 미색 반무광
 };
 const DEFAULT_MATERIAL = 'pantone-602c';
+const LITE = !!window.FORMULA_LITE;   // 오래된 컴퓨터용 가벼운 모드 (perf.js)
 const AO_STRENGTH = 0.32;     // 오목한 곳 그늘 진하기 (0 없음 ~ 1 구운 그대로)
 const COOL = '#e3dbff';       // 반사광·그늘 쪽에 아주아주 살짝 섞는 보색(노랑의 반대쪽 = 아주 연한 보라)
 
@@ -68,12 +69,12 @@ async function setup(el) {
   canvas.className = 'form3d-gl';
   el.append(canvas);
   el.style.aspectRatio = `${vb.width} / ${vb.height}`;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: LITE ? 'low-power' : 'default' });
+  renderer.setPixelRatio(LITE ? 1 : Math.min(devicePixelRatio, 2));   // 가벼운 모드는 1배
   renderer.toneMapping = THREE.NeutralToneMapping;               // 흰색이 날아가지 않게 부드럽게
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;                             // 조형 스스로 드리우는 부드러운 그림자
-  renderer.shadowMap.type = THREE.VSMShadowMap;                  // 가장자리가 흐린 그림자
+  renderer.shadowMap.type = LITE ? THREE.PCFSoftShadowMap : THREE.VSMShadowMap;   // 가장자리가 흐린 그림자 (가벼운 모드는 계산이 적은 방식)
   const scene = new THREE.Scene();
   // 사진 스튜디오 같은 주변 빛 (반사·은은한 밝기)
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -82,7 +83,7 @@ async function setup(el) {
   const key = new THREE.DirectionalLight(0xfffaf0, 2.0);         // 왼쪽 위에서 비추는 주 조명
   key.position.set(-160, -90, 260);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.mapSize.set(LITE ? 1024 : 2048, LITE ? 1024 : 2048);
   key.shadow.radius = 10;
   key.shadow.blurSamples = 16;
   key.shadow.intensity = 0.18;                                  // 그림자를 너무 진하지 않게
@@ -110,6 +111,7 @@ async function setup(el) {
   const cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2;
   geo.translate(-cx, -cy, 0);                                     // 세로축(가운데)을 중심으로 돌게
   const { color: _c, ...look } = preset;
+  if (LITE) for (const k of ['clearcoat', 'clearcoatRoughness', 'sheen', 'sheenRoughness', 'sheenColor']) delete look[k];   // 가벼운 모드: 유약·광택 겹 없이 (그래픽 칩 계산이 크게 줄어듦)
   // 구워 둔 그늘을 AO_STRENGTH만큼만 (검게 꺼지지 않게)
   const ao = geo.attributes.color;
   if (ao) for (let i = 0; i < ao.count; i++) {
@@ -291,5 +293,5 @@ const formsSec = document.querySelector('.forms');
 if (formsSec && 'IntersectionObserver' in window) {
   const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); loadAll(); } }, { rootMargin: '0px 0px 50% 0px' });
   io.observe(formsSec);
-  setTimeout(loadAll, LOAD_AFTER);
+  if (!LITE) setTimeout(loadAll, LOAD_AFTER);   // 가벼운 모드는 조형 화면이 가까워질 때만 불러옴
 } else loadAll();
