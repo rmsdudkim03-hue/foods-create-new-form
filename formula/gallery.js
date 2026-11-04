@@ -4,19 +4,24 @@
 //  사진은 아래 GALLERY 목록에 넣으면 됨 (파일은 formula/gallery/ 폴더). 비어 있으면 조형 그림으로 자리만
 const GALLERY = [
   // { src: 'gallery/01.jpg', title: '제목' },   ← 이런 식으로 한 줄씩 (사진 1088×1360, 4:5)
+  { src: 'gallery/all_a.jpg', title: 'FORMULA', wide: true },   // 가로 사진(3:2)은 wide: true
   { src: 'gallery/01.jpg', title: 'N 01' },
   { src: 'gallery/02.jpg', title: 'N 02' },
   { src: 'gallery/02b.jpg', title: 'N 02' },
   { src: 'gallery/02c.jpg', title: 'N 02' },
   { src: 'gallery/03.jpg', title: 'N 03' },
+  { src: 'gallery/03b.jpg', title: 'N 03' },
   { src: 'gallery/04.jpg', title: 'N 04' },
   { src: 'gallery/04b.jpg', title: 'N 04' },
   { src: 'gallery/05.jpg', title: 'N 05' },
+  { src: 'gallery/05b.jpg', title: 'N 05' },
   { src: 'gallery/06.jpg', title: 'N 06' },
+  { src: 'gallery/06b.jpg', title: 'N 06' },
   { src: 'gallery/07.jpg', title: 'N 07' },
   { src: 'gallery/07b.jpg', title: 'N 07' },
   { src: 'gallery/08.jpg', title: 'N 08' },
   { src: 'gallery/08b.jpg', title: 'N 08' },
+  { src: 'gallery/all_b.jpg', title: 'FORMULA', wide: true },
 ];
 const BIG_W = 700, BIG_H = 875;   // 크게 볼 때 크기 (피그마 Frame 39, 1920 폭 기준)
 
@@ -25,7 +30,7 @@ const gal = document.getElementById('gal'), view = document.getElementById('galV
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cells = items.map((it, i) => {
   const b = document.createElement('button');
-  b.type = 'button'; b.className = 'gal-item' + (it.ph ? ' ph' : '');
+  b.type = 'button'; b.className = 'gal-item' + (it.ph ? ' ph' : '') + (it.wide ? ' wide' : '');
   b.setAttribute('aria-label', `${it.title || ''} 크게 보기`);
   b.innerHTML = `<img src="${esc(it.src)}" alt="${esc(it.title || '')}" draggable="false" ${i > 2 ? 'loading="lazy"' : ''}>`;
   b.addEventListener('click', () => open(i));
@@ -38,8 +43,8 @@ const unit = () => innerWidth / (innerWidth / innerHeight <= 1 ? 700 : 1920);
 // 크게 보기
 let cur = -1, big = null;
 function place(el, r) { el.style.left = r.left + 'px'; el.style.top = r.top + 'px'; el.style.width = r.width + 'px'; el.style.height = r.height + 'px'; }
-function target() {   // 화면 가운데 700×875 (화면이 작으면 화면 안에 들어가게 줄임)
-  const u = unit(); let w = BIG_W * u, h = BIG_H * u;
+function target() {   // 화면 가운데 700×875 (가로 사진은 같은 높이에 3:2). 화면이 작으면 화면 안에 들어가게 줄임
+  const u = unit(); let h = BIG_H * u, w = items[cur] && items[cur].wide ? h * 1.5 : BIG_W * u;
   const k = Math.min(1, (innerHeight * 0.9) / h, (innerWidth * 0.92) / w); w *= k; h *= k;
   return { left: (innerWidth - w) / 2, top: (innerHeight - h) / 2, width: w, height: h };
 }
