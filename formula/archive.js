@@ -1,7 +1,7 @@
 // ARCHIVE (피그마 Frame 18·19): 가운데 음식 사진 카드 한 장, 아래쪽에 그 음식의 특징 구슬 5개(흰색)
 //  카드가 저절로 계속 뒤집히며 다음 음식으로 바뀜 (HOLD_MS마다 가로로 180도, 뒷면에 다음 음식)
 //  순서: N 01 음식 A → N 01 음식 B → N 02 A → … → N 08 B → 처음부터
-//  마우스를 올리면 멈춤(구슬에 올리면 특징 이름), 카드를 누르면 그 조형의 과정(history.html), 휠·← →로 직접 넘김
+//  마우스를 올리면 멈춤(구슬에 올리면 특징 이름), 카드를 눌러도 다른 화면으로 나가지 않음, 휠·← →로 직접 넘김
 //  자료는 foods.js의 FOODS. 사진(photos)이 있는 카드만 나옴 (사진이 하나도 없을 때만 어두운 카드에 음식 이름)
 const HOLD_MS = 2800;    // 카드 한 면이 머무는 시간 (사용자가 아무것도 안 해도 이 간격으로 계속 뒤집힘)
 const FLIP_MS = 1100;    // 뒤집히는 데 걸리는 시간 (archive.css의 .aflip transition과 같게)
@@ -28,7 +28,7 @@ function faceHTML({ f, i, k }) {
 LIST.forEach(({ f, k }) => { if (f.photos[k]) new Image().src = f.photos[k]; });
 
 // 카드 = 앞면·뒷면 두 장. 뒤집힐 때마다 안 보이는 면에 다음 음식을 넣고 180도 돌림
-const card = document.createElement('a');
+const card = document.createElement('div');   // 링크 아님: 눌러도 다른 화면으로 나가지 않음 (작업자 요청)
 card.className = 'acard';
 card.innerHTML = '<div class="aflip"><div class="aface"></div><div class="aface back"></div></div>';
 stage.appendChild(card);
@@ -52,8 +52,7 @@ function show(i, dir = 1) {
   }
   cur = i;
   const { f, i: n, k } = LIST[i];
-  card.href = `history.html?n=${n + 1}`;
-  card.setAttribute('aria-label', `N ${pad(n + 1)} ${f.foods[k]} — 과정 보기`);
+  card.setAttribute('aria-label', `N ${pad(n + 1)} ${f.foods[k]}`);
   history.replaceState(null, '', '#' + (i + 1));
   schedule();
 }
@@ -85,10 +84,10 @@ addEventListener('touchend', (e) => { if (ty == null) return; const d = ty - e.c
 
 show((parseInt(location.hash.slice(1), 10) || 1) - 1);
 
-// 전시용: 2분 무조작 → 첫 화면
-const IDLE_MS = 2 * 60 * 1000;
+// 전시용: 1분 무조작 → 첫 화면
+const IDLE_MS = 60 * 1000;   // 1분
 let idleTimer = 0;
-const CHECK = /[?&]check\b/.test(location.search);   // 확인용(check.html에서 열 때): 2분 무조작이어도 첫 화면으로 안 돌아감
+const CHECK = /[?&]check\b/.test(location.search);   // 확인용(check.html에서 열 때): 1분 무조작이어도 첫 화면으로 안 돌아감
 const wake = () => { if (CHECK) return; clearTimeout(idleTimer); idleTimer = setTimeout(() => { location.href = './'; }, IDLE_MS); };
 ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
 wake();

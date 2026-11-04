@@ -7,7 +7,7 @@ body.arc-page { background: var(--paper); color: var(--ink); overflow: hidden; h
 /* 카드 자리: 피그마 x 643, y 296, 670×502, 모서리 50 (가로 가운데는 화면 가운데에 맞춤) */
 .arc-stage { position: absolute; left: 50%; top: 50%; width: calc(670 * var(--u)); height: calc(502 * var(--u)); translate: calc(-50% + 18 * var(--u)) calc(-50% + 9 * var(--u)); }
 .arc-stage { perspective: calc(2200 * var(--u)); }
-.acard { position: absolute; inset: 0; display: block; cursor: pointer; }
+.acard { position: absolute; inset: 0; display: block; cursor: default; }
 /* 카드 뒤집기: 앞면·뒷면 두 장, archive.js가 HOLD_MS마다 180도씩 돌림 (시간 1.1초 = archive.js FLIP_MS) */
 .aflip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 1.1s cubic-bezier(.65, 0, .25, 1); }
 .aface { position: absolute; inset: 0; border-radius: calc(50 * var(--u)); overflow: hidden; background: var(--ink); color: var(--text); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
