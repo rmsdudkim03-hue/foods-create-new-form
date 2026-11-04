@@ -325,7 +325,7 @@ input, textarea, [contenteditable="true"] { caret-color: auto; -webkit-user-sele
 .attract { position: fixed; inset: 0; z-index: 60; background: #1e1d1b; transition: opacity .6s ease; }
 .attract.off { opacity: 0; pointer-events: none; }
 .attract-frame { position: absolute; left: 50%; top: 50%; --u: min(calc(100vw / 1920), calc(100vh / 1080)); width: calc(1920 * var(--u)); height: calc(1080 * var(--u)); translate: -50% -50%; }
-.attract-img { position: absolute; left: calc(649.8 * var(--u)); top: calc(284.6 * var(--u)); width: calc(622 * var(--u)); height: calc(508 * var(--u)); object-fit: cover; }
+.attract-img { position: absolute; left: calc(706.5 * var(--u)); top: calc(284.5 * var(--u)); width: calc(518 * var(--u)); height: calc(508.5 * var(--u)); object-fit: cover; }
 html.attract-on, html.attract-on body { overflow: hidden; cursor: none; }
 .pre { position: fixed; inset: 0; z-index: 50; background: var(--bg, #1e1d1b); transition: opacity .35s ease; }
 html.pre-on, html.pre-on body { overflow: hidden; }
