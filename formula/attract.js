@@ -6,6 +6,11 @@
 (() => {
   const el = document.getElementById('attract');
   const html = document.documentElement;
+  // 새로고침해도 내려가 있던 자리를 기억하지 않고 언제나 맨 위(시작 그림)부터 (확인용·#장면 주소는 빼고)
+  if (!/[?&]check\b/.test(location.search) && !location.hash) {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    scrollTo(0, 0);
+  }
   const skip = !el || scrollY > 0 || /[?&]check\b/.test(location.search) || location.hash;   // 확인용·주소에 #장면이 있으면 건너뜀
   if (skip) { el?.remove(); window.FORMULA_ATTRACT = Promise.resolve(); return; }
   const img = el.querySelector('img');
