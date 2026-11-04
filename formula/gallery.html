@@ -22,12 +22,10 @@
   <a class="contact light" href="contact.html">CONTACT</a>
 </nav>
 
-<!-- 갤러리 (피그마 Frame 38): 3D 링 캐러셀 — 카드 8장이 원통에 서 있고, 끌거나 휠·←→로 돌림 (gallery.js)
-     모션 UI M115 mirror-hall-carousel-3d를 응용, 바닥 반사는 없앰. 사진은 gallery.js의 GALLERY 목록 -->
-<main class="gal" id="gal" aria-roledescription="carousel" aria-label="갤러리">
-  <div class="gal-scene"><div class="gal-ring" id="ring"></div></div>
-  <p class="gal-cap" aria-live="polite"><span id="galIdx">01 / 08</span><b id="galTtl"></b></p>
-</main>
+<!-- 갤러리 (피그마 Frame 38·39): 사진이 화면 가운데 세로로 이어짐 → 스크롤·↑↓ 키로 넘겨 봄
+     사진을 누르면 뒤가 흐려지며 그 사진이 크게 (gallery.js). 사진은 gallery.js의 GALLERY 목록 -->
+<main class="gal" id="gal" aria-label="갤러리"></main>
+<div class="gal-view" id="galView" aria-hidden="true"></div>
 <script src="foods.js"></script>
 <script src="gallery.js"></script>
 </body>

@@ -1,22 +1,23 @@
-/* 갤러리: 1920×1080 판 기준 크기(--u = min(폭÷1920, 높이÷1080)), 흰 배경 (피그마 Frame 38) */
-.gal-page { background: var(--paper); color: var(--ink); height: 100vh; overflow: hidden; }
-.gal { position: fixed; inset: 0; --u: min(calc(100vw / 1920), calc(100vh / 1080));
-  perspective: calc(1700 * var(--u)); perspective-origin: 50% 40%;
-  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
-.gal.drag { cursor: grabbing; }
-/* 무대: 화면 가운데 조금 위, 살짝 내려다보게 */
-.gal-scene { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d;
-  transform: translateZ(calc(-420 * var(--u))) rotateX(-6deg); }
-.gal-ring { transform-style: preserve-3d; }
-/* 카드: 가로 340 × 세로 440 (모서리 24). 사진은 꽉 차게 */
-.gal-card { position: absolute; width: calc(340 * var(--u)); height: calc(440 * var(--u)); left: calc(-170 * var(--u)); top: calc(-220 * var(--u));
-  border-radius: calc(24 * var(--u)); overflow: hidden; background: #ecebe7; will-change: transform, filter, opacity; }
-.gal-card img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
-.gal-card.ph img { object-fit: contain; padding: 18%; box-sizing: border-box; }   /* 사진이 없을 때 자리(조형 그림) */
-/* 아래 가운데: 번호 / 제목 */
-.gal-cap { position: absolute; left: 0; right: 0; top: calc(900 * var(--u)); margin: 0; text-align: center; pointer-events: none;
-  font: 600 max(12px, calc(20 * var(--u)))/1.3 'Bitcount Grid Single', monospace; font-variation-settings: 'CRSV' 0, 'ELSH' 0, 'ELXP' 0; letter-spacing: .05em; color: #9a968f; }
-.gal-cap b { margin-left: calc(16 * var(--u)); color: var(--ink); font: 600 max(12px, calc(20 * var(--u)))/1.3 'DM Sans', sans-serif; letter-spacing: 0; }
-@media (max-aspect-ratio: 1/1) {   /* 휴대폰 세로: 화면 폭 기준으로 크게 */
-  .gal { --u: calc(100vw / 1100); }
+/* 갤러리 (피그마 Frame 38·39). 크기는 1920 폭 기준 (--u = 화면 폭÷1920), 흰 배경 */
+.gal-page { background: var(--paper); color: var(--ink); --u: calc(100vw / 1920); }
+/* 사진 세로 줄: 가운데, 사진 520×650(4:5), 사이 24. 첫 사진·마지막 사진도 화면 가운데까지 올 수 있게 위아래 여백 */
+.gal { display: flex; flex-direction: column; align-items: center; gap: calc(24 * var(--u));
+  padding: calc(50vh - 325 * var(--u)) 0; }
+.gal-item { display: block; width: calc(520 * var(--u)); aspect-ratio: 4 / 5; padding: 0; border: 0; background: #ecebe7;
+  cursor: zoom-in; overflow: hidden; scroll-margin: calc(50vh - 325 * var(--u)); }
+.gal-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+.gal-item:hover img { transform: scale(1.03); }
+.gal-item.ph img { object-fit: contain; padding: 18%; box-sizing: border-box; }   /* 사진이 없을 때 자리(조형 그림) */
+.gal-item.hide { visibility: hidden; }   /* 크게 보는 동안 제자리 사진은 숨김 */
+/* 크게 보기 (Frame 39): 뒤를 흐리게 + 사진 700×875가 제자리에서 커져 가운데로 */
+.gal-view { position: fixed; inset: 0; z-index: 20; pointer-events: none; cursor: zoom-out;
+  background: rgba(240, 240, 240, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0);
+  transition: background .5s ease, backdrop-filter .5s ease, -webkit-backdrop-filter .5s ease; }
+.gal-view.on { pointer-events: auto; background: rgba(240, 240, 240, .72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.gal-big { position: fixed; z-index: 21; margin: 0; object-fit: cover; pointer-events: none;
+  transition: left .6s cubic-bezier(.2,.75,.2,1), top .6s cubic-bezier(.2,.75,.2,1), width .6s cubic-bezier(.2,.75,.2,1), height .6s cubic-bezier(.2,.75,.2,1); }
+@media (max-aspect-ratio: 1/1) {   /* 휴대폰 세로: 사진을 화면 폭에 맞게 크게 */
+  .gal-page { --u: calc(100vw / 700); }
 }
+@media (prefers-reduced-motion: reduce) { .gal-big, .gal-view, .gal-item img { transition: none; } }
+.gal-page .nav { z-index: 30; }   /* 크게 볼 때도 메뉴는 흐려지지 않게 (Frame 39) */
