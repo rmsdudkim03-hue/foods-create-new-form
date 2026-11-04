@@ -2,7 +2,7 @@
 <!-- 아이폰 '홈 화면에 추가'로 열면 Safari 바 없이 앱처럼 전체 화면 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="My Momi Map">
 <meta name="theme-color" content="#ffffff">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -39,7 +39,6 @@
   :root { padding-top: 0 !important; padding-bottom: 0 !important; }
   html, body { height: 100%; min-height: 100dvh; }
   #wrap { height: 100dvh; }
-  #sbcover { position: absolute; left: 0; right: 0; top: 0; height: 64px; z-index: 100; pointer-events: none; background: linear-gradient(#fff 86%, rgba(255,255,255,0)); }
   /* 휴대폰: 여백 없이 화면 가득 */
   @media (max-width: 639px) { body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); } }
   #stage {
@@ -271,6 +270,8 @@
   .hs.cdot.on { box-shadow: inset 0 0 0 2px #333; }
   .hs.cdot:active { transform: scale(.92); }
   .anim { transition: filter .35s ease; }
+  /* 디자인 상태바의 '9:41' 자리에 지금 시각 (화면이 바뀌어도 늘 맨 위) */
+  #clock { position: absolute; left: 34px; top: 17px; width: 74px; height: 28px; z-index: 95; background: #fff; display: grid; place-items: center; font: 600 17px/1 -apple-system, "SF Pro Text", sans-serif; letter-spacing: -.2px; color: #000; pointer-events: none; }
   #toast { position: absolute; left: 50%; top: 640px; z-index: 90; transform: translate(-50%, 8px); max-width: 340px; padding: 12px 18px; border-radius: 22px; background: rgba(28, 28, 30, .92); color: #fff; font: 500 14px/1.35 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; text-align: center; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; white-space: nowrap; }
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
   #load { position: absolute; inset: 0; z-index: 99; display: grid; place-items: center; background: #fff; transition: opacity .4s; font: 500 13px/1.4 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; letter-spacing: .02em; }
@@ -279,7 +280,8 @@
   #load.done { opacity: 0; pointer-events: none; }
 </style>
 
-<div id="wrap"><div id="sbcover" hidden></div><div id="stage">
+<div id="wrap"><div id="stage">
+  <div id="clock"></div>
   <div id="toast" role="status"></div>
   <div id="load"><div><div>My Momi Map</div><div class="bar"><i></i></div></div></div>
 </div></div>
@@ -309,14 +311,14 @@ function fit() {
     if (k < W / 402 - 0.001) { k = Math.min(W / 402, H / (874 - CT - CB)); top = Math.min((H - (874 - CT - CB) * k) / 2 - CT * k, -54 * k); }   // 디자인 속 가짜 다이내믹 아일랜드(아래 끝 51)는 항상 가림
     else top = (H - 874 * k) / 2;
   }
-  // 홈 화면 앱으로 열어 화면 전체(상태바 밑까지)를 쓰면, 디자인 속 가짜 상태바(9:41)를 흰 띠로 가려 진짜 상태바만 보이게
-  const sb = document.getElementById('sbcover');
-  if (sb) sb.hidden = !(window.navigator.standalone && top > -1 && W < 640);
   stage.style.transformOrigin = '0 0';
   stage.style.left = (W - 402 * k) / 2 + 'px'; stage.style.top = top + 'px';
   stage.style.transform = `scale(${k})`;
 }
 addEventListener('resize', fit); fit();
+// 상태바 시계: 지금 시각 (12시간제, 아이폰처럼)
+(function tickClock() { const d = new Date(), h = d.getHours() % 12 || 12, m = String(d.getMinutes()).padStart(2, '0');
+  const c = document.getElementById('clock'); if (c) c.textContent = h + ':' + m; setTimeout(tickClock, (60 - d.getSeconds()) * 1000); })();
 // 아이폰은 글자가 16px보다 작은 입력칸을 누르면 화면을 확대해버림 → 앱이 줄어 보이는 만큼 입력칸 글자를 키움
 document.addEventListener('focusin', ev => {
   const t = ev.target; if (!t || t.tagName !== 'INPUT') return;
