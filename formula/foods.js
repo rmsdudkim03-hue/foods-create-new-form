@@ -3,7 +3,7 @@
 //  photos 그날 먹은 음식 사진 [A, B]. formula/archive/번호/ 폴더에 a.jpg·b.jpg로 넣고 주소를 적으면 됨
 //         예) photos: ['archive/01/a.jpg', 'archive/01/b.jpg']  비어 있으면('') 자리만 보임
 //  names  특징 이름 10개 (A 다섯 → B 다섯). 구슬 그림은 archive/번호/A1~A5·B1~B5.svg (피그마 '구슬 아이콘' 보드와 같은 모양)
-//  mix    Mix에서 고른 두 특징 [A쪽 번호 0~4, B쪽 번호 0~4]. 모르면 null (+만 보임)
+//  mix    최종 조형에 쓴 두 특징 [A쪽 번호 0~4, B쪽 번호 0~4]. 히스토리 Create form 글 'A × B에서 나온 조형에서 영감을 받은 오브제가 탄생했습니다'에 이름이 들어감. 모르면 null
 //  ai     AI가 만든 조형 여섯 장 주소 (없으면 빈 칸 6개)
 //  svg    완성 조형 (forms/)
 //  color  그 음식 짝의 구슬 색 (피그마 PROCESS 3 Extract·Mix 아이콘 색)

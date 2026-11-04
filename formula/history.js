@@ -50,7 +50,9 @@ const STEPS = [
   { name: 'Six Forms', sub: '6개 조형 생성', body: six,
     ko: '고른 조형언어를 AI가 작성한 프롬프트 기준에 따라 여섯 개의 조형으로 생성했습니다.', en: 'Following prompt criteria written by AI, the chosen visual languages were generated into six forms.' },
   { name: 'Create form', sub: '3D 조형 완성', body: THUMB ? `<img class="pr-obj" src="${esc(F.svg)}" alt="N ${pad(n)} 완성 조형" style="object-fit:contain">` : `<figure class="form3d pr-obj" role="img" aria-label="N ${pad(n)} 완성 조형 (3D)" data-fit data-auto data-spin="${SPIN3D}" data-svg="${esc(F.svg)}" data-model="${esc(F.svg.replace(/\.svg$/, '.glb'))}" ${LOOK3D[n - 1] || 'data-material="svg-satin"'}></figure>`,
-    ko: '여섯 개의 조형을 바탕으로, 사용자는 3D 조형을 만듭니다.', en: 'Based on the six, I make the 3D form.' },
+    // 최종 조형에 쓴 A 특징 × B 특징 (foods.js의 mix: [A 번호 0~4, B 번호 0~4]). 아직 모르면 이름 없이
+    ko: F.mix ? `${F.names[F.mix[0]]} × ${F.names[5 + F.mix[1]]}에서 나온 조형에서 영감을 받은 오브제가 탄생했습니다.` : '고른 두 조형언어에서 나온 조형에서 영감을 받은 오브제가 탄생했습니다.',
+    en: 'An object was born, inspired by the form that came from the two chosen visual languages.' },
 ];
 
 const stepsEl = document.getElementById('steps'), dotsEl = document.getElementById('dots');
