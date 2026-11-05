@@ -353,4 +353,4 @@ html.pre-on, html.pre-on body { overflow: hidden; }
 
 /* HOW IT WORKS Six Forms: N 01 조형 여섯 장 (배경 없는 조형 사진, 히스토리와 같은 그림). 점선 칸 대신 그림만 */
 .pr-sec .pr-box.has-img { background: none; border: 0; }
-.pr-box.six img { width: 100%; height: 100%; object-fit: contain; padding: 6%; box-sizing: border-box; display: block; }
+.pr-box.six img { width: 100%; height: 100%; object-fit: contain; display: block; }
