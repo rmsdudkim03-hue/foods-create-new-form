@@ -350,3 +350,7 @@ html.pre-on, html.pre-on body { overflow: hidden; }
 
 /* 가벼운 모드(perf.js, 오래된 컴퓨터): OVERVIEW 답 글자가 스며 나올 때 흐림(blur) 없이 투명도만 — 낱말마다 흐림은 그래픽 칩에 무거움 */
 .lite .ov-ko .w, .lite .ov-en .w { filter: none !important; }
+
+/* HOW IT WORKS Six Forms: N 01 조형 여섯 장 (배경 없는 조형 사진, 히스토리와 같은 그림). 점선 칸 대신 그림만 */
+.pr-sec .pr-box.has-img { background: none; border: 0; }
+.pr-box.six img { width: 100%; height: 100%; object-fit: contain; padding: 6%; box-sizing: border-box; display: block; }

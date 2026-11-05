@@ -27,7 +27,7 @@ const pairs = (F.pairs || []).map(([a, b], i) => {
   return one(a, MA[c]) + `<span class="h-plus" style="--x:${PX[c]}; --y:${PY[r]}">+</span>` + one(5 + b, MB[c]);
 }).join('');
 const mix = pairs ? `${pairs}<i class="h-mixline"></i>` : '<span class="pr-plus">+</span>';
-const six = [[632, 352], [857, 352], [1082, 352], [632, 579], [857, 579], [1082, 579]].map(([x, y], i) => box(x, y, 206, 219, F.ai[i], `AI 조형 ${i + 1}`)).join('');
+const six = [[632, 352], [857, 352], [1082, 352], [632, 579], [857, 579], [1082, 579]].map(([x, y], i) => box(x, y, 206, 219, F.ai[i], `AI 조형 ${i + 1}`).replace('pr-box', 'pr-box six')).join('');   // 누끼 조형(배경 투명)은 칸 안에 통째로 (잘리지 않게)
 
 // Create form: 완성 조형을 3D로 천천히 계속 돌림 (hover3d.js의 data-auto). 질감·방향은 메인 조형 화면과 같게
 const SPIN3D = 0.35;   // 돌아가는 빠르기 (1초에 몇 라디안. 0.35면 한 바퀴에 약 18초)
