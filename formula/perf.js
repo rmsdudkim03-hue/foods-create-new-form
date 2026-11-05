@@ -42,14 +42,20 @@
 
 // 처음 화면으로 돌아가는 키 — H (한글 자판 'ㅗ'도 같은 자리라 됨). 모든 페이지에서
 //  메인 페이지면 1분 무조작 때와 똑같이 시작 그림부터 다시(main.js goHome), 다른 페이지면 메인으로 이동
-//  키를 바꾸려면 HOME_KEY만 고치면 됨 (예: 'KeyR' = R, 'Home' = Home 키)
+//  한글 입력 상태의 사파리는 키를 누를 때(keydown) 'H' 대신 '입력 중(229)'으로 알려 줘서 놓칠 수 있음
+//   → 키를 뗄 때(keyup)도 한 번 더 봄 (둘 다 잡혀도 한 번만 움직임)
 (() => {
-  const HOME_KEY = 'KeyH';
-  addEventListener('keydown', (e) => {
-    if (e.code !== HOME_KEY || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  const isH = (e) => e.code === 'KeyH' || e.keyCode === 72 || /^[hHㅗ]$/.test(e.key || '');
+  let last = 0;
+  const onKey = (e) => {
+    if (!isH(e) || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;   // 글 쓰는 칸에선 무시
     e.preventDefault(); e.stopImmediatePropagation();      // 다른 키 반응(시작 그림 닫기 등)은 안 함
+    if (Date.now() - last < 800) return;                    // keydown·keyup 둘 다 잡혀도 한 번만
+    last = Date.now();
     if (window.FORMULA_GO_HOME) window.FORMULA_GO_HOME();
     else location.href = new URL('./', location.href).href;
-  }, true);
+  };
+  addEventListener('keydown', onKey, true);
+  addEventListener('keyup', onKey, true);
 })();
