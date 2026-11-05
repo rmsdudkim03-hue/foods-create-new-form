@@ -39,3 +39,17 @@
   window.FORMULA_LITE = lite;
   if (lite) html.classList.add('lite');
 })();
+
+// 처음 화면으로 돌아가는 키 — H (한글 자판 'ㅗ'도 같은 자리라 됨). 모든 페이지에서
+//  메인 페이지면 1분 무조작 때와 똑같이 시작 그림부터 다시(main.js goHome), 다른 페이지면 메인으로 이동
+//  키를 바꾸려면 HOME_KEY만 고치면 됨 (예: 'KeyR' = R, 'Home' = Home 키)
+(() => {
+  const HOME_KEY = 'KeyH';
+  addEventListener('keydown', (e) => {
+    if (e.code !== HOME_KEY || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;   // 글 쓰는 칸에선 무시
+    e.preventDefault(); e.stopImmediatePropagation();      // 다른 키 반응(시작 그림 닫기 등)은 안 함
+    if (window.FORMULA_GO_HOME) window.FORMULA_GO_HOME();
+    else location.href = new URL('./', location.href).href;
+  }, true);
+})();
