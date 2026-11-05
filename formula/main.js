@@ -305,6 +305,7 @@ function goHome() {
   // 시작 화면(그림)을 다시 띄우고, 마우스를 움직이면 로고 해독부터 (그림 파일이 없으면 바로)
   if (!(attract && window.FORMULA_ATTRACT_SHOW(replay))) replay();
 }
+window.FORMULA_GO_HOME = goHome;   // H 키로 처음 화면 (perf.js)
 const CHECK = /[?&]check\b/.test(location.search);   // 확인용(check.html에서 열 때): 1분 무조작이어도 첫 화면으로 안 돌아감
 function wake() { if (CHECK) return; clearTimeout(idleTimer); idleTimer = setTimeout(goHome, IDLE_MS); }
 ['pointermove', 'pointerdown', 'wheel', 'scroll', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
