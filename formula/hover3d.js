@@ -43,18 +43,24 @@ const loader = new GLTFLoader();
 
 async function setup(el) {
   // 1. SVG를 글자 그대로 넣음 (모양의 위치·크기를 재서 3D를 딱 맞추기 위해)
-  const svgText = await (await fetch(el.dataset.svg)).text();
-  const holder = document.createElement('div');
-  holder.className = 'form3d-svg';
-  holder.innerHTML = svgText;
+  //    forms2d.js가 이미 넣어 둔 그림이 있으면 그걸 씀 (그림은 3D와 상관없이 먼저 보이게)
+  let holder;
+  if (window.FORM2D) holder = await window.FORM2D(el);
+  else {
+    const svgText = await (await fetch(el.dataset.svg)).text();
+    holder = document.createElement('div');
+    holder.className = 'form3d-svg';
+    holder.innerHTML = svgText;
+    const s0 = holder.querySelector('svg');
+    s0.removeAttribute('width'); s0.removeAttribute('height');
+    el.append(holder);
+  }
   const svg = holder.querySelector('svg');
-  svg.removeAttribute('width'); svg.removeAttribute('height');
-  el.append(holder);
-  const vb = svg.viewBox.baseVal;
   const shape = svg.querySelector('path, polygon, rect, circle, ellipse');
   const box = shape.getBBox();                                   // SVG 안에서 모양이 차지하는 칸
   // data-fit: SVG 여백을 잘라 모양이 칸(figure)에 꽉 차게 (피그마에서 잰 조형 크기에 그대로 맞출 때)
-  if ('fit' in el.dataset) svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
+  if ('fit' in el.dataset && !window.FORM2D) svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
+  const vb = svg.viewBox.baseVal;
   el.style.setProperty('--ar', (box.width / box.height).toFixed(4));   // 칸 비율을 모양에 맞출 때 씀 (히스토리)
   // 3D 파일이 아직 없는 조형은 평면 SVG만 (원래 색 그대로)
   if (!el.dataset.model) { el.classList.add('ready'); return; }
